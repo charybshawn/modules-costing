@@ -1,0 +1,7 @@
+{
+    "package": "cultpantry/costing",
+    "name": "Costing & Recipes",
+    "description": "Ingredient pricing, inventory, recipes, and production planning — replaces the Costing & Recipe Workbook spreadsheet.",
+    "publish_tag": "costing-pages",
+    "provider": "Cultpantry\\Costing\\CostingServiceProvider"
+}
