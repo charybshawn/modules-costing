@@ -2,6 +2,7 @@
 
 use Cultpantry\Costing\Http\Controllers\Admin\IngredientController;
 use Cultpantry\Costing\Http\Controllers\Admin\InventoryController;
+use Cultpantry\Costing\Http\Controllers\Admin\KitchenRentalController;
 use Cultpantry\Costing\Http\Controllers\Admin\PriceHistoryController;
 use Cultpantry\Costing\Http\Controllers\Admin\ProductionPlannerController;
 use Cultpantry\Costing\Http\Controllers\Admin\RecipeController;
@@ -61,11 +62,22 @@ Route::prefix('admin')->name('admin.')->middleware(['web', 'auth', 'admin'])->gr
         Route::prefix('production-planner')->name('production-planner.')->group(function () {
             Route::get('/', [ProductionPlannerController::class, 'index'])->name('index');
             Route::get('runs', [ProductionPlannerController::class, 'runs'])->name('runs');
+            Route::get('create', [ProductionPlannerController::class, 'create'])->name('create');
             Route::post('/', [ProductionPlannerController::class, 'store'])->name('store');
             Route::get('{productionRun}', [ProductionPlannerController::class, 'show'])->name('show');
             Route::put('{productionRun}', [ProductionPlannerController::class, 'update'])->name('update');
+            Route::delete('{productionRun}', [ProductionPlannerController::class, 'destroy'])->name('destroy');
             Route::post('{productionRun}/complete', [ProductionPlannerController::class, 'complete'])->name('complete');
             Route::get('{productionRun}/purchase-order', [ProductionPlannerController::class, 'purchaseOrder'])->name('purchase-order');
+        });
+
+        Route::prefix('kitchen-rentals')->name('kitchen-rentals.')->group(function () {
+            Route::get('/', [KitchenRentalController::class, 'index'])->name('index');
+            Route::post('import', [KitchenRentalController::class, 'import'])->name('import');
+            Route::post('{kitchenRental}/create-run', [KitchenRentalController::class, 'createRun'])->name('create-run');
+            Route::post('{kitchenRental}/attach-run', [KitchenRentalController::class, 'attachRun'])->name('attach-run');
+            Route::post('{kitchenRental}/detach-run', [KitchenRentalController::class, 'detachRun'])->name('detach-run');
+            Route::post('{kitchenRental}/status', [KitchenRentalController::class, 'updateStatus'])->name('update-status');
         });
     });
 });

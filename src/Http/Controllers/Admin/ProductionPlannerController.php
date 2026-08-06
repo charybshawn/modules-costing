@@ -73,6 +73,30 @@ class ProductionPlannerController extends Controller implements HasMiddleware
     }
 
     /**
+     * A genuinely blank run -- unlike index(), which always preloads the
+     * latest run (so it can act as a "continue where I left off"
+     * dashboard), this is the only route that hands Index.vue a null
+     * production_run once at least one run already exists, which is what
+     * puts its form/submit() into create mode instead of edit mode.
+     */
+    public function create(): Response
+    {
+        $this->authorize('create', ProductionRun::class);
+
+        $recipes = Recipe::orderBy('name')->get(['id', 'name']);
+
+        return Inertia::render('Vendor/costing/ProductionPlanner/Index', [
+            'recipes' => $recipes,
+            'production_run' => null,
+            'plan' => null,
+            'breadcrumbs' => CostingBreadcrumbs::trail(
+                ['label' => 'Production Planner', 'href' => route('admin.costing.production-planner.index')],
+                ['label' => 'New Run'],
+            ),
+        ]);
+    }
+
+    /**
      * View (and edit) a specific past run -- reuses the same Index page the
      * "latest run" view uses, since its form already creates-vs-updates
      * based on whether a production_run prop is present.
@@ -155,6 +179,26 @@ class ProductionPlannerController extends Controller implements HasMiddleware
         return redirect()
             ->route('admin.costing.production-planner.show', $productionRun)
             ->with('success', 'Production run completed. Inventory has been updated.');
+    }
+
+    /**
+     * A completed run has already drawn down real Inventory and owns
+     * cascade-deleted RecipeCostSnapshot rows (see CompleteProductionRun) --
+     * deleting it afterward would silently erase that cost history, so it's
+     * blocked here the same way editing already is in update() above.
+     */
+    public function destroy(ProductionRun $productionRun): RedirectResponse
+    {
+        $this->authorize('delete', $productionRun);
+
+        abort_if($productionRun->completed_at, 422, 'A completed run cannot be deleted -- its inventory deduction and cost history are historical fact.');
+
+        $name = $productionRun->name ?? $productionRun->run_date->format('Y-m-d');
+        $productionRun->delete();
+
+        return redirect()
+            ->route('admin.costing.production-planner.runs')
+            ->with('success', "Production run '{$name}' deleted.");
     }
 
     /**

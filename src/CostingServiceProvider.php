@@ -5,11 +5,13 @@ namespace Cultpantry\Costing;
 use App\Support\AdminNav;
 use Cultpantry\Costing\Models\Ingredient;
 use Cultpantry\Costing\Models\InventoryItem;
+use Cultpantry\Costing\Models\KitchenRental;
 use Cultpantry\Costing\Models\PriceHistoryEntry;
 use Cultpantry\Costing\Models\ProductionRun;
 use Cultpantry\Costing\Models\Recipe;
 use Cultpantry\Costing\Policies\IngredientPolicy;
 use Cultpantry\Costing\Policies\InventoryItemPolicy;
+use Cultpantry\Costing\Policies\KitchenRentalPolicy;
 use Cultpantry\Costing\Policies\PriceHistoryEntryPolicy;
 use Cultpantry\Costing\Policies\ProductionRunPolicy;
 use Cultpantry\Costing\Policies\RecipePolicy;
@@ -48,6 +50,7 @@ class CostingServiceProvider extends ServiceProvider
         Gate::policy(InventoryItem::class, InventoryItemPolicy::class);
         Gate::policy(Recipe::class, RecipePolicy::class);
         Gate::policy(ProductionRun::class, ProductionRunPolicy::class);
+        Gate::policy(KitchenRental::class, KitchenRentalPolicy::class);
 
         // 5. Publish the module's raw Vue source into
         //    resources/js/Pages/Vendor/costing/ -- inside the SAME root the
