@@ -51,6 +51,11 @@ class ProductionRun extends Model
         return $this->hasMany(InventoryAdjustment::class);
     }
 
+    public function rentals(): HasMany
+    {
+        return $this->hasMany(KitchenRental::class);
+    }
+
     public function totalUnits(): int
     {
         return (int) $this->recipes->sum(fn (Recipe $recipe) => $this->batch_size * $recipe->pivot->batches);

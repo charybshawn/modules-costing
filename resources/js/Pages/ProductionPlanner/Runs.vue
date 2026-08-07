@@ -7,7 +7,7 @@
           <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Production Runs</h1>
           <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Past and current production runs, newest first.</p>
         </div>
-        <Link :href="route('admin.costing.production-planner.index')" class="mt-4 md:mt-0 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
+        <Link :href="route('admin.costing.production-planner.create')" class="mt-4 md:mt-0 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
           Plan a New Run
         </Link>
       </div>
@@ -89,11 +89,17 @@ const columns: Column[] = [
 const tableActions: Action[] = [
   { name: 'view', icon: 'edit', color: 'indigo', label: 'View / Edit', href: (item) => route('admin.costing.production-planner.show', item.id) },
   { name: 'purchase-order', icon: 'view', color: 'gray', label: 'Purchase Order', href: (item) => route('admin.costing.production-planner.purchase-order', item.id) },
+  // Hidden rather than left to 422 -- a completed run's inventory
+  // deduction and cost snapshots are historical fact (see destroy()'s
+  // guard server-side).
+  { name: 'delete', icon: 'delete', color: 'red', label: 'Delete', show: (item) => !item.completed_at },
 ]
 
-const handleAction = () => {
-  // Both actions are link-based (href), nothing to handle here -- required
-  // by DataTable's @action contract, matching the pattern in other Index
-  // pages in this module even when there's no non-navigation action.
+const handleAction = (action: string, item: ProductionRunRow) => {
+  if (action === 'delete') {
+    if (confirm(`Delete production run "${item.name ?? item.run_date}"? This cannot be undone.`)) {
+      router.delete(route('admin.costing.production-planner.destroy', item.id), { preserveScroll: true })
+    }
+  }
 }
 </script>
