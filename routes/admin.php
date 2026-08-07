@@ -41,8 +41,10 @@ Route::prefix('admin')->name('admin.')->middleware(['web', 'auth', 'admin'])->gr
         Route::prefix('inventory')->name('inventory.')->group(function () {
             Route::get('/', [InventoryController::class, 'index'])->name('index');
             Route::post('bulk-update', [InventoryController::class, 'bulkUpdate'])->name('bulk-update');
-            Route::get('{ingredient}/edit', [InventoryController::class, 'edit'])->name('edit');
-            Route::put('{ingredient}', [InventoryController::class, 'update'])->name('update');
+            Route::get('adjustments', [InventoryController::class, 'adjustments'])->name('adjustments');
+            Route::get('{ingredient}/sources', [InventoryController::class, 'sources'])->name('sources');
+            Route::post('{ingredient}/sources/{packageSize}', [InventoryController::class, 'adjustSource'])->name('sources.adjust');
+            Route::delete('{ingredient}/sources/{packageSize}', [InventoryController::class, 'destroySource'])->name('sources.destroy');
         });
 
         Route::prefix('recipes')->name('recipes.')->group(function () {

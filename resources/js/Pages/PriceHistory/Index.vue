@@ -50,6 +50,10 @@
             <div class="text-xs text-gray-500 dark:text-gray-400">{{ item.notes }}</div>
           </template>
 
+          <template #cell-qty="{ item }">
+            <span class="text-sm text-gray-900 dark:text-white">{{ item.qty !== null ? formatQuantity(item.qty, item.unit_type ?? 'g') : '—' }}</span>
+          </template>
+
           <template #cell-purchased_at="{ item }">
             <span class="text-sm text-gray-900 dark:text-white">{{ item.purchased_at ?? '—' }}</span>
             <span v-if="item.needs_update" class="ml-2 inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-300">
@@ -79,6 +83,7 @@ import AdminLayout from '@/Layouts/AdminLayout.vue'
 import DataTable, { type Column, type Action } from '@/Components/Admin/DataTable.vue'
 import UpdatePriceModal, { type UpdatePriceEntry } from '../Shared/UpdatePriceModal.vue'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
+import { formatQuantity } from '../Shared/formatWeight'
 
 defineOptions({ layout: AdminLayout })
 
@@ -114,7 +119,7 @@ const columns: Column[] = [
   { key: 'purchased_at', label: 'Date', sortable: true },
   { key: 'provider', label: 'Wholesaler', sortable: true, filterable: true },
   { key: 'brand', label: 'Brand', sortable: true, hideable: true, filterable: true },
-  { key: 'qty', label: 'Qty (g/units)', hideable: true },
+  { key: 'qty', label: 'Qty', hideable: true },
   { key: 'total_price', label: 'Total Price', hideable: true },
   { key: 'price_per_unit', label: '$/kg (or $/unit)' },
 ]

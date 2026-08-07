@@ -116,9 +116,9 @@
             <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
               <tr v-for="row in plan.rows" :key="row.ingredient_id" :class="row.needs_purchase ? 'bg-amber-50 dark:bg-amber-900/20' : 'bg-green-50 dark:bg-green-900/10'">
                 <td class="px-4 py-2 text-sm text-gray-900 dark:text-white">{{ row.ingredient_name }}</td>
-                <td class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{{ row.required }} {{ unitLabel(row) }}</td>
-                <td class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{{ row.on_hand }} {{ unitLabel(row) }}</td>
-                <td class="px-4 py-2 text-sm font-medium text-gray-900 dark:text-white">{{ row.to_purchase }} {{ unitLabel(row) }}</td>
+                <td class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{{ formatQuantity(row.required, row.unit_type) }}</td>
+                <td class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{{ formatQuantity(row.on_hand, row.unit_type) }}</td>
+                <td class="px-4 py-2 text-sm font-medium text-gray-900 dark:text-white">{{ formatQuantity(row.to_purchase, row.unit_type) }}</td>
                 <td class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{{ row.units_to_buy || '—' }}</td>
                 <td class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{{ row.best_source ?? '— no price this week' }}</td>
                 <td class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">${{ row.est_cost.toFixed(2) }}</td>
@@ -144,6 +144,7 @@ import { usePersistedForm } from '@/composables/usePersistedForm'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
+import { formatQuantity } from '../Shared/formatWeight'
 
 defineOptions({ layout: AdminLayout })
 
@@ -232,8 +233,6 @@ const recipeName = (id: number) => props.recipes.find((r) => r.id === id)?.name 
 const rowUnits = (row: { batches: number }) => (Number(form.batch_size) || 0) * (Number(row.batches) || 0)
 
 const totalUnits = computed(() => form.batches.reduce((sum, row) => sum + rowUnits(row), 0))
-
-const unitLabel = (row: PlanRow) => (row.unit_type === 'unit' ? 'unit(s)' : 'g')
 
 const submit = () => {
   if (props.production_run) {

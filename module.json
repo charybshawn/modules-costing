@@ -3,5 +3,19 @@
     "name": "Costing & Recipes",
     "description": "Ingredient pricing, inventory, recipes, and production planning — replaces the Costing & Recipe Workbook spreadsheet.",
     "publish_tag": "costing-pages",
-    "provider": "Cultpantry\\Costing\\CostingServiceProvider"
+    "provider": "Cultpantry\\Costing\\CostingServiceProvider",
+    "tables": [
+        "costing_ingredients",
+        "costing_recipes",
+        "costing_production_runs",
+        "costing_inventory",
+        "costing_ingredient_package_sizes",
+        "costing_price_history",
+        "costing_ingredient_recipe",
+        "costing_production_run_recipe",
+        "costing_recipe_cost_snapshots",
+        "costing_inventory_adjustments"
+    ],
+    "table_prefix": "costing_",
+    "seeder": "Cultpantry\\Costing\\Database\\Seeders\\CostingDatabaseSeeder"
 }

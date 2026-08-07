@@ -3,6 +3,7 @@
 namespace Cultpantry\Costing\Actions;
 
 use Cultpantry\Costing\Models\Ingredient;
+use Cultpantry\Costing\Models\PackageSize;
 use Cultpantry\Costing\Models\ProductionRun;
 use Cultpantry\Costing\Models\Recipe;
 
@@ -21,6 +22,7 @@ class CompleteProductionRun
         private readonly CalculateProductionPlan $calculateProductionPlan,
         private readonly CheckIngredientLowStock $checkIngredientLowStock,
         private readonly CreateRecipeCostSnapshot $createRecipeCostSnapshot,
+        private readonly RecordInventoryAdjustment $recordInventoryAdjustment,
     ) {}
 
     public function handle(ProductionRun $productionRun): void
@@ -28,37 +30,64 @@ class CompleteProductionRun
         $plan = $this->calculateProductionPlan->handle($productionRun);
 
         foreach ($plan['rows'] as $row) {
-            if ((float) $row['required'] <= 0) {
+            $required = (float) $row['required'];
+            if ($required <= 0) {
                 continue;
             }
 
-            $ingredient = Ingredient::with('inventory')->find($row['ingredient_id']);
-            $inventory = $ingredient?->inventory;
-
-            if (!$inventory) {
+            $ingredient = Ingredient::with('packageSizes')->find($row['ingredient_id']);
+            if (!$ingredient) {
                 continue;
             }
 
-            $oldOnHand = (float) $inventory->on_hand;
+            $oldOnHand = (float) $ingredient->packageSizes->sum('quantity_on_hand');
 
-            if ($inventory->counted_on_hand !== null) {
-                // Walk-in-counted stock (Inventory/Edit.vue's per-brand
-                // table) -- the counted total is the raw ground truth, so
-                // subtract required grams/units directly, no unit_size
-                // division involved.
-                $inventory->update(['counted_on_hand' => max(0, (float) $inventory->counted_on_hand - (float) $row['required'])]);
-            } elseif ((float) $inventory->unit_size > 0) {
-                $newUnitsOnHand = max(0, (float) $inventory->units_on_hand - ((float) $row['required'] / (float) $inventory->unit_size));
-                $inventory->update(['units_on_hand' => $newUnitsOnHand]);
-            } else {
-                // No meaningful inventory tracking set up for this
-                // ingredient (unit_size 0, same "not configured yet" state
-                // Ingredient::booted() creates by default, and no counted
-                // total either) -- nothing to decrement from.
-                continue;
+            // Preferred source drained first (same provider/brand match
+            // CalculateIngredientCosting already uses for pricing --
+            // preferred_brand only narrows the match when it's actually
+            // set, otherwise any brand from the preferred provider
+            // qualifies), spilling into the remaining sources in their
+            // existing order only once it's empty.
+            $isPreferred = fn (PackageSize $packageSize) => $ingredient->preferred_source
+                && $packageSize->provider === $ingredient->preferred_source
+                && (!$ingredient->preferred_brand || $packageSize->brand === $ingredient->preferred_brand);
+
+            $sources = $ingredient->packageSizes->sortByDesc($isPreferred)->values();
+
+            $remaining = $required;
+
+            foreach ($sources as $packageSize) {
+                if ($remaining <= 0) {
+                    break;
+                }
+
+                $available = (float) $packageSize->quantity_on_hand;
+                if ($available <= 0) {
+                    continue;
+                }
+
+                $consumed = min($available, $remaining);
+                $after = $available - $consumed;
+
+                $packageSize->update(['quantity_on_hand' => $after]);
+
+                $this->recordInventoryAdjustment->handle(
+                    packageSize: $packageSize,
+                    reason: 'production_run',
+                    onHandBefore: $available,
+                    onHandAfter: $after,
+                    productionRun: $productionRun,
+                );
+
+                $remaining -= $consumed;
             }
 
-            $this->checkIngredientLowStock->handle($ingredient, $oldOnHand, (float) $inventory->fresh()->on_hand);
+            // Floors at 0 automatically -- $remaining only stays > 0 here if
+            // every source ran out before covering $required, same "don't
+            // go negative" floor the old single-column decrement had.
+            $newOnHand = $oldOnHand - ($required - $remaining);
+
+            $this->checkIngredientLowStock->handle($ingredient, $oldOnHand, $newOnHand);
         }
 
         // $productionRun->recipes was already loaded (with the batches

@@ -32,7 +32,7 @@
           <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
             <tr v-for="row in plan.purchase_rows" :key="row.ingredient_id">
               <td class="px-4 py-2 text-sm text-gray-900 dark:text-white">{{ row.ingredient_name }}</td>
-              <td class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{{ row.purchase_qty }} {{ row.unit_type === 'unit' ? 'unit(s)' : 'g' }}</td>
+              <td class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{{ formatQuantity(row.purchase_qty, row.unit_type) }}</td>
               <td class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{{ row.units_to_buy }}</td>
               <td class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{{ row.purchase_unit ?? '— no price this week' }}</td>
               <td class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{{ row.best_source ?? '—' }}</td>
@@ -55,6 +55,7 @@
 import { computed } from 'vue'
 import { Link } from '@inertiajs/vue3'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
+import { formatQuantity } from '../Shared/formatWeight'
 
 defineOptions({ layout: AdminLayout })
 

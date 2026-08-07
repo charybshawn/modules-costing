@@ -41,7 +41,7 @@
                 </td>
                 <td v-for="recipe in recipes" :key="recipe.id" class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">
                   <template v-if="quantityFor(recipe, ingredient.id) > 0">
-                    {{ quantityFor(recipe, ingredient.id) }} {{ ingredient.unit_type === 'unit' ? 'unit(s)' : 'g' }}
+                    {{ formatQuantity(quantityFor(recipe, ingredient.id), ingredient.unit_type) }}
                   </template>
                   <span v-else class="text-gray-300 dark:text-gray-600">—</span>
                 </td>
@@ -58,6 +58,7 @@
 import { Link } from '@inertiajs/vue3'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
+import { formatQuantity } from '../Shared/formatWeight'
 
 defineOptions({ layout: AdminLayout })
 

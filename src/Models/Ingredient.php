@@ -45,16 +45,19 @@ class Ingredient extends Model
 
     protected static function booted(): void
     {
-        // Every ingredient gets an inventory row automatically -- mirrors the
-        // original spreadsheet where every ingredient row appeared on both
-        // the Ingredients and Inventory tabs. Avoids the app having to
-        // special-case "ingredient with no inventory row yet" everywhere.
-        // Seed unit_size from weight_per_unit (if given) rather than 0, so
-        // on_hand isn't stuck at 0 until someone visits Inventory separately.
+        // Every ingredient gets an inventory row (for notes) and an
+        // "Unspecified" source row automatically -- mirrors the original
+        // spreadsheet where every ingredient row appeared on both the
+        // Ingredients and Inventory tabs, and guarantees there's always at
+        // least one source to pick for an adjustment even before any real
+        // provider/brand has been recorded.
         static::created(function (Ingredient $ingredient) {
-            $ingredient->inventory()->create([
-                'unit_size' => $ingredient->weight_per_unit ?? 0,
-                'units_on_hand' => 0,
+            $ingredient->inventory()->create();
+            $ingredient->packageSizes()->create([
+                'provider' => 'Unspecified',
+                'brand' => null,
+                'package_size' => 1,
+                'quantity_on_hand' => 0,
             ]);
         });
     }
@@ -72,6 +75,11 @@ class Ingredient extends Model
     public function packageSizes(): HasMany
     {
         return $this->hasMany(PackageSize::class, 'ingredient_id');
+    }
+
+    public function inventoryAdjustments(): HasMany
+    {
+        return $this->hasMany(InventoryAdjustment::class, 'ingredient_id')->orderByDesc('created_at');
     }
 
     public function recipes(): BelongsToMany

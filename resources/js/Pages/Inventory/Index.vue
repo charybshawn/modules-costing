@@ -17,6 +17,9 @@
           >
             Bulk Update Stock
           </button>
+          <Link :href="route('admin.costing.inventory.adjustments')" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+            View History
+          </Link>
           <Link :href="route('admin.costing.ingredients.index')" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
             Ingredients
           </Link>
@@ -31,7 +34,6 @@
         <DataTable
           :columns="columns"
           :items="ingredients"
-          :actions="tableActions"
           searchable
           search-placeholder="Search inventory..."
           empty-message="No ingredients yet."
@@ -39,22 +41,26 @@
           item-key="ingredient_id"
         >
           <template #cell-name="{ item }">
-            <div class="text-sm font-medium text-gray-900 dark:text-white">{{ item.name }}</div>
+            <button type="button" @click="openStockModal(item)" class="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline text-left">
+              {{ item.name }}
+            </button>
           </template>
 
           <template #cell-category="{ item }">
             <span class="text-sm text-gray-500 dark:text-gray-400">{{ item.category ?? '—' }}</span>
           </template>
 
-          <template #cell-unit_size="{ item }">
-            <span class="text-sm text-gray-900 dark:text-white">{{ item.unit_size }} {{ item.unit_type === 'unit' ? 'unit(s)' : 'g' }}</span>
+          <template #cell-source_count="{ item }">
+            <span class="text-sm text-gray-500 dark:text-gray-400">{{ item.source_count }}</span>
           </template>
 
           <template #cell-on_hand="{ item }">
-            <span class="text-sm font-medium text-gray-900 dark:text-white">{{ item.on_hand }} {{ item.unit_type === 'unit' ? 'unit(s)' : 'g' }}</span>
+            <span class="text-sm font-medium text-gray-900 dark:text-white">{{ formatQuantity(item.on_hand, item.unit_type) }}</span>
           </template>
         </DataTable>
       </div>
+
+      <StockAdjustModal :ingredient="stockIngredient" @close="closeStockModal" @updated="router.reload({ only: ['ingredients'] })" />
 
       <!-- Bulk Update Stock modal -->
       <Modal :show="showBulkModal" max-width="2xl" @close="closeBulkModal">
@@ -70,13 +76,13 @@
               <label
                 :class="[
                   'relative flex cursor-pointer rounded-lg border p-3 focus:outline-none',
-                  bulkForm.mode === 'received' ? 'border-indigo-600 ring-1 ring-indigo-600 bg-indigo-50' : 'border-gray-300'
+                  bulkForm.mode === 'adjust' ? 'border-indigo-600 ring-1 ring-indigo-600 bg-indigo-50' : 'border-gray-300'
                 ]"
               >
-                <input v-model="bulkForm.mode" type="radio" value="received" class="sr-only" />
+                <input v-model="bulkForm.mode" type="radio" value="adjust" class="sr-only" />
                 <div>
-                  <span class="block text-sm font-medium text-gray-900">Stock Received</span>
-                  <span class="block text-xs text-gray-500">Adds the entered amount on top of current stock (e.g. after a shopping run).</span>
+                  <span class="block text-sm font-medium text-gray-900">Adjust</span>
+                  <span class="block text-xs text-gray-500">Adds to or subtracts from current stock (received, correction, spoilage).</span>
                 </div>
               </label>
               <label
@@ -94,6 +100,20 @@
             </div>
           </div>
 
+          <div v-if="bulkForm.mode === 'adjust'" class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Reason</label>
+              <select v-model="bulkForm.reason" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+                <option value="received">Stock received (bought more)</option>
+                <option value="correction">Correction (mistake, spoilage, shrinkage)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Notes (optional, applies to whole batch)</label>
+              <input v-model="bulkForm.notes" type="text" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" placeholder="e.g. Weekly shopping run" />
+            </div>
+          </div>
+
           <div class="mt-4 space-y-3 max-h-80 overflow-y-auto">
             <div v-for="(row, index) in bulkForm.items" :key="index" class="flex items-center gap-3">
               <select
@@ -107,16 +127,16 @@
                   :key="ingredient.ingredient_id"
                   :value="ingredient.ingredient_id"
                 >
-                  {{ ingredient.name }} ({{ ingredient.on_hand }}{{ ingredient.unit_type === 'unit' ? ' unit(s)' : 'g' }} on hand)
+                  {{ ingredient.name }} ({{ formatQuantity(ingredient.on_hand, ingredient.unit_type) }} on hand)
                 </option>
               </select>
               <input
                 v-model.number="row.quantity"
                 type="number"
-                min="0"
+                :min="bulkForm.mode === 'recount' ? 0 : undefined"
                 step="0.01"
                 required
-                :placeholder="bulkForm.mode === 'received' ? 'Qty received' : 'New count'"
+                :placeholder="bulkForm.mode === 'adjust' ? 'Qty (+/-)' : 'New count'"
                 class="w-32 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
               />
               <button
@@ -158,12 +178,14 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Link, useForm } from '@inertiajs/vue3'
+import { Link, router, useForm } from '@inertiajs/vue3'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
-import DataTable, { type Column, type Action } from '@/Components/Admin/DataTable.vue'
+import DataTable, { type Column } from '@/Components/Admin/DataTable.vue'
 import Modal from '@/Components/Modal.vue'
 import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
+import StockAdjustModal, { type StockIngredient } from '../Shared/StockAdjustModal.vue'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
+import { formatQuantity } from '../Shared/formatWeight'
 
 defineOptions({ layout: AdminLayout })
 
@@ -172,9 +194,8 @@ interface InventoryRow {
   name: string
   category: string | null
   unit_type: 'g' | 'unit'
-  unit_size: number
-  units_on_hand: number
   on_hand: number
+  source_count: number
   notes: string | null
 }
 
@@ -187,25 +208,37 @@ const props = defineProps<Props>()
 const columns: Column[] = [
   { key: 'name', label: 'Ingredient', sortable: true },
   { key: 'category', label: 'Category', sortable: true, hideable: true, filterable: true },
-  { key: 'unit_size', label: 'Unit Size', hideable: true },
-  { key: 'units_on_hand', label: '# Units on Hand', hideable: true },
+  { key: 'source_count', label: 'Sources', hideable: true },
   { key: 'on_hand', label: 'On Hand' },
 ]
 
-const tableActions: Action[] = [
-  { name: 'edit', icon: 'edit', color: 'indigo', label: 'Update stock', href: (item) => route('admin.costing.inventory.edit', item.ingredient_id) },
-]
+// Stock modal -- markup/logic lives in the shared component; this page
+// only owns which ingredient (if any) it's open for, same pattern as
+// Ingredients/Index.vue's AvailablePricesModal.
+const stockIngredient = ref<StockIngredient | null>(null)
+
+const openStockModal = (item: InventoryRow) => {
+  stockIngredient.value = { id: item.ingredient_id, name: item.name, unit_type: item.unit_type }
+}
+
+const closeStockModal = () => {
+  stockIngredient.value = null
+}
 
 // Bulk Update Stock modal
 interface BulkFormData {
-  mode: 'received' | 'recount'
+  mode: 'adjust' | 'recount'
+  reason: 'received' | 'correction'
+  notes: string
   items: Array<{ ingredient_id: number | null; quantity: number | null }>
 }
 
 const showBulkModal = ref(false)
 
 const bulkForm = useForm<BulkFormData>({
-  mode: 'received',
+  mode: 'adjust',
+  reason: 'received',
+  notes: '',
   items: [{ ingredient_id: null, quantity: null }],
 })
 

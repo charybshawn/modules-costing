@@ -4,6 +4,7 @@ namespace Cultpantry\Costing\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * A single "Production Order" -- batch counts per flavour for one
@@ -43,6 +44,11 @@ class ProductionRun extends Model
         return $this->belongsToMany(Recipe::class, 'costing_production_run_recipe', 'production_run_id', 'recipe_id')
             ->withPivot('batches')
             ->withTimestamps();
+    }
+
+    public function inventoryAdjustments(): HasMany
+    {
+        return $this->hasMany(InventoryAdjustment::class);
     }
 
     public function totalUnits(): int

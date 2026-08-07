@@ -53,7 +53,7 @@ class LowStockWarning extends Notification implements ShouldQueue
             ->line("**Previous On Hand:** {$this->oldOnHand} {$unit}")
             ->line('⚠️ **This ingredient is running low and may need restocking before your next production run.**')
             ->action('Update Inventory', secure_url("/admin/costing/inventory/{$this->ingredient->id}/edit"))
-            ->line('Please review Price History and log a purchase to restock this ingredient.');
+            ->line('Use Recount after a physical count, or Adjust to log stock received or a correction.');
     }
 
     /**

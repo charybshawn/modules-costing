@@ -7,7 +7,7 @@
       </p>
 
       <div v-if="props.entry.qty !== null" class="mt-3 rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-700">
-        Weight/quantity: <span class="font-medium">{{ props.entry.qty }}{{ props.entry.unit_type === 'unit' ? ' unit(s)' : ' g' }}</span>
+        Weight/quantity: <span class="font-medium">{{ formatQuantity(props.entry.qty ?? 0, props.entry.unit_type ?? 'g') }}</span>
       </div>
 
       <FormErrorSummary :errors="form.errors" class="mt-4" />
@@ -43,6 +43,7 @@ import { watch } from 'vue'
 import { useForm } from '@inertiajs/vue3'
 import Modal from '@/Components/Modal.vue'
 import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
+import { formatQuantity } from './formatWeight'
 
 export interface UpdatePriceEntry {
   id: number

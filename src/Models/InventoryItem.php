@@ -4,13 +4,11 @@ namespace Cultpantry\Costing\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property int $id
  * @property int $ingredient_id
- * @property float $unit_size
- * @property float $units_on_hand
- * @property float|null $counted_on_hand
  * @property string|null $notes
  */
 class InventoryItem extends Model
@@ -19,16 +17,7 @@ class InventoryItem extends Model
 
     protected $fillable = [
         'ingredient_id',
-        'unit_size',
-        'units_on_hand',
-        'counted_on_hand',
         'notes',
-    ];
-
-    protected $casts = [
-        'unit_size' => 'decimal:2',
-        'units_on_hand' => 'decimal:2',
-        'counted_on_hand' => 'decimal:2',
     ];
 
     protected $appends = ['on_hand'];
@@ -38,22 +27,20 @@ class InventoryItem extends Model
         return $this->belongsTo(Ingredient::class, 'ingredient_id');
     }
 
+    public function packageSizes(): HasMany
+    {
+        return $this->hasMany(PackageSize::class, 'ingredient_id', 'ingredient_id');
+    }
+
     /**
-     * On Hand (g) = Unit Size x # Units, same as the original Inventory tab
-     * -- unless a walk-in count entered against known per-brand package
-     * sizes (Inventory/Edit.vue's "Stock on Hand, by Brand" table) has
-     * recorded a raw counted total directly, in which case that's
-     * authoritative instead. Keeps unit_size solely responsible for its
-     * other job (purchase_size fallback in CalculateIngredientCosting)
-     * rather than also being forced to divide evenly into whatever was
-     * just physically counted.
+     * On Hand (g) = sum of every known source's quantity_on_hand
+     * (costing_ingredient_package_sizes, including the always-present
+     * Unspecified fallback) -- replaces the old single aggregate column.
+     * Every existing caller keeps reading $inventory->on_hand exactly as
+     * before; only this computation changed.
      */
     public function getOnHandAttribute(): float
     {
-        if ($this->counted_on_hand !== null) {
-            return (float) $this->counted_on_hand;
-        }
-
-        return (float) $this->unit_size * (float) $this->units_on_hand;
+        return (float) PackageSize::where('ingredient_id', $this->ingredient_id)->sum('quantity_on_hand');
     }
 }

@@ -91,7 +91,7 @@ class CostingDatabaseSeeder extends Seeder
             ['Beef Stock Concentrate', 104, 'Amazon', 946, 32.99, null, 'Knorr Professional 946ml'],
             ['Caramelized Onions', 104, 'GFS', 1816, 41.96, null, null],
             ['Caramelized Onions', 24, 'GFS', 1816, 40.09, null, null],
-            ['Orange Zest', null, null, null, null, null, 'Fresh — cost negligible'],
+            ['Orange Zest', null, 'N/A', null, null, null, 'Fresh — cost negligible'],
             ['Dried Cranberries', 104, 'GFS', 6000, 49.90, null, null],
             ['Dried Cranberries', 24, 'GFS', 6000, 49.90, null, null],
             ['Dried Cranberries', 24, 'Wholesale Club', 1360, 10.99, null, null],
@@ -123,7 +123,11 @@ class CostingDatabaseSeeder extends Seeder
      */
     private function seedInventory(array $ingredients): void
     {
-        // [ingredient, unit_size (g or units), units_on_hand]
+        // [ingredient, unit_size (g or units per purchase pack), packs_on_hand]
+        // -- seeded onto the ingredient's auto-created Unspecified source
+        // (Ingredient::booted() already created one for each ingredient
+        // above), since this data predates per-source tracking and was
+        // never attributed to a specific provider/brand.
         $inventory = [
             ['Cream Cheese', 20000, 0],
             ['Swiss Cheese', 2840, 1.3],
@@ -145,10 +149,9 @@ class CostingDatabaseSeeder extends Seeder
         ];
 
         foreach ($inventory as [$name, $unitSize, $unitsOnHand]) {
-            $ingredients[$name]->inventory()->update([
-                'unit_size' => $unitSize,
-                'units_on_hand' => $unitsOnHand,
-            ]);
+            $ingredients[$name]->packageSizes()
+                ->where('provider', 'Unspecified')
+                ->update(['quantity_on_hand' => $unitSize * $unitsOnHand]);
         }
     }
 

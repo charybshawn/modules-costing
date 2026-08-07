@@ -58,7 +58,7 @@
             <p v-if="inlineEditKey === optionKey(option) && inlineEditError" class="mt-1 text-xs text-red-600">{{ inlineEditError }}</p>
 
             <div v-if="packageSizeEditKey !== optionKey(option)" class="text-xs text-gray-500 mt-0.5">
-              <span v-if="option.package_size !== null">Package size: {{ option.package_size }} {{ props.ingredient.unit_type === 'unit' ? 'unit(s)' : 'g' }}</span>
+              <span v-if="option.package_size !== null">Package size: {{ formatQuantity(option.package_size, props.ingredient.unit_type) }}</span>
               <span v-else class="italic">Package size: not set</span>
               <button type="button" @click="startPackageSizeEdit(option)" class="ml-1 font-medium text-indigo-600 hover:text-indigo-800">{{ option.package_size !== null ? 'Edit' : 'Add' }}</button>
             </div>
@@ -116,6 +116,7 @@ import { ref, watch } from 'vue'
 import axios from 'axios'
 import { Link, router } from '@inertiajs/vue3'
 import Modal from '@/Components/Modal.vue'
+import { formatQuantity } from './formatWeight'
 
 export interface PricesIngredient {
   id: number
