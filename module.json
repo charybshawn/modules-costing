@@ -14,7 +14,8 @@
         "costing_ingredient_recipe",
         "costing_production_run_recipe",
         "costing_recipe_cost_snapshots",
-        "costing_inventory_adjustments"
+        "costing_inventory_adjustments",
+        "costing_kitchen_rentals"
     ],
     "table_prefix": "costing_",
     "seeder": "Cultpantry\\Costing\\Database\\Seeders\\CostingDatabaseSeeder"

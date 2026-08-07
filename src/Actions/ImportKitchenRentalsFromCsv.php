@@ -34,7 +34,7 @@ class ImportKitchenRentalsFromCsv
             return ['created' => 0, 'updated' => 0];
         }
 
-        $header = fgetcsv($handle);
+        $header = fgetcsv($handle, escape: '\\');
         if ($header === false) {
             fclose($handle);
             return ['created' => 0, 'updated' => 0];
@@ -44,7 +44,7 @@ class ImportKitchenRentalsFromCsv
         /** @var array<string, array<int, array{data: array<string, string>, starts_at: Carbon, ends_at: Carbon|null}>> $groups */
         $groups = [];
 
-        while (($row = fgetcsv($handle)) !== false) {
+        while (($row = fgetcsv($handle, escape: '\\')) !== false) {
             if (count($row) !== count($header)) {
                 continue;
             }
