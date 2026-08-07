@@ -5,13 +5,13 @@ namespace Cultpantry\Costing\Http\Controllers\Admin;
 use App\Actions\GetSiteSetting;
 use App\Http\Controllers\Controller;
 use Cultpantry\Costing\Models\Ingredient;
+use Cultpantry\Costing\Models\PackageSize;
 use Cultpantry\Costing\Models\PriceHistoryEntry;
 use Cultpantry\Costing\Support\CostingBreadcrumbs;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
-use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -88,8 +88,7 @@ class PriceHistoryController extends Controller implements HasMiddleware
 
                 $clone = [
                     'ingredient_id' => $source->ingredient_id,
-                    'provider' => $source->provider,
-                    'brand' => $source->brand,
+                    'package_size_id' => $source->package_size_id,
                     'qty' => $source->qty ? (float) $source->qty : null,
                     'total_price' => $source->total_price ? (float) $source->total_price : null,
                     'sku' => $source->sku,
@@ -100,8 +99,6 @@ class PriceHistoryController extends Controller implements HasMiddleware
 
         return Inertia::render('Vendor/costing/PriceHistory/Create', [
             'ingredients' => Ingredient::orderBy('name')->get(['id', 'name', 'unit_type']),
-            'providers' => $this->knownProviders(),
-            'brands' => $this->knownBrands(),
             'clone' => $clone,
             // Lets the Ingredients page's "Available Prices" modal (and its
             // "Log a new price" link, shown when an ingredient has none yet)
@@ -120,7 +117,7 @@ class PriceHistoryController extends Controller implements HasMiddleware
 
         $validated = $this->validated($request);
 
-        PriceHistoryEntry::create($validated);
+        PriceHistoryEntry::create($this->withSourceSnapshot($validated));
 
         return redirect()
             ->route('admin.costing.price-history.index')
@@ -135,17 +132,14 @@ class PriceHistoryController extends Controller implements HasMiddleware
             'entry' => [
                 'id' => $priceHistoryEntry->id,
                 'ingredient_id' => $priceHistoryEntry->ingredient_id,
+                'package_size_id' => $priceHistoryEntry->package_size_id,
                 'purchased_at' => optional($priceHistoryEntry->purchased_at)->format('Y-m-d'),
-                'provider' => $priceHistoryEntry->provider,
-                'brand' => $priceHistoryEntry->brand,
                 'qty' => $priceHistoryEntry->qty ? (float) $priceHistoryEntry->qty : null,
                 'total_price' => $priceHistoryEntry->total_price ? (float) $priceHistoryEntry->total_price : null,
                 'sku' => $priceHistoryEntry->sku,
                 'notes' => $priceHistoryEntry->notes,
             ],
             'ingredients' => Ingredient::orderBy('name')->get(['id', 'name', 'unit_type']),
-            'providers' => $this->knownProviders(),
-            'brands' => $this->knownBrands(),
             'breadcrumbs' => CostingBreadcrumbs::trail(
                 ['label' => 'Price History', 'href' => route('admin.costing.price-history.index')],
                 ['label' => 'Edit Entry'],
@@ -159,7 +153,7 @@ class PriceHistoryController extends Controller implements HasMiddleware
 
         $validated = $this->validated($request);
 
-        $priceHistoryEntry->update($validated);
+        $priceHistoryEntry->update($this->withSourceSnapshot($validated));
 
         return redirect()
             ->route('admin.costing.price-history.index')
@@ -182,6 +176,7 @@ class PriceHistoryController extends Controller implements HasMiddleware
 
         PriceHistoryEntry::create([
             'ingredient_id' => $priceHistoryEntry->ingredient_id,
+            'package_size_id' => $priceHistoryEntry->package_size_id,
             'purchased_at' => now(),
             'provider' => $priceHistoryEntry->provider,
             'brand' => $priceHistoryEntry->brand,
@@ -212,9 +207,8 @@ class PriceHistoryController extends Controller implements HasMiddleware
     {
         return $request->validate([
             'ingredient_id' => ['required', 'exists:costing_ingredients,id'],
+            'package_size_id' => ['required', 'exists:costing_ingredient_package_sizes,id'],
             'purchased_at' => ['nullable', 'date'],
-            'provider' => ['required', 'string', 'max:255'],
-            'brand' => ['nullable', 'string', 'max:255'],
             'qty' => ['nullable', 'numeric', 'min:0'],
             'total_price' => ['nullable', 'numeric', 'min:0'],
             'sku' => ['nullable', 'string', 'max:255'],
@@ -223,25 +217,18 @@ class PriceHistoryController extends Controller implements HasMiddleware
     }
 
     /**
-     * Wholesalers already typed into a previous entry -- offered as
-     * autocomplete suggestions rather than a fixed dropdown, so a new one
-     * can always just be typed without any extra "add supplier" step.
+     * provider/brand are a snapshot of the linked Source at write time (see
+     * PriceHistoryEntry::packageSize()) -- never typed directly, always
+     * copied from the Source the entry actually points to.
      */
-    private function knownProviders(): Collection
+    private function withSourceSnapshot(array $validated): array
     {
-        return PriceHistoryEntry::whereNotNull('provider')
-            ->where('provider', '!=', '')
-            ->distinct()
-            ->orderBy('provider')
-            ->pluck('provider');
-    }
+        $packageSize = PackageSize::findOrFail($validated['package_size_id']);
 
-    private function knownBrands(): Collection
-    {
-        return PriceHistoryEntry::whereNotNull('brand')
-            ->where('brand', '!=', '')
-            ->distinct()
-            ->orderBy('brand')
-            ->pluck('brand');
+        return [
+            ...$validated,
+            'provider' => $packageSize->provider,
+            'brand' => $packageSize->brand,
+        ];
     }
 }

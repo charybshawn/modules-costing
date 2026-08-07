@@ -32,24 +32,34 @@
               <input v-model="form.purchased_at" type="date" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Wholesaler *</label>
-              <input v-model="form.provider" type="text" required list="wholesaler-options" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="e.g. GFS, No Frills, Wholesale Club" />
-              <datalist id="wholesaler-options">
-                <option v-for="p in providers" :key="p" :value="p" />
-              </datalist>
-              <p v-if="form.errors.provider" class="mt-1 text-sm text-red-600">{{ form.errors.provider }}</p>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Source *</label>
+              <div v-if="!addingSource">
+                <select v-model="form.package_size_id" required :disabled="!form.ingredient_id" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:opacity-50">
+                  <option value="">{{ form.ingredient_id ? 'Select a source' : 'Select an ingredient first' }}</option>
+                  <option v-for="source in sources" :key="source.id" :value="source.id">{{ sourceLabel(source) }}</option>
+                </select>
+                <button type="button" @click="startAddSource" :disabled="!form.ingredient_id" class="mt-1 text-sm font-medium text-indigo-600 hover:text-indigo-800 disabled:opacity-40 disabled:cursor-not-allowed">+ Add new source</button>
+                <p v-if="form.errors.package_size_id" class="mt-1 text-sm text-red-600">{{ form.errors.package_size_id }}</p>
+              </div>
+              <div v-else class="mt-1 space-y-2">
+                <div class="grid grid-cols-2 gap-2">
+                  <input v-model="newSourceProvider" type="text" placeholder="Provider (e.g. GFS)" autofocus class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+                  <input v-model="newSourceBrand" type="text" placeholder="Brand (optional)" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+                </div>
+                <div class="flex items-center gap-2">
+                  <input v-model.number="newSourceSize" type="number" min="0.01" step="0.01" placeholder="Package size" class="w-40 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+                  <button type="button" @click="saveNewSource" :disabled="addSourceSaving || !newSourceProvider || !newSourceSize" class="py-1.5 px-4 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40">
+                    <span v-if="addSourceSaving">Saving...</span>
+                    <span v-else>Add</span>
+                  </button>
+                  <button type="button" @click="cancelAddSource" :disabled="addSourceSaving" class="text-sm font-medium text-gray-500 hover:text-gray-700">Cancel</button>
+                </div>
+                <p v-if="addSourceError" class="text-xs text-red-600">{{ addSourceError }}</p>
+              </div>
             </div>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Brand</label>
-              <input v-model="form.brand" type="text" list="brand-options" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="e.g. Kraft, Great Value" />
-              <datalist id="brand-options">
-                <option v-for="b in brands" :key="b" :value="b" />
-              </datalist>
-              <p v-if="form.errors.brand" class="mt-1 text-sm text-red-600">{{ form.errors.brand }}</p>
-            </div>
             <div v-if="isGramBased">
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Weight{{ isCase ? ' per Each' : '' }}</label>
               <div class="mt-1 flex gap-2">
@@ -108,10 +118,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Link } from '@inertiajs/vue3'
 import { usePersistedForm } from '@/composables/usePersistedForm'
 import { useWeightEntry } from '../Shared/useWeightEntry'
+import { useIngredientSources, sourceLabel } from '../Shared/useIngredientSources'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
 
@@ -119,8 +130,7 @@ defineOptions({ layout: AdminLayout })
 
 interface CloneSource {
   ingredient_id: number
-  provider: string
-  brand: string | null
+  package_size_id: number
   qty: number | null
   total_price: number | null
   sku: string | null
@@ -129,8 +139,6 @@ interface CloneSource {
 
 interface Props {
   ingredients: Array<{ id: number; name: string; unit_type: 'g' | 'unit' }>
-  providers: string[]
-  brands: string[]
   clone: CloneSource | null
   preselectIngredientId: number | null
 }
@@ -139,9 +147,8 @@ const props = defineProps<Props>()
 
 interface FormData {
   ingredient_id: number | ''
+  package_size_id: number | ''
   purchased_at: string
-  provider: string
-  brand: string
   qty: number | null
   total_price: number | null
   sku: string
@@ -154,9 +161,8 @@ interface FormData {
 // Ingredients page for an ingredient that has none logged yet.
 const initialData: FormData = {
   ingredient_id: props.clone?.ingredient_id ?? props.preselectIngredientId ?? '',
+  package_size_id: props.clone?.package_size_id ?? '',
   purchased_at: new Date().toISOString().slice(0, 10),
-  provider: props.clone?.provider ?? '',
-  brand: props.clone?.brand ?? '',
   qty: props.clone?.qty ?? null,
   total_price: props.clone?.total_price ?? null,
   sku: props.clone?.sku ?? '',
@@ -170,6 +176,43 @@ const form = usePersistedForm<FormData>(initialData, {
 
 const selectedIngredient = computed(() => props.ingredients.find((i) => i.id === form.ingredient_id) ?? null)
 const isGramBased = computed(() => selectedIngredient.value?.unit_type !== 'unit')
+
+const { sources, addSource, addSourceSaving, addSourceError } = useIngredientSources(computed(() => form.ingredient_id))
+
+// Switching to a different ingredient invalidates whatever source was
+// picked for the previous one -- but only on a real change, not on mount,
+// so a cloned/preselected package_size_id survives the initial load.
+watch(
+  () => form.ingredient_id,
+  () => {
+    form.package_size_id = ''
+  },
+)
+
+const addingSource = ref(false)
+const newSourceProvider = ref('')
+const newSourceBrand = ref('')
+const newSourceSize = ref<number | null>(null)
+
+const startAddSource = () => {
+  addingSource.value = true
+  newSourceProvider.value = ''
+  newSourceBrand.value = ''
+  newSourceSize.value = null
+}
+
+const cancelAddSource = () => {
+  addingSource.value = false
+}
+
+const saveNewSource = async () => {
+  if (!newSourceProvider.value || !newSourceSize.value || !form.ingredient_id) return
+  const id = await addSource(form.ingredient_id, newSourceProvider.value, newSourceBrand.value || null, newSourceSize.value)
+  if (id !== null) {
+    form.package_size_id = id
+    addingSource.value = false
+  }
+}
 
 // Weight input for gram-based ingredients -- kg/g toggle plus an optional
 // case breakdown, resolving to a single grams total stored in form.qty.

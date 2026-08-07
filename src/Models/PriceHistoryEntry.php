@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * @property int $id
  * @property int $ingredient_id
+ * @property int|null $package_size_id
  * @property \Illuminate\Support\Carbon|null $purchased_at
  * @property string $provider
  * @property string|null $brand
@@ -22,6 +23,7 @@ class PriceHistoryEntry extends Model
 
     protected $fillable = [
         'ingredient_id',
+        'package_size_id',
         'purchased_at',
         'provider',
         'brand',
@@ -40,6 +42,17 @@ class PriceHistoryEntry extends Model
     public function ingredient(): BelongsTo
     {
         return $this->belongsTo(Ingredient::class, 'ingredient_id');
+    }
+
+    /**
+     * The Source (provider/brand) this entry's price actually describes.
+     * provider/brand above are a snapshot of this at write time -- nullable
+     * because the Source can later be deleted (nullOnDelete) without
+     * destroying price history, same reasoning as InventoryAdjustment.
+     */
+    public function packageSize(): BelongsTo
+    {
+        return $this->belongsTo(PackageSize::class, 'package_size_id');
     }
 
     /**

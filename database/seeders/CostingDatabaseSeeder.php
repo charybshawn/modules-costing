@@ -3,6 +3,7 @@
 namespace Cultpantry\Costing\Database\Seeders;
 
 use Cultpantry\Costing\Models\Ingredient;
+use Cultpantry\Costing\Models\PackageSize;
 use Cultpantry\Costing\Models\ProductionRun;
 use Cultpantry\Costing\Models\Recipe;
 use Illuminate\Database\Seeder;
@@ -105,7 +106,18 @@ class CostingDatabaseSeeder extends Seeder
         ];
 
         foreach ($priceHistory as [$name, $daysAgo, $provider, $qty, $totalPrice, $sku, $notes]) {
-            $ingredients[$name]->priceHistory()->create([
+            $ingredient = $ingredients[$name];
+
+            // Same (ingredient, provider, brand) identity setPackageSize()
+            // upserts on, so this reuses (not duplicates) any Source the
+            // ingredient already has.
+            $packageSize = PackageSize::firstOrCreate(
+                ['ingredient_id' => $ingredient->id, 'provider' => $provider, 'brand' => null],
+                ['package_size' => $qty ?: 1],
+            );
+
+            $ingredient->priceHistory()->create([
+                'package_size_id' => $packageSize->id,
                 'purchased_at' => $daysAgo === null ? null : Carbon::now()->subDays($daysAgo)->toDateString(),
                 'provider' => $provider,
                 'qty' => $qty,

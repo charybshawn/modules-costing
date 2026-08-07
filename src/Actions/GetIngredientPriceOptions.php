@@ -3,7 +3,6 @@
 namespace Cultpantry\Costing\Actions;
 
 use Cultpantry\Costing\Models\Ingredient;
-use Cultpantry\Costing\Models\PackageSize;
 use Cultpantry\Costing\Models\PriceHistoryEntry;
 use Illuminate\Support\Collection;
 
@@ -20,6 +19,7 @@ class GetIngredientPriceOptions
     /**
      * @return Collection<int, array{
      *     price_history_entry_id: int,
+     *     package_size_id: int|null,
      *     provider: string,
      *     brand: string|null,
      *     price_per_unit: float|null,
@@ -34,7 +34,7 @@ class GetIngredientPriceOptions
      */
     public function handle(Ingredient $ingredient): Collection
     {
-        $ingredient->loadMissing('priceHistory.ingredient', 'packageSizes');
+        $ingredient->loadMissing('priceHistory.ingredient', 'priceHistory.packageSize');
 
         $cutoff = now()->subDays(self::STALE_AFTER_DAYS)->startOfDay();
 
@@ -44,15 +44,12 @@ class GetIngredientPriceOptions
             // string avoids relying on PHP's array/Carbon comparison rules
             // for entries with a null purchased_at.
             ->sortByDesc(fn (PriceHistoryEntry $entry) => sprintf('%010d-%010d', $entry->purchased_at?->timestamp ?? 0, $entry->id))
-            ->groupBy(fn (PriceHistoryEntry $entry) => $entry->provider.'||'.($entry->brand ?? ''))
+            ->groupBy(fn (PriceHistoryEntry $entry) => $entry->package_size_id)
             ->map(fn (Collection $group) => $group->first())
             ->map(function (PriceHistoryEntry $entry) use ($ingredient, $cutoff) {
-                $brandSize = $ingredient->packageSizes->first(
-                    fn (PackageSize $ps) => $ps->provider === $entry->provider && $ps->brand === $entry->brand
-                );
-
                 return [
                     'price_history_entry_id' => $entry->id,
+                    'package_size_id' => $entry->package_size_id,
                     'provider' => $entry->provider,
                     'brand' => $entry->brand,
                     'price_per_unit' => $entry->price_per_unit,
@@ -63,7 +60,7 @@ class GetIngredientPriceOptions
                     'is_stale' => $entry->purchased_at === null || $entry->purchased_at->lt($cutoff),
                     'is_preferred' => $ingredient->preferred_source === $entry->provider
                         && $ingredient->preferred_brand === $entry->brand,
-                    'package_size' => $brandSize !== null ? (float) $brandSize->package_size : null,
+                    'package_size' => $entry->packageSize !== null ? (float) $entry->packageSize->package_size : null,
                 ];
             })
             ->sortBy(fn (array $row) => $row['price_per_unit'] ?? INF)

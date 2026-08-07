@@ -126,6 +126,7 @@ export interface PricesIngredient {
 
 interface PriceOption {
   price_history_entry_id: number
+  package_size_id: number | null
   provider: string
   brand: string | null
   price_per_unit: number | null
@@ -146,7 +147,7 @@ const props = defineProps<Props>()
 
 defineEmits<{ close: [] }>()
 
-const optionKey = (option: PriceOption) => `${option.provider}|${option.brand ?? ''}`
+const optionKey = (option: PriceOption) => String(option.package_size_id ?? `${option.provider}|${option.brand ?? ''}`)
 
 const priceOptions = ref<PriceOption[]>([])
 const loadingPrices = ref(false)
