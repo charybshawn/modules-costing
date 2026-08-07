@@ -17,7 +17,6 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property string|null $preferred_brand
  * @property string|null $notes
  * @property float|null $low_stock_threshold
- * @property float|null $weight_per_unit
  * @property string|null $byproduct_name
  */
 class Ingredient extends Model
@@ -33,32 +32,24 @@ class Ingredient extends Model
         'preferred_brand',
         'notes',
         'low_stock_threshold',
-        'weight_per_unit',
         'byproduct_name',
     ];
 
     protected $casts = [
         'waste_percent' => 'decimal:2',
         'low_stock_threshold' => 'decimal:2',
-        'weight_per_unit' => 'decimal:2',
     ];
 
     protected static function booted(): void
     {
-        // Every ingredient gets an inventory row (for notes) and an
-        // "Unspecified" source row automatically -- mirrors the original
-        // spreadsheet where every ingredient row appeared on both the
-        // Ingredients and Inventory tabs, and guarantees there's always at
-        // least one source to pick for an adjustment even before any real
-        // provider/brand has been recorded.
+        // Every ingredient gets an inventory row (for notes) automatically --
+        // mirrors the original spreadsheet where every ingredient row
+        // appeared on both the Ingredients and Inventory tabs. Sources
+        // (PackageSize rows) are NOT auto-created -- a source is a real,
+        // named provider/brand or it doesn't exist yet; a new ingredient
+        // simply starts with zero sources until one is actually added.
         static::created(function (Ingredient $ingredient) {
             $ingredient->inventory()->create();
-            $ingredient->packageSizes()->create([
-                'provider' => 'Unspecified',
-                'brand' => null,
-                'package_size' => 1,
-                'quantity_on_hand' => 0,
-            ]);
         });
     }
 

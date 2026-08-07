@@ -93,10 +93,13 @@
           </template>
 
           <template #cell-source_used="{ item }">
-            <span class="text-sm text-gray-900 dark:text-white">{{ item.source_used ?? item.stale_source ?? '—' }}</span>
-            <span v-if="item.preferred_source" class="ml-1 inline-flex items-center rounded-full bg-indigo-100 dark:bg-indigo-900/40 px-2 py-0.5 text-xs font-medium text-indigo-800 dark:text-indigo-300">
-              preferred
-            </span>
+            <button
+              type="button"
+              @click="openPricesModal(item)"
+              class="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline"
+            >
+              {{ item.source_count }} source{{ item.source_count !== 1 ? 's' : '' }}..
+            </button>
           </template>
 
           <template #cell-purchase_unit="{ item }">
@@ -130,6 +133,7 @@ interface IngredientRow {
   weekly_price: number | null
   effective_price: number | null
   source_used: string | null
+  source_count: number
   last_price_date: string | null
   purchase_unit: string | null
   status: 'ok' | 'no_price_this_week'
@@ -172,7 +176,7 @@ const columns: Column[] = [
   { key: 'waste_percent', label: 'Waste %', hideable: true },
   { key: 'weekly_price', label: '$/kg', hideable: true },
   { key: 'effective_price', label: 'Effective $/kg', hideable: true },
-  { key: 'source_used', label: 'Source', hideable: true },
+  { key: 'source_used', label: 'Sources', hideable: true },
   { key: 'purchase_unit', label: 'Purchase Unit', hideable: true },
 ]
 

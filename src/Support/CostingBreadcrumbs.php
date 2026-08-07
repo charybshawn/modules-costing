@@ -24,7 +24,7 @@ class CostingBreadcrumbs
     public static function trail(array ...$crumbs): array
     {
         return [
-            ['label' => 'Costing & Recipes', 'href' => route('admin.costing.ingredients.index')],
+            ['label' => 'Costing & Recipes', 'href' => route('admin.costing.index')],
             ...$crumbs,
         ];
     }

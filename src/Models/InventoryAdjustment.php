@@ -13,12 +13,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * completion) logs one of these via RecordInventoryAdjustment, so on_hand's
  * current value is never the only trace of how it got there. delta/
  * on_hand_before/on_hand_after are the specific source's quantity, not the
- * ingredient's aggregate -- every adjustment is tied to exactly one source,
- * including the always-present "Unspecified" fallback. source_provider/
- * source_brand are a snapshot taken at write time (not just read live off
- * packageSize) -- sources can be deleted (package_size_id then goes null),
- * and history has to stay readable ("GFS -- Kraft") even after the row
- * it pointed to is gone.
+ * ingredient's aggregate -- every adjustment is tied to exactly one real
+ * source. source_provider/source_brand are a snapshot taken at write time
+ * (not just read live off packageSize) -- sources can be deleted
+ * (package_size_id then goes null), and history has to stay readable
+ * ("GFS -- Kraft") even after the row it pointed to is gone.
  *
  * @property int $id
  * @property int $ingredient_id

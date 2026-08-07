@@ -37,26 +37,15 @@
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Weight per Unit</label>
-            <input v-model.number="form.weight_per_unit" type="number" min="0.01" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" :placeholder="form.unit_type === 'unit' ? 'e.g. 1' : 'e.g. 1000 for a 1kg block'" />
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              How much one typical unit weighs ({{ form.unit_type === 'unit' ? 'count' : 'grams' }}). Used to work out how many units to buy for a production run when Price History doesn't have a fresh price to derive it from. Leave blank if it varies too much to have a typical size.
-            </p>
-            <p v-if="form.errors.weight_per_unit" class="mt-1 text-sm text-red-600">{{ form.errors.weight_per_unit }}</p>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Waste % *</label>
+            <input v-model.number="form.waste_percent" type="number" min="1" max="100" step="0.01" required class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">100 = no waste, 95 = 5% trim loss.</p>
+            <p v-if="form.errors.waste_percent" class="mt-1 text-sm text-red-600">{{ form.errors.waste_percent }}</p>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Waste % *</label>
-              <input v-model.number="form.waste_percent" type="number" min="1" max="100" step="0.01" required class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
-              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">100 = no waste, 95 = 5% trim loss.</p>
-              <p v-if="form.errors.waste_percent" class="mt-1 text-sm text-red-600">{{ form.errors.waste_percent }}</p>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Preferred Source</label>
-              <input v-model="form.preferred_source" type="text" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="Leave blank for auto-cheapest" />
-            </div>
-          </div>
+          <p class="text-sm text-gray-500 dark:text-gray-400 rounded-md bg-gray-50 dark:bg-gray-700/50 p-3">
+            Sources, pricing, and a preferred supplier are managed after the ingredient is created -- save this first, then open it again to add them.
+          </p>
 
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Low Stock Threshold</label>
@@ -107,9 +96,7 @@ interface FormData {
   name: string
   category: string
   unit_type: 'g' | 'unit'
-  weight_per_unit: number | null
   waste_percent: number
-  preferred_source: string
   low_stock_threshold: number | null
   byproduct_name: string
   notes: string
@@ -119,9 +106,7 @@ const form = usePersistedForm<FormData>({
   name: '',
   category: '',
   unit_type: 'g',
-  weight_per_unit: null,
   waste_percent: 100,
-  preferred_source: '',
   low_stock_threshold: null,
   byproduct_name: '',
   notes: '',

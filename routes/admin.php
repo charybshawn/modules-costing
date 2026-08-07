@@ -1,5 +1,6 @@
 <?php
 
+use Cultpantry\Costing\Http\Controllers\Admin\DashboardController;
 use Cultpantry\Costing\Http\Controllers\Admin\IngredientController;
 use Cultpantry\Costing\Http\Controllers\Admin\InventoryController;
 use Cultpantry\Costing\Http\Controllers\Admin\KitchenRentalController;
@@ -16,6 +17,8 @@ use Illuminate\Support\Facades\Route;
 // even for a logged-in admin. Do not drop 'web' from this array.
 Route::prefix('admin')->name('admin.')->middleware(['web', 'auth', 'admin'])->group(function () {
     Route::prefix('costing')->name('costing.')->group(function () {
+
+        Route::get('/', [DashboardController::class, 'index'])->name('index');
 
         Route::prefix('ingredients')->name('ingredients.')->group(function () {
             Route::get('/', [IngredientController::class, 'index'])->name('index');

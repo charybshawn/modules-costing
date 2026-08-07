@@ -61,9 +61,8 @@ class InventoryController extends Controller implements HasMiddleware
     }
 
     /**
-     * This ingredient's sources (provider/brand rows, including the
-     * always-present Unspecified fallback) with current on-hand -- fetched
-     * on demand by StockAdjustModal.vue on open, same pattern as
+     * This ingredient's sources (provider/brand rows) with current on-hand
+     * -- fetched on demand by StockAdjustModal.vue on open, same pattern as
      * IngredientController::priceOptions() backing AvailablePricesModal.
      */
     public function sources(Ingredient $ingredient): JsonResponse
@@ -152,10 +151,8 @@ class InventoryController extends Controller implements HasMiddleware
      * supplier. Blocked while it still has stock (recount it to 0 first;
      * silently discarding real inventory as a side effect of "delete" would
      * be exactly the kind of unlogged change this whole feature exists to
-     * prevent) and blocked for the Unspecified fallback, which must always
-     * exist as the catch-all for stock with no specific source. Its
-     * adjustment history survives the delete (package_size_id -> null,
-     * source_provider/source_brand already snapshotted).
+     * prevent). Its adjustment history survives the delete (package_size_id
+     * -> null, source_provider/source_brand already snapshotted).
      */
     public function destroySource(Ingredient $ingredient, PackageSize $packageSize): RedirectResponse
     {
@@ -163,11 +160,6 @@ class InventoryController extends Controller implements HasMiddleware
         $this->authorize('update', $ingredient->inventory);
         abort_unless($packageSize->ingredient_id === $ingredient->id, 404);
 
-        abort_if(
-            $packageSize->provider === 'Unspecified' && $packageSize->brand === null,
-            422,
-            'The Unspecified source can\'t be removed -- it\'s the fallback for stock with no specific source.',
-        );
         abort_if(
             (float) $packageSize->quantity_on_hand > 0,
             422,
@@ -186,11 +178,14 @@ class InventoryController extends Controller implements HasMiddleware
      * Update stock for several ingredients in one submission, either
      * "adjust" (a quantity added to or subtracted from what's on hand) or
      * "recount" (the entered quantity replaces the total outright).
-     * Targets each ingredient's preferred source (falling back to its
-     * Unspecified row) rather than adding a per-row source picker to the
-     * bulk modal -- a bulk update is normally one shopping trip restocking
-     * the usual supplier across many items at once, not a mixed-source
-     * correction pass (that's what the per-ingredient modal is for).
+     * Targets each ingredient's preferred source, falling back to its first
+     * real source if no preference is set, rather than adding a per-row
+     * source picker to the bulk modal -- a bulk update is normally one
+     * shopping trip restocking the usual supplier across many items at
+     * once, not a mixed-source correction pass (that's what the
+     * per-ingredient modal is for). An ingredient with no sources at all
+     * has nothing to attach a quantity to, so it's skipped rather than
+     * updated -- add a real source for it first.
      */
     public function bulkUpdate(
         Request $request,
@@ -222,7 +217,9 @@ class InventoryController extends Controller implements HasMiddleware
 
         $reason = $validated['mode'] === 'recount' ? 'recount' : $validated['reason'];
 
-        DB::transaction(function () use ($validated, $reason, $checkIngredientLowStock, $recordInventoryAdjustment, $request) {
+        $skipped = [];
+
+        DB::transaction(function () use ($validated, $reason, $checkIngredientLowStock, $recordInventoryAdjustment, $request, &$skipped) {
             foreach ($validated['items'] as $item) {
                 $ingredient = Ingredient::with('inventory', 'packageSizes')->find($item['ingredient_id']);
 
@@ -230,7 +227,12 @@ class InventoryController extends Controller implements HasMiddleware
                     ->first(fn (PackageSize $packageSize) => $ingredient->preferred_source
                         && $packageSize->provider === $ingredient->preferred_source
                         && (!$ingredient->preferred_brand || $packageSize->brand === $ingredient->preferred_brand))
-                    ?? $ingredient->packageSizes->firstWhere('provider', 'Unspecified');
+                    ?? $ingredient->packageSizes->first();
+
+                if ($packageSize === null) {
+                    $skipped[] = $ingredient->name;
+                    continue;
+                }
 
                 $ingredientOldOnHand = (float) $ingredient->inventory->on_hand;
                 $sourceOldOnHand = (float) $packageSize->quantity_on_hand;
@@ -256,13 +258,19 @@ class InventoryController extends Controller implements HasMiddleware
             }
         });
 
-        $count = count($validated['items']);
+        $count = count($validated['items']) - count($skipped);
+
+        $message = $validated['mode'] === 'adjust'
+            ? "Stock adjusted for {$count} ingredient(s)."
+            : "Inventory recounted for {$count} ingredient(s).";
+
+        if ($skipped !== []) {
+            $message .= ' Skipped (no source on file yet): '.implode(', ', $skipped).'.';
+        }
 
         return redirect()
             ->route('admin.costing.inventory.index')
-            ->with('success', $validated['mode'] === 'adjust'
-                ? "Stock adjusted for {$count} ingredient(s)."
-                : "Inventory recounted for {$count} ingredient(s).");
+            ->with('success', $message);
     }
 
     /**

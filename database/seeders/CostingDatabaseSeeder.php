@@ -136,10 +136,15 @@ class CostingDatabaseSeeder extends Seeder
     private function seedInventory(array $ingredients): void
     {
         // [ingredient, unit_size (g or units per purchase pack), packs_on_hand]
-        // -- seeded onto the ingredient's auto-created Unspecified source
-        // (Ingredient::booted() already created one for each ingredient
-        // above), since this data predates per-source tracking and was
-        // never attributed to a specific provider/brand.
+        // -- this data predates per-source tracking and was never
+        // attributed to a specific provider/brand, so it's seeded onto
+        // whichever real source seedIngredients()'s price-history loop
+        // already created: the ingredient's preferred source if one is
+        // set, else the first source created for it (deterministic --
+        // matches insertion order of the price-history array above). An
+        // ingredient with no real source at all (only Orange Extract) is
+        // skipped -- there's nothing to attach a quantity to, same as
+        // InventoryController::bulkUpdate()'s handling of the same case.
         $inventory = [
             ['Cream Cheese', 20000, 0],
             ['Swiss Cheese', 2840, 1.3],
@@ -161,9 +166,17 @@ class CostingDatabaseSeeder extends Seeder
         ];
 
         foreach ($inventory as [$name, $unitSize, $unitsOnHand]) {
-            $ingredients[$name]->packageSizes()
-                ->where('provider', 'Unspecified')
-                ->update(['quantity_on_hand' => $unitSize * $unitsOnHand]);
+            $ingredient = $ingredients[$name];
+
+            $packageSize = $ingredient->packageSizes()
+                ->when(
+                    $ingredient->preferred_source,
+                    fn ($query) => $query->where('provider', $ingredient->preferred_source),
+                )
+                ->oldest('id')
+                ->first() ?? $ingredient->packageSizes()->oldest('id')->first();
+
+            $packageSize?->update(['quantity_on_hand' => $unitSize * $unitsOnHand]);
         }
     }
 

@@ -65,11 +65,10 @@ class IngredientController extends Controller implements HasMiddleware
                     'category' => $ingredient->category,
                     'unit_type' => $ingredient->unit_type,
                     'waste_percent' => (float) $ingredient->waste_percent,
-                    'preferred_source' => $ingredient->preferred_source,
                     'notes' => $ingredient->notes,
                     'low_stock_threshold' => $ingredient->low_stock_threshold !== null ? (float) $ingredient->low_stock_threshold : null,
-                    'weight_per_unit' => $ingredient->weight_per_unit !== null ? (float) $ingredient->weight_per_unit : null,
                     'byproduct_name' => $ingredient->byproduct_name,
+                    'source_count' => $ingredient->packageSizes->count(),
                 ],
                 $calculateIngredientCosting->handle($ingredient)
             ));
@@ -117,10 +116,9 @@ class IngredientController extends Controller implements HasMiddleware
                 'category' => $ingredient->category,
                 'unit_type' => $ingredient->unit_type,
                 'waste_percent' => (float) $ingredient->waste_percent,
-                'preferred_source' => $ingredient->preferred_source,
                 'notes' => $ingredient->notes,
                 'low_stock_threshold' => $ingredient->low_stock_threshold !== null ? (float) $ingredient->low_stock_threshold : null,
-                'weight_per_unit' => $ingredient->weight_per_unit !== null ? (float) $ingredient->weight_per_unit : null,
+                'byproduct_name' => $ingredient->byproduct_name,
             ],
             'categories' => $this->knownCategories(),
             'breadcrumbs' => CostingBreadcrumbs::trail(
@@ -135,13 +133,6 @@ class IngredientController extends Controller implements HasMiddleware
         $this->authorize('update', $ingredient);
 
         $validated = $this->validated($request, $ingredient->id);
-
-        // The plain text field only carries a provider name, not a brand --
-        // if it's being changed here, any brand previously pinned via the
-        // price picker (setPreferred()) no longer applies to the new value.
-        if (($validated['preferred_source'] ?? null) !== $ingredient->preferred_source) {
-            $validated['preferred_brand'] = null;
-        }
 
         $ingredient->update($validated);
 
@@ -235,13 +226,8 @@ class IngredientController extends Controller implements HasMiddleware
             'category' => ['nullable', 'string', 'max:255'],
             'unit_type' => ['required', Rule::in(['g', 'unit'])],
             'waste_percent' => ['required', 'numeric', 'min:1', 'max:100'],
-            'preferred_source' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
             'low_stock_threshold' => ['nullable', 'numeric', 'min:0'],
-            // min:0.01 not min:0 -- this feeds a division in the
-            // Units-to-Buy calculation (CalculateIngredientCosting), so a
-            // zero value would produce a divide-by-zero downstream.
-            'weight_per_unit' => ['nullable', 'numeric', 'min:0.01'],
             'byproduct_name' => ['nullable', 'string', 'max:100'],
         ]);
     }

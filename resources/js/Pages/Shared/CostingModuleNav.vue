@@ -7,7 +7,7 @@
         :href="tab.href"
         :class="[
           'whitespace-nowrap border-b-2 px-1 py-3 text-sm font-medium transition-colors',
-          isActive(tab.match)
+          isActive(tab)
             ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
             : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-600'
         ]"
@@ -28,7 +28,18 @@ import { Link, usePage } from '@inertiajs/vue3'
 // their URL directly -- there's no other in-app path to them.
 const page = usePage()
 
-const tabs = [
+interface Tab {
+  label: string
+  href: string
+  match: string
+  // Dashboard's match ('/admin/costing') is a prefix of every other tab's
+  // URL too, so it needs an exact check -- a plain startsWith would make it
+  // look active on every sub-page.
+  exact?: boolean
+}
+
+const tabs: Tab[] = [
+  { label: 'Dashboard', href: route('admin.costing.index'), match: '/admin/costing', exact: true },
   { label: 'Ingredients', href: route('admin.costing.ingredients.index'), match: '/admin/costing/ingredients' },
   { label: 'Price History', href: route('admin.costing.price-history.index'), match: '/admin/costing/price-history' },
   { label: 'Inventory', href: route('admin.costing.inventory.index'), match: '/admin/costing/inventory' },
@@ -37,5 +48,8 @@ const tabs = [
   { label: 'Rental Schedule', href: route('admin.costing.kitchen-rentals.index'), match: '/admin/costing/kitchen-rentals' },
 ]
 
-const isActive = (match: string) => (page.url as string).startsWith(match)
+const isActive = (tab: Tab) => {
+  const url = page.url as string
+  return tab.exact ? url === tab.match || url === `${tab.match}/` : url.startsWith(tab.match)
+}
 </script>

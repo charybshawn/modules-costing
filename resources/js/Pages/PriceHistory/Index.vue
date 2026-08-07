@@ -110,7 +110,9 @@ interface Props {
 
 const props = defineProps<Props>()
 
-const needsUpdateOnly = ref(false)
+// Defaults from ?needs_update=1 so the Dashboard's "Update Prices" card can
+// deep-link straight into the filtered view instead of landing on everything.
+const needsUpdateOnly = ref(new URLSearchParams(window.location.search).get('needs_update') === '1')
 const needsUpdateCount = computed(() => props.entries.filter((e) => e.needs_update).length)
 const filteredEntries = computed(() => (needsUpdateOnly.value ? props.entries.filter((e) => e.needs_update) : props.entries))
 

@@ -119,6 +119,15 @@ class PriceHistoryController extends Controller implements HasMiddleware
 
         PriceHistoryEntry::create($this->withSourceSnapshot($validated));
 
+        // Normally lands on the index -- this is the full Log a Price page's
+        // primary submit action. But AvailablePricesModal also posts here
+        // directly (its "+ Add a new source" flow), and wants to stay right
+        // where it is rather than navigating away, same reasoning as
+        // updatePrice()/setPreferred()/setPackageSize() below.
+        if ($request->boolean('stay')) {
+            return redirect()->back()->with('success', 'Price logged.');
+        }
+
         return redirect()
             ->route('admin.costing.price-history.index')
             ->with('success', 'Price logged.');

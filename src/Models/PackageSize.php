@@ -13,11 +13,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * package size for whichever provider/brand actually won this week's
  * price) and current *quantity on hand* for that same source (every
  * inventory adjustment is tied to one of these rows -- see
- * InventoryAdjustment). Every ingredient always has one "Unspecified" row
- * (provider: 'Unspecified', brand: null, package_size: 1) auto-created in
- * Ingredient::booted(), so there's always something to pick even when the
- * real source genuinely isn't known -- its fixed package_size of 1 means
- * its quantity field is just raw grams/units directly.
+ * InventoryAdjustment). A source is always a real, named provider (brand
+ * optional) -- an ingredient with no known source simply has no rows here
+ * yet, no placeholder fallback.
  *
  * @property int $id
  * @property int $ingredient_id

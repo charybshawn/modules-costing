@@ -7,6 +7,7 @@
       </p>
 
       <div v-if="loadingSources" class="mt-6 text-sm text-gray-500">Loading...</div>
+      <p v-else-if="sources.length === 0" class="mt-6 text-sm text-gray-500">No sources yet -- add one below.</p>
       <ul v-else class="mt-4 divide-y divide-gray-200 max-h-[28rem] overflow-y-auto">
         <li v-for="source in sources" :key="source.id" class="py-3">
           <div class="flex items-start justify-between gap-3">
@@ -14,7 +15,6 @@
               <div class="text-sm font-medium text-gray-900 flex items-center gap-1.5">
                 {{ source.provider }}<span v-if="source.brand"> — {{ source.brand }}</span>
                 <button
-                  v-if="!isUnspecified(source)"
                   type="button"
                   @click="deleteSource(source)"
                   :disabled="source.quantity_on_hand > 0"
@@ -181,7 +181,6 @@ const emit = defineEmits<{ close: []; updated: [] }>()
 const fmt = (value: number) => formatQuantity(value, props.ingredient?.unit_type ?? 'g')
 const baseUnitLabel = computed(() => (props.ingredient?.unit_type === 'unit' ? 'unit(s)' : 'g'))
 const formatPackages = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2))
-const isUnspecified = (source: Source) => source.provider === 'Unspecified' && !source.brand
 
 const sources = ref<Source[]>([])
 const loadingSources = ref(false)
@@ -256,8 +255,7 @@ const saveRecount = (source: Source) => {
 }
 
 // Remove a source entirely -- backend blocks this while it still has stock
-// (recount to 0 first, same guard the disabled state above enforces) or for
-// the Unspecified fallback, which must always exist.
+// (recount to 0 first, same guard the disabled state above enforces).
 const deleteSource = (source: Source) => {
   if (!props.ingredient) return
   const label = source.brand ? `${source.provider} — ${source.brand}` : source.provider

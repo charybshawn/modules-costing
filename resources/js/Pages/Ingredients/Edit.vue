@@ -36,24 +36,9 @@
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Weight per Unit</label>
-            <input v-model.number="form.weight_per_unit" type="number" min="0.01" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" :placeholder="form.unit_type === 'unit' ? 'e.g. 1' : 'e.g. 1000 for a 1kg block'" />
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              How much one typical unit weighs ({{ form.unit_type === 'unit' ? 'count' : 'grams' }}). Used to work out how many units to buy for a production run when Price History doesn't have a fresh price to derive it from. Leave blank if it varies too much to have a typical size.
-            </p>
-            <p v-if="form.errors.weight_per_unit" class="mt-1 text-sm text-red-600">{{ form.errors.weight_per_unit }}</p>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Waste % *</label>
-              <input v-model.number="form.waste_percent" type="number" min="1" max="100" step="0.01" required class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
-              <p v-if="form.errors.waste_percent" class="mt-1 text-sm text-red-600">{{ form.errors.waste_percent }}</p>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Preferred Source</label>
-              <input v-model="form.preferred_source" type="text" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="Leave blank for auto-cheapest" />
-            </div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Waste % *</label>
+            <input v-model.number="form.waste_percent" type="number" min="1" max="100" step="0.01" required class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+            <p v-if="form.errors.waste_percent" class="mt-1 text-sm text-red-600">{{ form.errors.waste_percent }}</p>
           </div>
 
           <div>
@@ -86,6 +71,18 @@
           </div>
         </form>
       </div>
+
+      <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg mt-6">
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+          <h2 class="text-lg font-medium text-gray-900 dark:text-white">Sources</h2>
+          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Where you buy this and what you're paying. Pick a wholesaler/brand as preferred to lock it in for recipes and the production planner, regardless of price.
+          </p>
+        </div>
+        <div class="p-6">
+          <SourcesTable :ingredient="{ id: props.ingredient.id, name: props.ingredient.name, unit_type: props.ingredient.unit_type }" />
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -95,6 +92,7 @@ import { Link, router } from '@inertiajs/vue3'
 import { usePersistedForm } from '@/composables/usePersistedForm'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
+import SourcesTable from '../Shared/SourcesTable.vue'
 
 defineOptions({ layout: AdminLayout })
 
@@ -103,9 +101,7 @@ interface Ingredient {
   name: string
   category: string | null
   unit_type: 'g' | 'unit'
-  weight_per_unit: number | null
   waste_percent: number
-  preferred_source: string | null
   low_stock_threshold: number | null
   byproduct_name: string | null
   notes: string | null
@@ -122,9 +118,7 @@ interface FormData {
   name: string
   category: string
   unit_type: 'g' | 'unit'
-  weight_per_unit: number | null
   waste_percent: number
-  preferred_source: string
   low_stock_threshold: number | null
   byproduct_name: string
   notes: string
@@ -134,9 +128,7 @@ const initialData: FormData = {
   name: props.ingredient.name,
   category: props.ingredient.category ?? '',
   unit_type: props.ingredient.unit_type,
-  weight_per_unit: props.ingredient.weight_per_unit,
   waste_percent: props.ingredient.waste_percent,
-  preferred_source: props.ingredient.preferred_source ?? '',
   low_stock_threshold: props.ingredient.low_stock_threshold,
   byproduct_name: props.ingredient.byproduct_name ?? '',
   notes: props.ingredient.notes ?? '',

@@ -36,7 +36,7 @@ class CostingServiceProvider extends ServiceProvider
         //    History, Inventory, Recipes, and the Production Planner.
         AdminNav::register([
             'name' => 'Costing & Recipes',
-            'href' => '/admin/costing/ingredients',
+            'href' => '/admin/costing',
             'icon' => 'costing',
             'match' => '/admin/costing',
             'module' => 'cultpantry/costing',

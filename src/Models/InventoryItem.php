@@ -34,10 +34,9 @@ class InventoryItem extends Model
 
     /**
      * On Hand (g) = sum of every known source's quantity_on_hand
-     * (costing_ingredient_package_sizes, including the always-present
-     * Unspecified fallback) -- replaces the old single aggregate column.
-     * Every existing caller keeps reading $inventory->on_hand exactly as
-     * before; only this computation changed.
+     * (costing_ingredient_package_sizes) -- replaces the old single
+     * aggregate column. Every existing caller keeps reading
+     * $inventory->on_hand exactly as before; only this computation changed.
      */
     public function getOnHandAttribute(): float
     {

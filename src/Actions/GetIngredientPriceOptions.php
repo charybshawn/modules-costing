@@ -30,6 +30,7 @@ class GetIngredientPriceOptions
      *     is_stale: bool,
      *     is_preferred: bool,
      *     package_size: float|null,
+     *     quantity_on_hand: float,
      * }>
      */
     public function handle(Ingredient $ingredient): Collection
@@ -61,6 +62,7 @@ class GetIngredientPriceOptions
                     'is_preferred' => $ingredient->preferred_source === $entry->provider
                         && $ingredient->preferred_brand === $entry->brand,
                     'package_size' => $entry->packageSize !== null ? (float) $entry->packageSize->package_size : null,
+                    'quantity_on_hand' => $entry->packageSize !== null ? (float) $entry->packageSize->quantity_on_hand : 0.0,
                 ];
             })
             ->sortBy(fn (array $row) => $row['price_per_unit'] ?? INF)

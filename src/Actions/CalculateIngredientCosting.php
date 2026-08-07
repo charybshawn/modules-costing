@@ -40,16 +40,10 @@ class CalculateIngredientCosting
      *
      * purchase_size/purchase_unit always reflect the ingredient's real
      * minimum purchasable package size for whichever provider/brand won
-     * this week's price (or the most recent one, if none is fresh):
-     * a brand-specific PackageSize row when one has been logged for that
-     * exact provider/brand, else Ingredient.weight_per_unit (the generic,
-     * ingredient-level "typical size" fallback), else 1.0/null.
-     * InventoryItem.unit_size is deliberately not consulted here -- it's
-     * strictly an on-hand stock-counting concern (unit_size x
-     * units_on_hand, or counted_on_hand directly), a different question
-     * from "what's the real order minimum," and having both unit_size and
-     * weight_per_unit answer that second question was itself a source of
-     * confusion. Price History's own qty never drives this either -- a
+     * this week's price (or the most recent one, if none is fresh): the
+     * brand-specific PackageSize row for that exact provider/brand, or
+     * 1.0/null if no price has ever been logged (and so no source exists)
+     * yet. Price History's own qty never drives this either -- a
      * logged price's qty might be a one-off (e.g. a sample size) and is
      * never a reliable statement of how the ingredient is actually sold,
      * so it only ever influences cost-per-kg, not purchase sizing.
@@ -147,8 +141,8 @@ class CalculateIngredientCosting
     /**
      * The real minimum purchasable package size for this ingredient, for
      * the given winning provider/brand -- a brand-specific PackageSize row
-     * (provider+brand exact match) when one has been logged, else
-     * Ingredient.weight_per_unit, else no package size at all.
+     * (provider+brand exact match) when one has been logged, else no
+     * package size at all (only reachable when nothing's been priced yet).
      *
      * @return array{0: float, 1: string|null}
      */
@@ -165,12 +159,6 @@ class CalculateIngredientCosting
 
                 return [$size, $this->formatPackageSize($ingredient, $size, $source)];
             }
-        }
-
-        if ($ingredient->weight_per_unit !== null) {
-            $weightPerUnit = (float) $ingredient->weight_per_unit;
-
-            return [$weightPerUnit, $this->formatPackageSize($ingredient, $weightPerUnit, 'package size')];
         }
 
         return [1.0, null];
