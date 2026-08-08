@@ -201,14 +201,19 @@ class PriceHistoryController extends Controller implements HasMiddleware
             'notes' => $priceHistoryEntry->notes,
         ];
 
-        // The linked Source may have been renamed/rebranded since
-        // $priceHistoryEntry was logged -- re-snapshot from the live Source
-        // rather than trusting the old entry's possibly-stale provider/brand.
-        // An orphaned entry (source since deleted, package_size_id null) has
-        // no source to read, so it keeps its existing snapshot.
+        // The linked Source may have been renamed/rebranded/resized since
+        // $priceHistoryEntry was logged -- or that entry's qty may have
+        // been null all along (e.g. an incomplete "checked, no price yet"
+        // placeholder) -- so re-snapshot provider/brand/qty from the live
+        // Source rather than trusting the old entry's copy. Without this,
+        // a null qty propagates through every future re-log forever: the
+        // price saves fine each time, but price_per_unit stays permanently
+        // null ("incomplete") no matter how many times it's updated. An
+        // orphaned entry (source since deleted, package_size_id null) has
+        // no source to read, so it keeps its existing snapshot including qty.
         PriceHistoryEntry::create(
             $priceHistoryEntry->package_size_id !== null
-                ? $this->withSourceSnapshot($attributes)
+                ? $this->withSourceSnapshot($attributes, refreshQty: true)
                 : $attributes
         );
 
@@ -246,8 +251,15 @@ class PriceHistoryController extends Controller implements HasMiddleware
      * provider/brand are a snapshot of the linked Source at write time (see
      * PriceHistoryEntry::packageSize()) -- never typed directly, always
      * copied from the Source the entry actually points to.
+     *
+     * $refreshQty additionally overrides qty with the Source's current
+     * package_size ("one package," the same convention SourcesTable's own
+     * entry-creation flows use) -- only safe for updatePrice()'s quick
+     * re-log, where qty was never user-typed either. store()/update() (the
+     * full Log a Price form) never pass this: there, qty is a genuine,
+     * independently-typed quantity that must not be silently overwritten.
      */
-    private function withSourceSnapshot(array $validated): array
+    private function withSourceSnapshot(array $validated, bool $refreshQty = false): array
     {
         $packageSize = PackageSize::findOrFail($validated['package_size_id']);
 
@@ -255,6 +267,7 @@ class PriceHistoryController extends Controller implements HasMiddleware
             ...$validated,
             'provider' => $packageSize->provider,
             'brand' => $packageSize->brand,
+            ...($refreshQty ? ['qty' => (float) $packageSize->package_size] : []),
         ];
     }
 }

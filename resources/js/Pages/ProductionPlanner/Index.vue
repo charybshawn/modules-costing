@@ -57,19 +57,48 @@
           </div>
 
           <template v-if="!confirmingComplete">
-            <div class="border border-gray-200 dark:border-gray-700 rounded-md divide-y divide-gray-200 dark:divide-gray-700">
+            <div v-if="!isCompleted" class="border border-gray-200 dark:border-gray-700 rounded-md divide-y divide-gray-200 dark:divide-gray-700">
               <div v-for="row in form.batches" :key="row.recipe_id" class="flex items-center justify-between px-4 py-2 gap-4">
                 <span class="text-sm text-gray-700 dark:text-gray-300 flex-1">{{ recipeName(row.recipe_id) }}</span>
-                <span class="text-xs text-gray-500 dark:text-gray-400 w-32 text-right">
-                  {{ displayUnits(row) }} units
-                  <span v-if="isCompleted && actualUnitsFor(row.recipe_id) !== null && actualUnitsFor(row.recipe_id) !== rowUnits(row)" class="block text-gray-400 dark:text-gray-500">(planned {{ rowUnits(row) }})</span>
-                </span>
-                <input v-model.number="row.batches" type="number" min="0" :disabled="isCompleted" class="w-28 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:opacity-60" />
+                <span class="text-xs text-gray-500 dark:text-gray-400 w-24 text-right">{{ rowUnits(row) }} units</span>
+                <input v-model.number="row.batches" type="number" min="0" class="w-28 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
               </div>
               <div class="flex items-center justify-between px-4 py-2 bg-gray-50 dark:bg-gray-700/50">
                 <span class="text-sm font-semibold text-gray-900 dark:text-white">Total Units</span>
-                <span class="text-sm font-semibold text-gray-900 dark:text-white">{{ displayTotalUnits }}</span>
+                <span class="text-sm font-semibold text-gray-900 dark:text-white">{{ totalUnits }}</span>
               </div>
+            </div>
+
+            <!-- Completed: planned vs. actual, not an editable batches
+                 table -- the plan is fixed history at this point, and what
+                 matters now is how actual production compared to it. -->
+            <div v-else class="overflow-x-auto -mx-6">
+              <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead class="bg-gray-50 dark:bg-gray-900">
+                  <tr>
+                    <th class="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Flavour</th>
+                    <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Planned</th>
+                    <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actual</th>
+                    <th class="px-6 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Change</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                  <tr v-for="row in completedRows" :key="row.recipe_id">
+                    <td class="px-6 py-2 text-sm text-gray-900 dark:text-white">{{ row.recipe_name }}</td>
+                    <td class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400 text-right">{{ row.planned }}</td>
+                    <td class="px-4 py-2 text-sm font-medium text-gray-900 dark:text-white text-right">{{ row.actual }}</td>
+                    <td class="px-6 py-2 text-sm font-medium text-right" :class="changeClass(row.change_percent)">{{ formatChange(row.change_percent) }}</td>
+                  </tr>
+                </tbody>
+                <tfoot>
+                  <tr class="bg-gray-50 dark:bg-gray-700/50">
+                    <td class="px-6 py-2 text-sm font-semibold text-gray-900 dark:text-white">Total Units</td>
+                    <td class="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-white text-right">{{ totalPlanned }}</td>
+                    <td class="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-white text-right">{{ displayTotalUnits }}</td>
+                    <td class="px-6 py-2 text-sm font-semibold text-right" :class="changeClass(totalChangePercent)">{{ formatChange(totalChangePercent) }}</td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
 
             <div v-if="!isCompleted" class="flex justify-end gap-3">
@@ -115,7 +144,8 @@
         </form>
       </div>
 
-      <!-- 2. Shopping list -->
+      <!-- 2. Shopping list -- null (not rendered) for a completed run;
+           purchasing decisions are moot for something already made. -->
       <div v-if="plan" class="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
         <div class="p-6 pb-0 flex items-center justify-between">
           <h2 class="text-lg font-medium text-gray-900 dark:text-white">2. Shopping List</h2>
@@ -277,16 +307,45 @@ const rowUnits = (row: { batches: number }) => (Number(form.batch_size) || 0) * 
 
 const totalUnits = computed(() => form.batches.reduce((sum, row) => sum + rowUnits(row), 0))
 
-// Actual units produced, recorded once at completion -- null for any run
-// still in progress, or for a completed run's recipes that were never
-// overridden (in which case the plan is the actual, same as always).
-const actualUnitsByRecipe = new Map((props.production_run?.batches ?? []).map((row) => [row.recipe_id, row.actual_units]))
-const actualUnitsFor = (recipeId: number): number | null => actualUnitsByRecipe.get(recipeId) ?? null
-
-const displayUnits = (row: { recipe_id: number; batches: number }): number =>
-  isCompleted.value ? (actualUnitsFor(row.recipe_id) ?? rowUnits(row)) : rowUnits(row)
-
 const displayTotalUnits = computed(() => (isCompleted.value && props.production_run ? props.production_run.total_units : totalUnits.value))
+
+interface CompletedRow {
+  recipe_id: number
+  recipe_name: string
+  planned: number
+  actual: number
+  change_percent: number
+}
+
+// Planned vs. actual per flavour, completed-run only -- recipes with no
+// planned batches are excluded (same reasoning as startCompleteRun's
+// filter below: every recipe in the system gets a pivot row, most at 0).
+const completedRows = computed<CompletedRow[]>(() => {
+  const run = props.production_run
+  if (!run) return []
+
+  return run.batches
+    .map((row) => {
+      const planned = run.batch_size * row.batches
+      return { recipe_id: row.recipe_id, recipe_name: row.recipe_name, planned, actual: row.actual_units ?? planned }
+    })
+    .filter((row) => row.planned > 0)
+    .map((row) => ({ ...row, change_percent: ((row.actual - row.planned) / row.planned) * 100 }))
+})
+
+const totalPlanned = computed(() => completedRows.value.reduce((sum, row) => sum + row.planned, 0))
+const totalChangePercent = computed(() => (totalPlanned.value > 0 ? ((displayTotalUnits.value - totalPlanned.value) / totalPlanned.value) * 100 : 0))
+
+// Green/red reads as "produced more/less than planned," which for a food
+// business is a real quality signal (yield vs. shrinkage), not just a
+// neutral delta -- not the usual "up is bad for costs" dashboard framing.
+const changeClass = (percent: number): string => {
+  if (percent > 0) return 'text-green-600 dark:text-green-400'
+  if (percent < 0) return 'text-red-600 dark:text-red-400'
+  return 'text-gray-500 dark:text-gray-400'
+}
+
+const formatChange = (percent: number): string => (percent === 0 ? '—' : `${percent > 0 ? '+' : ''}${percent.toFixed(1)}%`)
 
 const submit = () => {
   // Only reachable via the submit button below, which is gated to create

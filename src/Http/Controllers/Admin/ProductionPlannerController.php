@@ -42,7 +42,12 @@ class ProductionPlannerController extends Controller implements HasMiddleware
         return Inertia::render('Vendor/costing/ProductionPlanner/Index', [
             'recipes' => $recipes,
             'production_run' => $latestRun ? $this->serializeRun($latestRun) : null,
-            'plan' => $latestRun ? $calculateProductionPlan->handle($latestRun) : null,
+            // Not computed for a completed run -- its shopping list is
+            // moot (nothing left to purchase for something already made)
+            // and the page doesn't render one, so skip the live
+            // pricing/inventory query entirely rather than compute and
+            // discard it.
+            'plan' => ($latestRun && !$latestRun->completed_at) ? $calculateProductionPlan->handle($latestRun) : null,
             'breadcrumbs' => CostingBreadcrumbs::trail(['label' => 'Production Planner']),
         ]);
     }
@@ -111,7 +116,9 @@ class ProductionPlannerController extends Controller implements HasMiddleware
         return Inertia::render('Vendor/costing/ProductionPlanner/Index', [
             'recipes' => $recipes,
             'production_run' => $this->serializeRun($productionRun),
-            'plan' => $calculateProductionPlan->handle($productionRun),
+            // See index()'s identical guard -- a completed run has no
+            // shopping list to show.
+            'plan' => $productionRun->completed_at ? null : $calculateProductionPlan->handle($productionRun),
             'breadcrumbs' => CostingBreadcrumbs::trail(
                 ['label' => 'Production Planner', 'href' => route('admin.costing.production-planner.index')],
                 ['label' => $productionRun->name ?? $productionRun->run_date->format('Y-m-d')],
