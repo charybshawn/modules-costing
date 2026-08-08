@@ -27,19 +27,25 @@ class CompleteProductionRun
     ) {}
 
     /**
+     * @param array<int, int> $actuals recipe_id => actual units produced,
+     *     for recipes where it differs from the plan. Never affects
+     *     ingredient deduction below (that's always planned quantities) --
+     *     purely overrides what gets frozen into that recipe's cost
+     *     snapshot and, from there, ProductionRun::totalUnits().
      * @return array<int, string> human-readable shortfall warnings, one per
      *     ingredient that ran out of stock before its required quantity was
      *     fully drawn down -- empty when every requirement was covered.
      */
-    public function handle(ProductionRun $productionRun): array
+    public function handle(ProductionRun $productionRun, array $actuals = []): array
     {
-        return DB::transaction(fn () => $this->run($productionRun));
+        return DB::transaction(fn () => $this->run($productionRun, $actuals));
     }
 
     /**
+     * @param array<int, int> $actuals
      * @return array<int, string>
      */
-    private function run(ProductionRun $productionRun): array
+    private function run(ProductionRun $productionRun, array $actuals): array
     {
         $shortfalls = [];
 
@@ -114,12 +120,19 @@ class CompleteProductionRun
         // pivot) by calculateProductionPlan->handle() above.
         /** @var Recipe $recipe */
         foreach ($productionRun->recipes as $recipe) {
-            $unitsProduced = $productionRun->batch_size * (int) $recipe->pivot->batches;
-            if ($unitsProduced <= 0) {
+            $plannedUnits = $productionRun->batch_size * (int) $recipe->pivot->batches;
+            if ($plannedUnits <= 0) {
                 continue;
             }
 
-            $this->createRecipeCostSnapshot->handle($recipe, $productionRun, $unitsProduced);
+            $actualUnits = $actuals[$recipe->id] ?? $plannedUnits;
+
+            // Recorded on the pivot even when it equals the plan -- makes
+            // "was this ever overridden" unambiguous later, and is what
+            // ProductionRun::totalUnits() reads once this run is completed.
+            $productionRun->recipes()->updateExistingPivot($recipe->id, ['actual_units' => $actualUnits]);
+
+            $this->createRecipeCostSnapshot->handle($recipe, $productionRun, $actualUnits);
         }
 
         $productionRun->update(['completed_at' => now()]);

@@ -176,14 +176,31 @@ class ProductionPlannerController extends Controller implements HasMiddleware
     /**
      * Mark a run complete and draw its required quantities down from
      * Inventory. Idempotent -- a run can only be completed once.
+     *
+     * Ingredient deduction always uses the *planned* quantities (see
+     * CompleteProductionRun) -- actual units produced can differ from the
+     * plan (e.g. batches running heavier than assumed) without any change
+     * in ingredients consumed, so it's recorded separately here purely for
+     * historical/costing purposes, not fed back into the deduction math.
      */
-    public function complete(ProductionRun $productionRun, CompleteProductionRun $completeProductionRun): RedirectResponse
+    public function complete(Request $request, ProductionRun $productionRun, CompleteProductionRun $completeProductionRun): RedirectResponse
     {
         $this->authorize('complete', $productionRun);
 
         abort_if($productionRun->completed_at, 422, 'This run has already been completed.');
 
-        $shortfalls = $completeProductionRun->handle($productionRun);
+        $validated = $request->validate([
+            'actuals' => ['array'],
+            'actuals.*.recipe_id' => ['required', 'integer'],
+            'actuals.*.actual_units' => ['nullable', 'integer', 'min:0'],
+        ]);
+
+        $actuals = collect($validated['actuals'] ?? [])
+            ->filter(fn (array $row) => $row['actual_units'] !== null)
+            ->pluck('actual_units', 'recipe_id')
+            ->all();
+
+        $shortfalls = $completeProductionRun->handle($productionRun, $actuals);
 
         $message = 'Production run completed. Inventory has been updated.';
         if ($shortfalls !== []) {
@@ -252,6 +269,7 @@ class ProductionPlannerController extends Controller implements HasMiddleware
                 'recipe_id' => $recipe->id,
                 'recipe_name' => $recipe->name,
                 'batches' => (int) $recipe->pivot->batches,
+                'actual_units' => $recipe->pivot->actual_units !== null ? (int) $recipe->pivot->actual_units : null,
             ]),
         ];
     }

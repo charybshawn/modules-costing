@@ -42,7 +42,7 @@ class ProductionRun extends Model
     public function recipes(): BelongsToMany
     {
         return $this->belongsToMany(Recipe::class, 'costing_production_run_recipe', 'production_run_id', 'recipe_id')
-            ->withPivot('batches')
+            ->withPivot('batches', 'actual_units')
             ->withTimestamps();
     }
 
@@ -56,8 +56,15 @@ class ProductionRun extends Model
         return $this->hasMany(KitchenRental::class);
     }
 
+    /**
+     * Actual units produced once known (recorded at completion, per
+     * recipe), else the planned total -- so this stays accurate for a
+     * run in progress and becomes the real figure once it's completed.
+     */
     public function totalUnits(): int
     {
-        return (int) $this->recipes->sum(fn (Recipe $recipe) => $this->batch_size * $recipe->pivot->batches);
+        return (int) $this->recipes->sum(
+            fn (Recipe $recipe) => $recipe->pivot->actual_units ?? ($this->batch_size * $recipe->pivot->batches)
+        );
     }
 }

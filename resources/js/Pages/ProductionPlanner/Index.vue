@@ -56,33 +56,61 @@
             </div>
           </div>
 
-          <div class="border border-gray-200 dark:border-gray-700 rounded-md divide-y divide-gray-200 dark:divide-gray-700">
-            <div v-for="row in form.batches" :key="row.recipe_id" class="flex items-center justify-between px-4 py-2 gap-4">
-              <span class="text-sm text-gray-700 dark:text-gray-300 flex-1">{{ recipeName(row.recipe_id) }}</span>
-              <span class="text-xs text-gray-500 dark:text-gray-400 w-24 text-right">{{ rowUnits(row) }} units</span>
-              <input v-model.number="row.batches" type="number" min="0" :disabled="isCompleted" class="w-28 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:opacity-60" />
+          <template v-if="!confirmingComplete">
+            <div class="border border-gray-200 dark:border-gray-700 rounded-md divide-y divide-gray-200 dark:divide-gray-700">
+              <div v-for="row in form.batches" :key="row.recipe_id" class="flex items-center justify-between px-4 py-2 gap-4">
+                <span class="text-sm text-gray-700 dark:text-gray-300 flex-1">{{ recipeName(row.recipe_id) }}</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400 w-32 text-right">
+                  {{ displayUnits(row) }} units
+                  <span v-if="isCompleted && actualUnitsFor(row.recipe_id) !== null && actualUnitsFor(row.recipe_id) !== rowUnits(row)" class="block text-gray-400 dark:text-gray-500">(planned {{ rowUnits(row) }})</span>
+                </span>
+                <input v-model.number="row.batches" type="number" min="0" :disabled="isCompleted" class="w-28 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:opacity-60" />
+              </div>
+              <div class="flex items-center justify-between px-4 py-2 bg-gray-50 dark:bg-gray-700/50">
+                <span class="text-sm font-semibold text-gray-900 dark:text-white">Total Units</span>
+                <span class="text-sm font-semibold text-gray-900 dark:text-white">{{ displayTotalUnits }}</span>
+              </div>
             </div>
-            <div class="flex items-center justify-between px-4 py-2 bg-gray-50 dark:bg-gray-700/50">
-              <span class="text-sm font-semibold text-gray-900 dark:text-white">Total Units</span>
-              <span class="text-sm font-semibold text-gray-900 dark:text-white">{{ totalUnits }}</span>
-            </div>
-          </div>
 
-          <div v-if="!isCompleted" class="flex justify-end gap-3">
-            <button
-              v-if="productionRun"
-              type="button"
-              @click="completeRun"
-              :disabled="completing"
-              class="bg-green-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
-            >
-              <span v-if="completing">Completing...</span>
-              <span v-else>Complete Run &amp; Deduct Inventory</span>
-            </button>
-            <button v-if="!productionRun" type="submit" :disabled="form.processing" class="bg-indigo-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
-              <span v-if="form.processing">Saving...</span>
-              <span v-else>Create Production Run</span>
-            </button>
+            <div v-if="!isCompleted" class="flex justify-end gap-3">
+              <button
+                v-if="productionRun"
+                type="button"
+                @click="startCompleteRun"
+                class="bg-green-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-green-700"
+              >
+                Complete Run &amp; Deduct Inventory
+              </button>
+              <button v-if="!productionRun" type="submit" :disabled="form.processing" class="bg-indigo-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
+                <span v-if="form.processing">Saving...</span>
+                <span v-else>Create Production Run</span>
+              </button>
+            </div>
+          </template>
+
+          <!-- Actual units produced -- confirmed here, at completion, since
+               that's the earliest point it's actually known. Ingredient
+               deduction above always uses the plan, regardless of these. -->
+          <div v-else class="space-y-4">
+            <p class="text-sm text-gray-600 dark:text-gray-400">
+              Confirm actual units produced per flavour -- defaults to the plan. Inventory is always deducted using the planned quantities, not these.
+            </p>
+            <div class="border border-gray-200 dark:border-gray-700 rounded-md divide-y divide-gray-200 dark:divide-gray-700">
+              <div v-for="row in confirmingComplete" :key="row.recipe_id" class="flex items-center justify-between px-4 py-2 gap-4">
+                <span class="text-sm text-gray-700 dark:text-gray-300 flex-1">{{ row.recipe_name }}</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400 w-28 text-right">planned {{ row.planned_units }}</span>
+                <input v-model.number="row.actual_units" type="number" min="0" class="w-28 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+              </div>
+            </div>
+            <div class="flex justify-end gap-3">
+              <button type="button" @click="confirmingComplete = null" :disabled="completing" class="bg-gray-200 dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50">
+                Cancel
+              </button>
+              <button type="button" @click="completeRun" :disabled="completing" class="bg-green-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50">
+                <span v-if="completing">Completing...</span>
+                <span v-else>Confirm Completion</span>
+              </button>
+            </div>
           </div>
         </form>
       </div>
@@ -187,7 +215,7 @@ interface ProductionRun {
   notes: string | null
   completed_at: string | null
   total_units: number
-  batches: Array<{ recipe_id: number; recipe_name: string; batches: number }>
+  batches: Array<{ recipe_id: number; recipe_name: string; batches: number; actual_units: number | null }>
 }
 
 interface Props {
@@ -249,6 +277,17 @@ const rowUnits = (row: { batches: number }) => (Number(form.batch_size) || 0) * 
 
 const totalUnits = computed(() => form.batches.reduce((sum, row) => sum + rowUnits(row), 0))
 
+// Actual units produced, recorded once at completion -- null for any run
+// still in progress, or for a completed run's recipes that were never
+// overridden (in which case the plan is the actual, same as always).
+const actualUnitsByRecipe = new Map((props.production_run?.batches ?? []).map((row) => [row.recipe_id, row.actual_units]))
+const actualUnitsFor = (recipeId: number): number | null => actualUnitsByRecipe.get(recipeId) ?? null
+
+const displayUnits = (row: { recipe_id: number; batches: number }): number =>
+  isCompleted.value ? (actualUnitsFor(row.recipe_id) ?? rowUnits(row)) : rowUnits(row)
+
+const displayTotalUnits = computed(() => (isCompleted.value && props.production_run ? props.production_run.total_units : totalUnits.value))
+
 const submit = () => {
   // Only reachable via the submit button below, which is gated to create
   // mode (v-if="!productionRun") -- once a run exists, autosave owns
@@ -257,16 +296,39 @@ const submit = () => {
   form.post(route('admin.costing.production-planner.store'))
 }
 
-const completeRun = () => {
+interface ConfirmingRow {
+  recipe_id: number
+  recipe_name: string
+  planned_units: number
+  actual_units: number
+}
+
+const confirmingComplete = ref<ConfirmingRow[] | null>(null)
+
+// Only flavours actually in this run (planned units > 0) -- every recipe
+// in the system gets a row in form.batches (most at 0), which would
+// otherwise flood this step with irrelevant zero-unit inputs.
+const startCompleteRun = () => {
   if (!props.production_run) return
-  if (!confirm(`Complete this run and deduct ${totalUnits.value} units' worth of ingredients from Inventory? This cannot be undone.`)) return
+  confirmingComplete.value = form.batches
+    .filter((row) => rowUnits(row) > 0)
+    .map((row) => ({
+      recipe_id: row.recipe_id,
+      recipe_name: recipeName(row.recipe_id),
+      planned_units: rowUnits(row),
+      actual_units: rowUnits(row),
+    }))
+}
+
+const completeRun = () => {
+  if (!props.production_run || !confirmingComplete.value) return
 
   const runId = props.production_run.id
+  const actuals = confirmingComplete.value.map((row) => ({ recipe_id: row.recipe_id, actual_units: row.actual_units }))
   completing.value = true
   form.cancelAutosave()
 
-  // Save first, complete second. The confirm dialog above quoted the
-  // CURRENT form's totals -- completing without saving would deduct
+  // Save first, complete second -- completing without saving would deduct
   // whatever batch counts were last persisted, which can differ if the
   // user edited within the autosave debounce window. The save also clears
   // the localStorage draft (wrapped form.put), so nothing stale gets
@@ -275,7 +337,8 @@ const completeRun = () => {
     preserveScroll: true,
     preserveState: true,
     onSuccess: () => {
-      router.post(route('admin.costing.production-planner.complete', runId), {}, {
+      router.post(route('admin.costing.production-planner.complete', runId), { actuals }, {
+        onSuccess: () => { confirmingComplete.value = null },
         onFinish: () => { completing.value = false },
       })
     },
