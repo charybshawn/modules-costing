@@ -9,7 +9,7 @@
             Master catalogue of ingredients. Pricing columns are calculated automatically from Price History.
           </p>
         </div>
-        <div class="mt-4 md:mt-0 flex gap-2">
+        <div class="mt-4 md:mt-0 flex flex-wrap gap-2">
           <Link
             :href="route('admin.costing.price-history.index')"
             class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
@@ -89,10 +89,10 @@
             <span v-else-if="item.stale_effective_price !== null" class="text-sm text-gray-500 dark:text-gray-400">
               ${{ Number(item.stale_effective_price).toFixed(2) }}
             </span>
-            <span v-else class="text-sm text-gray-400">—</span>
+            <span v-else class="text-sm text-gray-400 dark:text-gray-500">—</span>
           </template>
 
-          <template #cell-source_used="{ item }">
+          <template #cell-source_count="{ item }">
             <button
               type="button"
               @click="openPricesModal(item)"
@@ -129,19 +129,13 @@ interface IngredientRow {
   category: string | null
   unit_type: 'g' | 'unit'
   waste_percent: number
-  preferred_source: string | null
   weekly_price: number | null
   effective_price: number | null
-  source_used: string | null
   source_count: number
-  last_price_date: string | null
   purchase_unit: string | null
   status: 'ok' | 'no_price_this_week'
   stale_price: number | null
   stale_effective_price: number | null
-  stale_source: string | null
-  stale_brand: string | null
-  stale_price_date: string | null
   price_per_100g: number | null
   stale_price_per_100g: number | null
 }
@@ -176,7 +170,7 @@ const columns: Column[] = [
   { key: 'waste_percent', label: 'Waste %', hideable: true },
   { key: 'weekly_price', label: '$/kg', hideable: true },
   { key: 'effective_price', label: 'Effective $/kg', hideable: true },
-  { key: 'source_used', label: 'Sources', hideable: true },
+  { key: 'source_count', label: 'Sources', hideable: true },
   { key: 'purchase_unit', label: 'Purchase Unit', hideable: true },
 ]
 

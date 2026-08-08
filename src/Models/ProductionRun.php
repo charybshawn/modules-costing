@@ -60,9 +60,4 @@ class ProductionRun extends Model
     {
         return (int) $this->recipes->sum(fn (Recipe $recipe) => $this->batch_size * $recipe->pivot->batches);
     }
-
-    public function isCompleted(): bool
-    {
-        return $this->completed_at !== null;
-    }
 }

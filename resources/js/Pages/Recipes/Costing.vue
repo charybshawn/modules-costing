@@ -9,7 +9,7 @@
             Food Cost % per flavour -- ingredient cost, an optional contingency buffer, prorated by actual fill size, against your sell price.
           </p>
         </div>
-        <div class="mt-4 md:mt-0 flex gap-2">
+        <div class="mt-4 md:mt-0 flex flex-wrap gap-2">
           <Link :href="route('admin.costing.recipes.cost-history')" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
             Cost History
           </Link>
@@ -70,7 +70,7 @@
             <span v-if="item.food_cost_percent !== null" class="text-sm font-medium" :class="foodCostClass(item.food_cost_percent)">
               {{ item.food_cost_percent.toFixed(2) }}%
             </span>
-            <span v-else class="text-sm text-gray-400 italic">no sell price</span>
+            <span v-else class="text-sm text-gray-400 dark:text-gray-500 italic">no sell price</span>
           </template>
         </DataTable>
       </div>
@@ -78,29 +78,29 @@
       <!-- Edit Costing modal -->
       <Modal :show="editingRecipe !== null" max-width="md" @close="closeEditModal">
         <form v-if="editingRecipe" @submit.prevent="submitEdit" class="p-6">
-          <h2 class="text-lg font-medium text-gray-900">Edit Costing -- {{ editingRecipe.name }}</h2>
+          <h2 class="text-lg font-medium text-gray-900 dark:text-white">Edit Costing -- {{ editingRecipe.name }}</h2>
 
           <FormErrorSummary :errors="editForm.errors" class="mt-4" />
 
           <div class="mt-4">
-            <label class="block text-sm font-medium text-gray-700">Sell Price ($)</label>
-            <input v-model.number="editForm.sell_price" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Sell Price ($)</label>
+            <input v-model.number="editForm.sell_price" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
           </div>
 
           <div class="mt-4">
-            <label class="block text-sm font-medium text-gray-700">Fill Size (g)</label>
-            <input v-model.number="editForm.fill_size_g" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
-            <p class="mt-1 text-xs text-gray-500">Actual measured fill weight per jar, from production. Leave blank to use the theoretical ingredient-weight total instead.</p>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Fill Size (g)</label>
+            <input v-model.number="editForm.fill_size_g" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Actual measured fill weight per jar, from production. Leave blank to use the theoretical ingredient-weight total instead.</p>
           </div>
 
           <div class="mt-4">
-            <label class="block text-sm font-medium text-gray-700">Cost Buffer (%)</label>
-            <input v-model.number="editForm.cost_buffer_percent" type="number" min="0" max="100" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
-            <p class="mt-1 text-xs text-gray-500">Contingency added on top of ingredient cost, e.g. for price drift or over-portioning. Leave blank for none.</p>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Cost Buffer (%)</label>
+            <input v-model.number="editForm.cost_buffer_percent" type="number" min="0" max="100" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Contingency added on top of ingredient cost, e.g. for price drift or over-portioning. Leave blank for none.</p>
           </div>
 
-          <div class="mt-6 flex justify-end gap-3 pt-4 border-t border-gray-200">
-            <button type="button" @click="closeEditModal" class="bg-gray-200 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50">
+          <div class="mt-6 flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <button type="button" @click="closeEditModal" class="bg-gray-200 dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">
               Cancel
             </button>
             <button type="submit" :disabled="editForm.processing" class="bg-indigo-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">

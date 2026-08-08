@@ -159,6 +159,15 @@ class ProductionPlannerController extends Controller implements HasMiddleware
 
         $productionRun->recipes()->sync($this->syncData($validated['batches']));
 
+        // usePersistedForm's autosave also PUTs here while the user is
+        // still on this run's page and needs to stay put -- the index
+        // route redirects to whichever run is *latest*, which may not be
+        // this one, making the normal redirect actively wrong here, not
+        // just disruptive. Same "stay" pattern as the other controllers.
+        if ($request->boolean('stay')) {
+            return redirect()->back()->with('success', 'Production run updated.');
+        }
+
         return redirect()
             ->route('admin.costing.production-planner.index')
             ->with('success', 'Production run updated.');
@@ -174,11 +183,16 @@ class ProductionPlannerController extends Controller implements HasMiddleware
 
         abort_if($productionRun->completed_at, 422, 'This run has already been completed.');
 
-        $completeProductionRun->handle($productionRun);
+        $shortfalls = $completeProductionRun->handle($productionRun);
+
+        $message = 'Production run completed. Inventory has been updated.';
+        if ($shortfalls !== []) {
+            $message .= ' Ran short on: '.implode(', ', $shortfalls).'.';
+        }
 
         return redirect()
             ->route('admin.costing.production-planner.show', $productionRun)
-            ->with('success', 'Production run completed. Inventory has been updated.');
+            ->with($shortfalls === [] ? 'success' : 'warning', $message);
     }
 
     /**

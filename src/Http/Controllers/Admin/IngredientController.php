@@ -136,6 +136,15 @@ class IngredientController extends Controller implements HasMiddleware
 
         $ingredient->update($validated);
 
+        // Normally lands on the index -- this is the explicit Save button's
+        // primary action. But usePersistedForm's autosave also PUTs here in
+        // the background while the user is still on this page, and wants to
+        // stay put rather than get navigated away mid-edit -- same "stay"
+        // pattern as PriceHistoryController::store().
+        if ($request->boolean('stay')) {
+            return redirect()->back()->with('success', "Ingredient '{$ingredient->name}' updated.");
+        }
+
         return redirect()
             ->route('admin.costing.ingredients.index')
             ->with('success', "Ingredient '{$ingredient->name}' updated.");

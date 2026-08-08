@@ -41,7 +41,7 @@ class InventoryController extends Controller implements HasMiddleware
     {
         $this->authorize('viewAny', InventoryItem::class);
 
-        $ingredients = Ingredient::with('inventory', 'packageSizes')
+        $ingredients = Ingredient::with('packageSizes')
             ->orderBy('name')
             ->get()
             ->map(fn (Ingredient $ingredient) => [
@@ -51,7 +51,6 @@ class InventoryController extends Controller implements HasMiddleware
                 'unit_type' => $ingredient->unit_type,
                 'on_hand' => (float) $ingredient->packageSizes->sum('quantity_on_hand'),
                 'source_count' => $ingredient->packageSizes->count(),
-                'notes' => $ingredient->inventory->notes ?? null,
             ]);
 
         return Inertia::render('Vendor/costing/Inventory/Index', [
@@ -67,9 +66,11 @@ class InventoryController extends Controller implements HasMiddleware
      */
     public function sources(Ingredient $ingredient): JsonResponse
     {
+        // loadMissing BEFORE authorize -- route-model binding gives a bare
+        // Ingredient, and touching ->inventory unloaded throws under this
+        // app's Model::preventLazyLoading() outside production.
+        $ingredient->loadMissing('inventory', 'packageSizes');
         $this->authorize('view', $ingredient->inventory);
-
-        $ingredient->loadMissing('packageSizes');
 
         return response()->json([
             'sources' => $ingredient->packageSizes->map(fn (PackageSize $packageSize) => [
@@ -141,9 +142,12 @@ class InventoryController extends Controller implements HasMiddleware
         // inventory item is low" isn't scoped to one trigger.
         $checkIngredientLowStock->handle($ingredient, $ingredientOldOnHand, $ingredientNewOnHand);
 
-        return redirect()
-            ->route('admin.costing.inventory.index')
-            ->with('success', "Inventory for '{$ingredient->name}' updated.");
+        // back(), not a hardcoded index redirect -- StockAdjustModal calls
+        // this with preserveState so the modal survives the round-trip and
+        // several sources can be adjusted in one session (the previous
+        // index redirect force-remounted the page and closed the modal
+        // after every single mutation).
+        return redirect()->back()->with('success', "Inventory for '{$ingredient->name}' updated.");
     }
 
     /**
@@ -169,8 +173,12 @@ class InventoryController extends Controller implements HasMiddleware
         $name = $packageSize->brand ? "{$packageSize->provider} — {$packageSize->brand}" : $packageSize->provider;
         $packageSize->delete();
 
-        return redirect()
-            ->route('admin.costing.inventory.index')
+        // back(), not a hardcoded index redirect -- this is called from
+        // StockAdjustModal (Inventory), but also from SourcesTable, which
+        // is embedded on Ingredients/Edit and inside AvailablePricesModal
+        // on both the Ingredients list and Recipes/Edit. The old hardcoded
+        // redirect threw all three of those onto the Inventory page.
+        return redirect()->back()
             ->with('success', "Removed '{$name}' as a source for '{$ingredient->name}'.");
     }
 
@@ -208,7 +216,7 @@ class InventoryController extends Controller implements HasMiddleware
             // bulk update is normally one shopping trip or one correction
             // pass, so that's the right grain, not forcing the same detail
             // to be typed once per ingredient.
-            'reason' => ['required_if:mode,adjust', 'nullable', Rule::in(['received', 'correction'])],
+            'reason' => ['required_if:mode,adjust', 'nullable', Rule::in(InventoryAdjustment::USER_SELECTABLE_REASONS)],
             'notes' => ['nullable', 'string', 'max:255'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.ingredient_id' => ['required', 'distinct', 'exists:costing_ingredients,id'],
@@ -218,8 +226,9 @@ class InventoryController extends Controller implements HasMiddleware
         $reason = $validated['mode'] === 'recount' ? 'recount' : $validated['reason'];
 
         $skipped = [];
+        $clamped = [];
 
-        DB::transaction(function () use ($validated, $reason, $checkIngredientLowStock, $recordInventoryAdjustment, $request, &$skipped) {
+        DB::transaction(function () use ($validated, $reason, $checkIngredientLowStock, $recordInventoryAdjustment, $request, &$skipped, &$clamped) {
             foreach ($validated['items'] as $item) {
                 $ingredient = Ingredient::with('inventory', 'packageSizes')->find($item['ingredient_id']);
 
@@ -237,9 +246,48 @@ class InventoryController extends Controller implements HasMiddleware
                 $ingredientOldOnHand = (float) $ingredient->inventory->on_hand;
                 $sourceOldOnHand = (float) $packageSize->quantity_on_hand;
 
-                $sourceNewOnHand = $validated['mode'] === 'adjust'
-                    ? max(0, $sourceOldOnHand + (float) $item['quantity'])
-                    : (float) $item['quantity'];
+                if ($validated['mode'] === 'recount') {
+                    // A recount is a physical count of everything on hand
+                    // for this ingredient, not just its preferred source --
+                    // zero every other source first (each logged in its own
+                    // right) so the ingredient's total actually equals what
+                    // was entered, rather than entered + whatever was still
+                    // sitting on other sources.
+                    foreach ($ingredient->packageSizes as $otherSource) {
+                        if ($otherSource->id === $packageSize->id) {
+                            continue;
+                        }
+
+                        $otherOldOnHand = (float) $otherSource->quantity_on_hand;
+                        if ($otherOldOnHand <= 0) {
+                            continue;
+                        }
+
+                        $otherSource->update(['quantity_on_hand' => 0]);
+                        $recordInventoryAdjustment->handle(
+                            packageSize: $otherSource,
+                            reason: 'recount',
+                            onHandBefore: $otherOldOnHand,
+                            onHandAfter: 0,
+                            notes: $validated['notes'] ?? null,
+                            userId: $request->user()?->id,
+                        );
+                    }
+                }
+
+                if ($validated['mode'] === 'adjust') {
+                    $rawNewOnHand = $sourceOldOnHand + (float) $item['quantity'];
+                    $sourceNewOnHand = max(0, $rawNewOnHand);
+                    if ($rawNewOnHand < 0) {
+                        // A subtract larger than what's on hand floors at 0
+                        // rather than going negative -- the excess is real
+                        // information (the correction was bigger than the
+                        // recorded stock), so it's reported, not discarded.
+                        $clamped[] = sprintf('%s (by %s)', $ingredient->name, rtrim(rtrim(number_format(abs($rawNewOnHand), 2), '0'), '.'));
+                    }
+                } else {
+                    $sourceNewOnHand = (float) $item['quantity'];
+                }
 
                 $packageSize->update(['quantity_on_hand' => $sourceNewOnHand]);
 
@@ -252,7 +300,12 @@ class InventoryController extends Controller implements HasMiddleware
                     userId: $request->user()?->id,
                 );
 
-                $ingredientNewOnHand = $ingredientOldOnHand + ($sourceNewOnHand - $sourceOldOnHand);
+                // Recount zeroes every other source, so the ingredient's new
+                // total is exactly what was entered -- not the old total
+                // plus the one target source's delta.
+                $ingredientNewOnHand = $validated['mode'] === 'recount'
+                    ? $sourceNewOnHand
+                    : $ingredientOldOnHand + ($sourceNewOnHand - $sourceOldOnHand);
 
                 $checkIngredientLowStock->handle($ingredient, $ingredientOldOnHand, $ingredientNewOnHand);
             }
@@ -266,6 +319,10 @@ class InventoryController extends Controller implements HasMiddleware
 
         if ($skipped !== []) {
             $message .= ' Skipped (no source on file yet): '.implode(', ', $skipped).'.';
+        }
+
+        if ($clamped !== []) {
+            $message .= ' Floored at 0, correction exceeded stock: '.implode(', ', $clamped).'.';
         }
 
         return redirect()

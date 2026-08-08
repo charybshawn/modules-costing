@@ -4,7 +4,8 @@ namespace Cultpantry\Costing\Http\Controllers\Admin;
 
 use App\Actions\GetSiteSetting;
 use App\Http\Controllers\Controller;
-use Cultpantry\Costing\Models\PriceHistoryEntry;
+use Cultpantry\Costing\Actions\CalculateIngredientCosting;
+use Cultpantry\Costing\Models\Ingredient;
 use Cultpantry\Costing\Models\ProductionRun;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
@@ -33,21 +34,18 @@ class DashboardController extends Controller implements HasMiddleware
         ];
     }
 
-    public function index(): Response
+    public function index(CalculateIngredientCosting $calculateIngredientCosting): Response
     {
-        $this->authorize('viewAny', PriceHistoryEntry::class);
+        $this->authorize('viewAny', Ingredient::class);
         $this->authorize('viewAny', ProductionRun::class);
 
-        $cutoff = now()->subDays(7)->startOfDay();
-
-        // Same "needs an update" definition PriceHistoryController::index()
-        // uses: only the latest logged price per ingredient/provider/brand
-        // counts, and only if it's stale.
-        $stalePriceCount = PriceHistoryEntry::all()
-            ->sortByDesc(fn (PriceHistoryEntry $entry) => sprintf('%010d-%010d', $entry->purchased_at?->timestamp ?? 0, $entry->id))
-            ->groupBy(fn (PriceHistoryEntry $entry) => $entry->ingredient_id.'||'.$entry->provider.'||'.($entry->brand ?? ''))
-            ->map(fn ($group) => $group->first())
-            ->filter(fn (PriceHistoryEntry $entry) => $entry->purchased_at === null || $entry->purchased_at->lt($cutoff))
+        // Same "needs an update" definition the Ingredients page uses: an
+        // ingredient counts whether its latest price is stale OR it's never
+        // been priced at all -- not just a count of stale PriceHistoryEntry
+        // rows, which silently ignored ingredients with zero price history.
+        $stalePriceCount = Ingredient::with('priceHistory.ingredient', 'inventory', 'packageSizes')
+            ->get()
+            ->filter(fn (Ingredient $ingredient) => $calculateIngredientCosting->handle($ingredient)['status'] !== 'ok')
             ->count();
 
         $plannedRunCount = ProductionRun::whereNull('completed_at')->count();

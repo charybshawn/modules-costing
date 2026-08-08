@@ -82,7 +82,7 @@ const cards = computed(() => [
   {
     label: 'Log a Purchase',
     description: 'Bought ingredients at the store? Add the received stock.',
-    href: route('admin.costing.inventory.index'),
+    href: route('admin.costing.inventory.index', { open_bulk: 1 }),
     icon: 'M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z',
     tileClass: 'bg-emerald-100 dark:bg-emerald-900/40 group-hover:bg-emerald-200 dark:group-hover:bg-emerald-900/60',
     iconClass: 'text-emerald-700 dark:text-emerald-300',

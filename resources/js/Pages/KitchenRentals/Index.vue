@@ -30,7 +30,7 @@
                 type="file"
                 accept=".csv,text/csv"
                 @change="handleFileChange"
-                class="mt-1 block w-full text-sm text-gray-700 dark:text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 dark:file:bg-indigo-900/40 dark:file:text-indigo-300 hover:file:bg-indigo-100"
+                class="mt-1 block w-full text-sm text-gray-700 dark:text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 dark:file:bg-indigo-900/40 dark:file:text-indigo-300 hover:file:bg-indigo-100 dark:hover:file:bg-indigo-900/70"
               />
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Re-importing an updated export safely updates existing slots instead of duplicating them.</p>
             </div>
@@ -57,6 +57,8 @@
           searchable
           search-placeholder="Search rental slots..."
           empty-message="No rental slots imported yet."
+          empty-action-label="Plan a run without a slot instead"
+          :empty-action-href="route('admin.costing.production-planner.create')"
           table-id="costing-kitchen-rentals"
           item-key="id"
           @action="handleAction"
@@ -84,11 +86,15 @@
             <select
               :value="item.status ?? ''"
               @change="updateStatus(item, ($event.target as HTMLSelectElement).value)"
-              :class="[statusColor(item.status), 'appearance-none rounded-full pl-2 pr-1.5 py-0.5 text-xs font-medium border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400']"
+              :class="[statusColor(item.status), 'appearance-none rounded-full pl-2 pr-1.5 py-1 text-sm font-medium border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400']"
             >
-              <option v-if="!item.status" value="" disabled>—</option>
-              <option v-for="opt in statusOptionsFor(item)" :key="opt" :value="opt">{{ opt }}</option>
+              <option v-if="!item.status" value="" disabled class="bg-white text-gray-900">—</option>
+              <option v-for="opt in statusOptionsFor(item)" :key="opt" :value="opt" class="bg-white text-gray-900">{{ opt }}</option>
             </select>
+          </template>
+          <template #cell-booking_title="{ item }">
+            <div class="text-sm font-medium text-gray-900 dark:text-white">{{ item.booking_title }}</div>
+            <div v-if="item.venue_name" class="text-xs text-gray-500 dark:text-gray-400">{{ item.venue_name }}</div>
           </template>
           <template #cell-plan="{ item }">
             <span v-if="item.production_run_id" class="text-sm text-gray-900 dark:text-white">{{ item.production_run_name ?? '—' }}</span>
@@ -223,10 +229,22 @@ const statusOptionsFor = (item: KitchenRentalRow) =>
   item.status && !STATUS_OPTIONS.includes(item.status) ? [item.status, ...STATUS_OPTIONS] : STATUS_OPTIONS
 
 const updateStatus = (item: KitchenRentalRow, status: string) => {
-  router.post(route('admin.costing.kitchen-rentals.update-status', item.id), { status }, { preserveScroll: true })
+  router.post(
+    route('admin.costing.kitchen-rentals.update-status', item.id),
+    { status },
+    {
+      preserveScroll: true,
+      // A legacy status from an older CSV format (injected into this row's
+      // options by statusOptionsFor above so it's still visible/selectable)
+      // isn't a member of KitchenRental::STATUSES, so re-submitting it 422s
+      // server-side -- without this, that failure was silently swallowed.
+      onError: (errors) => alert(errors.status ?? 'Could not update status.'),
+    },
+  )
 }
 
 const columns: Column[] = [
+  { key: 'booking_title', label: 'Booking', sortable: true, filterable: true },
   { key: 'starts_at', label: 'Booked Time', sortable: true },
   { key: 'space_name', label: 'Space', sortable: true, filterable: true },
   { key: 'equipment_names', label: 'Equipment' },
@@ -267,11 +285,22 @@ const tableActions: Action[] = [
     show: (item) => !!item.production_run_id,
     href: (item) => route('admin.costing.production-planner.show', item.production_run_id),
   },
+  {
+    name: 'unlink-plan',
+    icon: 'cancel',
+    color: 'red',
+    label: 'Unlink Run',
+    show: (item) => !!item.production_run_id,
+  },
 ]
 
 const handleAction = (action: string, item: KitchenRentalRow) => {
   if (action === 'create-plan') {
     router.post(route('admin.costing.kitchen-rentals.create-run', item.id))
+  } else if (action === 'unlink-plan') {
+    if (confirm(`Unlink "${item.booking_title}" from its production run? The run itself is not affected.`)) {
+      router.post(route('admin.costing.kitchen-rentals.detach-run', item.id), {}, { preserveScroll: true })
+    }
   }
 }
 </script>

@@ -16,7 +16,7 @@
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Name *</label>
             <input v-model="form.name" type="text" required class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="e.g. Cream Cheese" />
-            <p v-if="form.errors.name" class="mt-1 text-sm text-red-600">{{ form.errors.name }}</p>
+            <p v-if="form.errors.name" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.name }}</p>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -40,7 +40,7 @@
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Waste % *</label>
             <input v-model.number="form.waste_percent" type="number" min="1" max="100" step="0.01" required class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">100 = no waste, 95 = 5% trim loss.</p>
-            <p v-if="form.errors.waste_percent" class="mt-1 text-sm text-red-600">{{ form.errors.waste_percent }}</p>
+            <p v-if="form.errors.waste_percent" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.waste_percent }}</p>
           </div>
 
           <p class="text-sm text-gray-500 dark:text-gray-400 rounded-md bg-gray-50 dark:bg-gray-700/50 p-3">
@@ -51,7 +51,7 @@
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Low Stock Threshold</label>
             <input v-model.number="form.low_stock_threshold" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="e.g. 500" />
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Notify admins when on-hand stock drops to or below this amount (same unit as above). Leave blank to disable alerts for this ingredient.</p>
-            <p v-if="form.errors.low_stock_threshold" class="mt-1 text-sm text-red-600">{{ form.errors.low_stock_threshold }}</p>
+            <p v-if="form.errors.low_stock_threshold" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.low_stock_threshold }}</p>
           </div>
 
           <div>

@@ -1,36 +1,36 @@
 <template>
   <Modal :show="props.ingredient !== null" max-width="lg" @close="$emit('close')">
     <div v-if="props.ingredient" class="p-6">
-      <h2 class="text-lg font-medium text-gray-900">Stock -- {{ props.ingredient.name }}</h2>
-      <p class="mt-1 text-sm text-gray-500">
+      <h2 class="text-lg font-medium text-gray-900 dark:text-white">Stock -- {{ props.ingredient.name }}</h2>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
         On Hand: <span class="font-semibold">{{ fmt(totalOnHand) }}</span>
       </p>
 
-      <div v-if="loadingSources" class="mt-6 text-sm text-gray-500">Loading...</div>
-      <p v-else-if="sources.length === 0" class="mt-6 text-sm text-gray-500">No sources yet -- add one below.</p>
-      <ul v-else class="mt-4 divide-y divide-gray-200 max-h-[28rem] overflow-y-auto">
+      <div v-if="loadingSources" class="mt-6 text-sm text-gray-500 dark:text-gray-400">Loading...</div>
+      <p v-else-if="sources.length === 0" class="mt-6 text-sm text-gray-500 dark:text-gray-400">No sources yet -- add one below.</p>
+      <ul v-else class="mt-4 divide-y divide-gray-200 dark:divide-gray-700 max-h-[28rem] overflow-y-auto">
         <li v-for="source in sources" :key="source.id" class="py-3">
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0 flex-1">
-              <div class="text-sm font-medium text-gray-900 flex items-center gap-1.5">
+              <div class="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-1.5">
                 {{ source.provider }}<span v-if="source.brand"> — {{ source.brand }}</span>
                 <button
                   type="button"
                   @click="deleteSource(source)"
                   :disabled="source.quantity_on_hand > 0"
-                  class="text-gray-300 hover:text-red-600 disabled:opacity-40 disabled:hover:text-gray-300"
+                  class="text-gray-300 dark:text-gray-600 hover:text-red-600 dark:hover:text-red-400 disabled:opacity-40 disabled:hover:text-gray-300 dark:disabled:hover:text-gray-600"
                   :title="source.quantity_on_hand > 0 ? 'Recount to 0 first, then remove' : 'Remove this source'"
                 >
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                 </button>
               </div>
 
-              <div v-if="recountKey !== source.id" class="text-sm text-gray-500">
+              <div v-if="recountKey !== source.id" class="text-sm text-gray-500 dark:text-gray-400">
                 {{ formatPackages(source.packages) }} × {{ fmt(source.package_size) }} = {{ fmt(source.quantity_on_hand) }}
-                <button type="button" @click="startRecount(source)" class="ml-1 font-medium text-indigo-600 hover:text-indigo-800">Recount</button>
+                <button type="button" @click="startRecount(source)" class="ml-1 font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">Recount</button>
               </div>
               <div v-else class="mt-1 flex items-center gap-1.5">
-                <span class="text-xs text-gray-500">Packages of {{ fmt(source.package_size) }}</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">Packages of {{ fmt(source.package_size) }}</span>
                 <input
                   v-model.number="recountPackages"
                   type="number"
@@ -39,25 +39,25 @@
                   step="0.01"
                   autofocus
                   :disabled="recountSaving"
-                  class="w-24 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                  class="w-24 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
                   @keyup.enter="saveRecount(source)"
                   @keyup.esc="cancelRecount"
                 />
-                <button type="button" @click="saveRecount(source)" :disabled="recountSaving" class="text-green-600 hover:text-green-800 disabled:opacity-40" title="Save">
+                <button type="button" @click="saveRecount(source)" :disabled="recountSaving" class="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 disabled:opacity-40" title="Save">
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
                 </button>
-                <button type="button" @click="cancelRecount" :disabled="recountSaving" class="text-gray-400 hover:text-gray-600 disabled:opacity-40" title="Cancel">
+                <button type="button" @click="cancelRecount" :disabled="recountSaving" class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-40" title="Cancel">
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
-              <p v-if="recountKey === source.id && recountError" class="mt-1 text-xs text-red-600">{{ recountError }}</p>
+              <p v-if="recountKey === source.id && recountError" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ recountError }}</p>
             </div>
 
             <div class="flex-shrink-0 flex items-center gap-2">
               <button
                 type="button"
                 @click="startQuickAdjust(source, 'subtract')"
-                class="w-10 h-10 flex items-center justify-center rounded-full border border-gray-300 text-gray-600 text-xl font-medium hover:bg-gray-50 active:bg-gray-100"
+                class="w-10 h-10 flex items-center justify-center rounded-full border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-xl font-medium hover:bg-gray-50 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-600"
                 title="Subtract packages"
               >
                 −
@@ -65,7 +65,7 @@
               <button
                 type="button"
                 @click="startQuickAdjust(source, 'add')"
-                class="w-10 h-10 flex items-center justify-center rounded-full border border-gray-300 text-gray-600 text-xl font-medium hover:bg-gray-50 active:bg-gray-100"
+                class="w-10 h-10 flex items-center justify-center rounded-full border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-xl font-medium hover:bg-gray-50 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-600"
                 title="Add packages"
               >
                 +
@@ -74,32 +74,32 @@
           </div>
 
           <!-- Quick adjust stepper -->
-          <div v-if="quickAdjustKey === source.id" class="mt-3 rounded-md bg-gray-50 p-3 space-y-2">
-            <p class="text-sm text-gray-700">
+          <div v-if="quickAdjustKey === source.id" class="mt-3 rounded-md bg-gray-50 dark:bg-gray-700/50 p-3 space-y-2">
+            <p class="text-sm text-gray-700 dark:text-gray-300">
               {{ quickAdjustDirection === 'add' ? 'Add' : 'Subtract' }} how many packages of {{ fmt(source.package_size) }}?
             </p>
             <div class="flex items-center gap-3">
-              <button type="button" @click="quickAdjustPackages = Math.max(0, quickAdjustPackages - 1)" class="w-10 h-10 flex items-center justify-center rounded-full border border-gray-300 text-lg hover:bg-gray-100">−</button>
+              <button type="button" @click="quickAdjustPackages = Math.max(0, quickAdjustPackages - 1)" class="w-10 h-10 flex items-center justify-center rounded-full border border-gray-300 dark:border-gray-600 text-lg dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600">−</button>
               <input
                 v-model.number="quickAdjustPackages"
                 type="number"
                 inputmode="decimal"
                 min="0"
                 step="1"
-                class="w-16 text-center rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-lg"
+                class="w-16 text-center rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-lg"
               />
-              <button type="button" @click="quickAdjustPackages = quickAdjustPackages + 1" class="w-10 h-10 flex items-center justify-center rounded-full border border-gray-300 text-lg hover:bg-gray-100">+</button>
-              <span class="text-sm text-gray-500">= {{ fmt(quickAdjustPackages * source.package_size) }}</span>
+              <button type="button" @click="quickAdjustPackages = quickAdjustPackages + 1" class="w-10 h-10 flex items-center justify-center rounded-full border border-gray-300 dark:border-gray-600 text-lg dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600">+</button>
+              <span class="text-sm text-gray-500 dark:text-gray-400">= {{ fmt(quickAdjustPackages * source.package_size) }}</span>
             </div>
             <input
               v-model="quickAdjustNotes"
               type="text"
               placeholder="Detail (optional) -- e.g. GFS shipment, found spoiled"
-              class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+              class="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
             />
-            <p v-if="quickAdjustError" class="text-xs text-red-600">{{ quickAdjustError }}</p>
+            <p v-if="quickAdjustError" class="text-xs text-red-600 dark:text-red-400">{{ quickAdjustError }}</p>
             <div class="flex justify-end gap-2 pt-1">
-              <button type="button" @click="cancelQuickAdjust" :disabled="quickAdjustSaving" class="py-1.5 px-3 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40">
+              <button type="button" @click="cancelQuickAdjust" :disabled="quickAdjustSaving" class="py-1.5 px-3 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40">
                 Cancel
               </button>
               <button
@@ -116,29 +116,29 @@
         </li>
       </ul>
 
-      <div v-if="!loadingSources" class="mt-4 border-t border-gray-200 pt-4">
-        <button v-if="!addingSource" type="button" @click="startAddSource" class="text-sm font-medium text-indigo-600 hover:text-indigo-800">
+      <div v-if="!loadingSources" class="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4">
+        <button v-if="!addingSource" type="button" @click="startAddSource" class="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">
           + Add a source
         </button>
         <div v-else class="space-y-2">
-          <div class="grid grid-cols-2 gap-2">
-            <input v-model="newSourceProvider" type="text" placeholder="Provider (e.g. GFS)" autofocus class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
-            <input v-model="newSourceBrand" type="text" placeholder="Brand (optional)" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <input v-model="newSourceProvider" type="text" placeholder="Provider (e.g. GFS)" autofocus class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+            <input v-model="newSourceBrand" type="text" placeholder="Brand (optional)" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
           </div>
           <div class="flex items-center gap-2">
-            <input v-model.number="newSourceSize" type="number" inputmode="decimal" min="0.01" step="0.01" :placeholder="`Package size (${baseUnitLabel})`" class="w-40 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+            <input v-model.number="newSourceSize" type="number" inputmode="decimal" min="0.01" step="0.01" :placeholder="`Package size (${baseUnitLabel})`" class="w-full sm:w-40 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
             <button type="button" @click="saveNewSource" :disabled="addSourceSaving || !newSourceProvider || !newSourceSize" class="py-1.5 px-4 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40">
               <span v-if="addSourceSaving">Saving...</span>
               <span v-else>Add</span>
             </button>
-            <button type="button" @click="cancelAddSource" :disabled="addSourceSaving" class="text-sm font-medium text-gray-500 hover:text-gray-700">Cancel</button>
+            <button type="button" @click="cancelAddSource" :disabled="addSourceSaving" class="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">Cancel</button>
           </div>
-          <p v-if="addSourceError" class="text-xs text-red-600">{{ addSourceError }}</p>
+          <p v-if="addSourceError" class="text-xs text-red-600 dark:text-red-400">{{ addSourceError }}</p>
         </div>
       </div>
 
-      <div class="mt-6 flex items-center justify-end pt-4 border-t border-gray-200">
-        <button type="button" @click="$emit('close')" class="bg-gray-200 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50">
+      <div class="mt-6 flex items-center justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
+        <button type="button" @click="$emit('close')" class="bg-gray-200 dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">
           Close
         </button>
       </div>
@@ -239,6 +239,7 @@ const saveRecount = (source: Source) => {
     { mode: 'recount', packages: recountPackages.value, direction: null, notes: null },
     {
       preserveScroll: true,
+      preserveState: true,
       onSuccess: () => {
         cancelRecount()
         fetchSources(ingredientId)
@@ -264,6 +265,7 @@ const deleteSource = (source: Source) => {
   const ingredientId = props.ingredient.id
   router.delete(route('admin.costing.inventory.sources.destroy', [ingredientId, source.id]), {
     preserveScroll: true,
+    preserveState: true,
     onSuccess: () => fetchSources(ingredientId),
   })
 }
@@ -309,6 +311,7 @@ const saveQuickAdjust = (source: Source) => {
     },
     {
       preserveScroll: true,
+      preserveState: true,
       onSuccess: () => {
         cancelQuickAdjust()
         fetchSources(ingredientId)
@@ -358,6 +361,7 @@ const saveNewSource = () => {
     { provider: newSourceProvider.value, brand: newSourceBrand.value || null, package_size: newSourceSize.value },
     {
       preserveScroll: true,
+      preserveState: true,
       onSuccess: () => {
         cancelAddSource()
         fetchSources(ingredientId)

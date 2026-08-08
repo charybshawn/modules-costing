@@ -23,7 +23,7 @@
               <option value="">Select ingredient</option>
               <option v-for="ingredient in ingredients" :key="ingredient.id" :value="ingredient.id">{{ ingredient.name }}</option>
             </select>
-            <p v-if="form.errors.ingredient_id" class="mt-1 text-sm text-red-600">{{ form.errors.ingredient_id }}</p>
+            <p v-if="form.errors.ingredient_id" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.ingredient_id }}</p>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -38,23 +38,23 @@
                   <option value="">{{ form.ingredient_id ? 'Select a source' : 'Select an ingredient first' }}</option>
                   <option v-for="source in sources" :key="source.id" :value="source.id">{{ sourceLabel(source) }}</option>
                 </select>
-                <button type="button" @click="startAddSource" :disabled="!form.ingredient_id" class="mt-1 text-sm font-medium text-indigo-600 hover:text-indigo-800 disabled:opacity-40 disabled:cursor-not-allowed">+ Add new source</button>
-                <p v-if="form.errors.package_size_id" class="mt-1 text-sm text-red-600">{{ form.errors.package_size_id }}</p>
+                <button type="button" @click="startAddSource" :disabled="!form.ingredient_id" class="mt-1 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 disabled:opacity-40 disabled:cursor-not-allowed">+ Add new source</button>
+                <p v-if="form.errors.package_size_id" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.package_size_id }}</p>
               </div>
               <div v-else class="mt-1 space-y-2">
-                <div class="grid grid-cols-2 gap-2">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <input v-model="newSourceProvider" type="text" placeholder="Provider (e.g. GFS)" autofocus class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
                   <input v-model="newSourceBrand" type="text" placeholder="Brand (optional)" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
                 </div>
                 <div class="flex items-center gap-2">
-                  <input v-model.number="newSourceSize" type="number" min="0.01" step="0.01" placeholder="Package size" class="w-40 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+                  <input v-model.number="newSourceSize" type="number" min="0.01" step="0.01" placeholder="Package size" class="w-full sm:w-40 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
                   <button type="button" @click="saveNewSource" :disabled="addSourceSaving || !newSourceProvider || !newSourceSize" class="py-1.5 px-4 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40">
                     <span v-if="addSourceSaving">Saving...</span>
                     <span v-else>Add</span>
                   </button>
-                  <button type="button" @click="cancelAddSource" :disabled="addSourceSaving" class="text-sm font-medium text-gray-500 hover:text-gray-700">Cancel</button>
+                  <button type="button" @click="cancelAddSource" :disabled="addSourceSaving" class="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">Cancel</button>
                 </div>
-                <p v-if="addSourceError" class="text-xs text-red-600">{{ addSourceError }}</p>
+                <p v-if="addSourceError" class="text-xs text-red-600 dark:text-red-400">{{ addSourceError }}</p>
               </div>
             </div>
           </div>

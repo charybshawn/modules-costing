@@ -9,7 +9,7 @@
             Log every wholesaler you check, even if you don't buy. Only entries from the last 7 days count toward an ingredient's current price.
           </p>
         </div>
-        <div class="mt-4 md:mt-0 flex gap-2">
+        <div class="mt-4 md:mt-0 flex flex-wrap gap-2">
           <Link :href="route('admin.costing.ingredients.index')" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
             Ingredients
           </Link>
@@ -66,7 +66,7 @@
               ${{ Number(item.price_per_unit).toFixed(2) }}
               <span v-if="item.price_per_100g !== null" class="font-normal text-gray-500 dark:text-gray-400">(${{ Number(item.price_per_100g).toFixed(2) }}/100g)</span>
             </span>
-            <span v-else class="text-sm text-red-500 italic">incomplete</span>
+            <span v-else class="text-sm text-red-500 dark:text-red-400 italic">incomplete</span>
           </template>
         </DataTable>
       </div>

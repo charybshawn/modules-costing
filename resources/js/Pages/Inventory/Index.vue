@@ -9,7 +9,7 @@
             Current stock on hand. Update before each production run -- the Production Planner deducts from these amounts.
           </p>
         </div>
-        <div class="mt-4 md:mt-0 flex gap-2">
+        <div class="mt-4 md:mt-0 flex flex-wrap gap-2">
           <button
             type="button"
             @click="openBulkModal"
@@ -65,36 +65,36 @@
       <!-- Bulk Update Stock modal -->
       <Modal :show="showBulkModal" max-width="2xl" @close="closeBulkModal">
         <form @submit.prevent="submitBulk" class="p-6">
-          <h2 class="text-lg font-medium text-gray-900">Bulk Update Stock</h2>
-          <p class="mt-1 text-sm text-gray-500">Update several ingredients' stock in one go.</p>
+          <h2 class="text-lg font-medium text-gray-900 dark:text-white">Bulk Update Stock</h2>
+          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Update several ingredients' stock in one go.</p>
 
           <FormErrorSummary :errors="bulkForm.errors" class="mt-4" />
 
           <div class="mt-4">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Mode</label>
-            <div class="grid grid-cols-2 gap-3">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Mode</label>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label
                 :class="[
                   'relative flex cursor-pointer rounded-lg border p-3 focus:outline-none',
-                  bulkForm.mode === 'adjust' ? 'border-indigo-600 ring-1 ring-indigo-600 bg-indigo-50' : 'border-gray-300'
+                  bulkForm.mode === 'adjust' ? 'border-indigo-600 ring-1 ring-indigo-600 bg-indigo-50 dark:bg-indigo-900/30' : 'border-gray-300 dark:border-gray-600'
                 ]"
               >
                 <input v-model="bulkForm.mode" type="radio" value="adjust" class="sr-only" />
                 <div>
-                  <span class="block text-sm font-medium text-gray-900">Adjust</span>
-                  <span class="block text-xs text-gray-500">Adds to or subtracts from current stock (received, correction, spoilage).</span>
+                  <span class="block text-sm font-medium text-gray-900 dark:text-white">Adjust</span>
+                  <span class="block text-xs text-gray-500 dark:text-gray-400">Adds to or subtracts from current stock (received, correction, spoilage).</span>
                 </div>
               </label>
               <label
                 :class="[
                   'relative flex cursor-pointer rounded-lg border p-3 focus:outline-none',
-                  bulkForm.mode === 'recount' ? 'border-indigo-600 ring-1 ring-indigo-600 bg-indigo-50' : 'border-gray-300'
+                  bulkForm.mode === 'recount' ? 'border-indigo-600 ring-1 ring-indigo-600 bg-indigo-50 dark:bg-indigo-900/30' : 'border-gray-300 dark:border-gray-600'
                 ]"
               >
                 <input v-model="bulkForm.mode" type="radio" value="recount" class="sr-only" />
                 <div>
-                  <span class="block text-sm font-medium text-gray-900">Inventory Recount</span>
-                  <span class="block text-xs text-gray-500">Replaces current stock with the entered amount (a physical count).</span>
+                  <span class="block text-sm font-medium text-gray-900 dark:text-white">Inventory Recount</span>
+                  <span class="block text-xs text-gray-500 dark:text-gray-400">Replaces current stock with the entered amount (a physical count).</span>
                 </div>
               </label>
             </div>
@@ -102,24 +102,24 @@
 
           <div v-if="bulkForm.mode === 'adjust'" class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700">Reason</label>
-              <select v-model="bulkForm.reason" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Reason</label>
+              <select v-model="bulkForm.reason" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
                 <option value="received">Stock received (bought more)</option>
                 <option value="correction">Correction (mistake, spoilage, shrinkage)</option>
               </select>
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700">Notes (optional, applies to whole batch)</label>
-              <input v-model="bulkForm.notes" type="text" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" placeholder="e.g. Weekly shopping run" />
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Notes (optional, applies to whole batch)</label>
+              <input v-model="bulkForm.notes" type="text" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" placeholder="e.g. Weekly shopping run" />
             </div>
           </div>
 
           <div class="mt-4 space-y-3 max-h-80 overflow-y-auto">
-            <div v-for="(row, index) in bulkForm.items" :key="index" class="flex items-center gap-3">
+            <div v-for="(row, index) in bulkForm.items" :key="index" class="flex flex-wrap items-center gap-3">
               <select
                 v-model.number="row.ingredient_id"
                 required
-                class="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                class="flex-1 min-w-[10rem] rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
               >
                 <option :value="null" disabled>Select an ingredient&hellip;</option>
                 <option
@@ -127,7 +127,7 @@
                   :key="ingredient.ingredient_id"
                   :value="ingredient.ingredient_id"
                 >
-                  {{ ingredient.name }} ({{ formatQuantity(ingredient.on_hand, ingredient.unit_type) }} on hand)
+                  {{ ingredient.name }} ({{ formatQuantity(ingredient.on_hand, ingredient.unit_type) }} on hand){{ ingredient.source_count === 0 ? ' -- no sources yet' : '' }}
                 </option>
               </select>
               <input
@@ -137,13 +137,13 @@
                 step="0.01"
                 required
                 :placeholder="bulkForm.mode === 'adjust' ? 'Qty (+/-)' : 'New count'"
-                class="w-32 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                class="w-full sm:w-32 flex-1 sm:flex-none min-w-0 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
               />
               <button
                 type="button"
                 @click="removeRow(index)"
                 :disabled="bulkForm.items.length === 1"
-                class="text-gray-400 hover:text-red-600 disabled:opacity-30 disabled:hover:text-gray-400"
+                class="text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 disabled:opacity-30 disabled:hover:text-gray-400 dark:disabled:hover:text-gray-500"
               >
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -156,13 +156,13 @@
             type="button"
             @click="addRow"
             :disabled="bulkForm.items.length >= ingredients.length"
-            class="mt-3 text-sm font-medium text-indigo-600 hover:text-indigo-800 disabled:opacity-40 disabled:hover:text-indigo-600"
+            class="mt-3 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 disabled:opacity-40 disabled:hover:text-indigo-600 dark:disabled:hover:text-indigo-400"
           >
             + Add another ingredient
           </button>
 
-          <div class="mt-6 flex justify-end gap-3 pt-4 border-t border-gray-200">
-            <button type="button" @click="closeBulkModal" class="bg-gray-200 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50">
+          <div class="mt-6 flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <button type="button" @click="closeBulkModal" class="bg-gray-200 dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">
               Cancel
             </button>
             <button type="submit" :disabled="bulkForm.processing" class="bg-indigo-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
@@ -177,7 +177,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { Link, router, useForm } from '@inertiajs/vue3'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import DataTable, { type Column } from '@/Components/Admin/DataTable.vue'
@@ -196,7 +196,6 @@ interface InventoryRow {
   unit_type: 'g' | 'unit'
   on_hand: number
   source_count: number
-  notes: string | null
 }
 
 interface Props {
@@ -251,6 +250,14 @@ const openBulkModal = () => {
 const closeBulkModal = () => {
   showBulkModal.value = false
 }
+
+// Dashboard's "Log a Purchase" card deep-links here with ?open_bulk=1 --
+// the bulk form already defaults to adjust/received, exactly that flow.
+onMounted(() => {
+  if (new URLSearchParams(window.location.search).get('open_bulk') === '1') {
+    openBulkModal()
+  }
+})
 
 const addRow = () => {
   bulkForm.items.push({ ingredient_id: null, quantity: null })

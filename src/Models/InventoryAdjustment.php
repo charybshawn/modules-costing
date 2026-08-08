@@ -36,6 +36,11 @@ class InventoryAdjustment extends Model
 {
     public const REASONS = ['recount', 'received', 'correction', 'production_run'];
 
+    // The subset a user actually picks from a reason dropdown -- 'recount'
+    // and 'production_run' are always derived by the system (recount mode,
+    // CompleteProductionRun), never typed in directly.
+    public const USER_SELECTABLE_REASONS = ['received', 'correction'];
+
     protected $table = 'costing_inventory_adjustments';
 
     protected $fillable = [

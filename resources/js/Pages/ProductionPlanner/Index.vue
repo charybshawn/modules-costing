@@ -9,6 +9,7 @@
             <span v-if="productionRun?.completed_at" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
               Completed {{ productionRun.completed_at }}
             </span>
+            <SaveIndicator :processing="form.processing" :recently-successful="form.recentlySuccessful" />
           </h1>
           <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
             <template v-if="productionRun?.completed_at">
@@ -19,7 +20,7 @@
             </template>
           </p>
         </div>
-        <div class="mt-4 md:mt-0 flex gap-2">
+        <div class="mt-4 md:mt-0 flex flex-wrap gap-2">
           <Link :href="route('admin.costing.production-planner.runs')" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
             View All Runs
           </Link>
@@ -78,9 +79,9 @@
               <span v-if="completing">Completing...</span>
               <span v-else>Complete Run &amp; Deduct Inventory</span>
             </button>
-            <button type="submit" :disabled="form.processing" class="bg-indigo-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
+            <button v-if="!productionRun" type="submit" :disabled="form.processing" class="bg-indigo-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
               <span v-if="form.processing">Saving...</span>
-              <span v-else>{{ productionRun ? 'Update Production Run' : 'Create Production Run' }}</span>
+              <span v-else>Create Production Run</span>
             </button>
           </div>
         </form>
@@ -143,6 +144,7 @@ import { Link, router } from '@inertiajs/vue3'
 import { usePersistedForm } from '@/composables/usePersistedForm'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
+import SaveIndicator from '@/Components/Admin/SaveIndicator.vue'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
 import { formatQuantity } from '../Shared/formatWeight'
 
@@ -223,9 +225,22 @@ const initialData: FormData = {
 // unsaved localStorage draft into a different run's form, since
 // usePersistedForm only guards against restoring an unmodified match,
 // not against cross-entity collisions on a shared key.
+// Autosave only applies when editing an existing, not-yet-completed run --
+// a brand-new run (production_run null) would need to be created on first
+// autosave and switch targets, and a completed run's inputs are already
+// disabled (its batch counts are historical fact, see the backend guard).
 const form = usePersistedForm<FormData>(initialData, {
   key: props.production_run ? `costing-production-planner-${props.production_run.id}` : 'costing-production-planner-new',
   initialData,
+  autosave: props.production_run && !isCompleted.value
+    ? {
+        url: route('admin.costing.production-planner.update', props.production_run.id),
+        requiredFields: ['run_date', 'batch_size'],
+        // A background save landing after completed_at is set would 422 --
+        // completeRun() below does its own explicit save-then-complete.
+        enabled: () => !completing.value,
+      }
+    : undefined,
 })
 
 const recipeName = (id: number) => props.recipes.find((r) => r.id === id)?.name ?? '—'
@@ -235,20 +250,36 @@ const rowUnits = (row: { batches: number }) => (Number(form.batch_size) || 0) * 
 const totalUnits = computed(() => form.batches.reduce((sum, row) => sum + rowUnits(row), 0))
 
 const submit = () => {
-  if (props.production_run) {
-    form.put(route('admin.costing.production-planner.update', props.production_run.id))
-  } else {
-    form.post(route('admin.costing.production-planner.store'))
-  }
+  // Only reachable via the submit button below, which is gated to create
+  // mode (v-if="!productionRun") -- once a run exists, autosave owns
+  // persistence and no button triggers this, so there's no update branch.
+  if (props.production_run) return
+  form.post(route('admin.costing.production-planner.store'))
 }
 
 const completeRun = () => {
   if (!props.production_run) return
   if (!confirm(`Complete this run and deduct ${totalUnits.value} units' worth of ingredients from Inventory? This cannot be undone.`)) return
 
+  const runId = props.production_run.id
   completing.value = true
-  router.post(route('admin.costing.production-planner.complete', props.production_run.id), {}, {
-    onFinish: () => { completing.value = false },
+  form.cancelAutosave()
+
+  // Save first, complete second. The confirm dialog above quoted the
+  // CURRENT form's totals -- completing without saving would deduct
+  // whatever batch counts were last persisted, which can differ if the
+  // user edited within the autosave debounce window. The save also clears
+  // the localStorage draft (wrapped form.put), so nothing stale gets
+  // restored over the completed run afterwards.
+  form.put(`${route('admin.costing.production-planner.update', runId)}?stay=1`, {
+    preserveScroll: true,
+    preserveState: true,
+    onSuccess: () => {
+      router.post(route('admin.costing.production-planner.complete', runId), {}, {
+        onFinish: () => { completing.value = false },
+      })
+    },
+    onError: () => { completing.value = false },
   })
 }
 </script>

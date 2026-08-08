@@ -3,11 +3,14 @@
     <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
         <div class="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-          <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Edit Price Entry</h1>
+          <div class="flex items-center gap-3">
+            <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Edit Price Entry</h1>
+            <SaveIndicator :processing="form.processing" :recently-successful="form.recentlySuccessful" />
+          </div>
           <Link :href="route('admin.costing.price-history.index')" class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">&larr; Back</Link>
         </div>
 
-        <form @submit.prevent="submit" class="p-6 space-y-6">
+        <form @submit.prevent class="p-6 space-y-6">
           <FormErrorSummary :errors="form.errors" />
 
           <div>
@@ -29,23 +32,24 @@
                   <option value="">{{ form.ingredient_id ? 'Select a source' : 'Select an ingredient first' }}</option>
                   <option v-for="source in sources" :key="source.id" :value="source.id">{{ sourceLabel(source) }}</option>
                 </select>
-                <button type="button" @click="startAddSource" :disabled="!form.ingredient_id" class="mt-1 text-sm font-medium text-indigo-600 hover:text-indigo-800 disabled:opacity-40 disabled:cursor-not-allowed">+ Add new source</button>
-                <p v-if="form.errors.package_size_id" class="mt-1 text-sm text-red-600">{{ form.errors.package_size_id }}</p>
+                <button type="button" @click="startAddSource" :disabled="!form.ingredient_id" class="mt-1 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 disabled:opacity-40 disabled:cursor-not-allowed">+ Add new source</button>
+                <p v-if="form.errors.package_size_id" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.package_size_id }}</p>
+                <p v-else-if="!form.package_size_id" class="mt-1 text-xs text-amber-600 dark:text-amber-500">Pick a source to enable saving -- its original source was likely removed.</p>
               </div>
               <div v-else class="mt-1 space-y-2">
-                <div class="grid grid-cols-2 gap-2">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <input v-model="newSourceProvider" type="text" placeholder="Provider (e.g. GFS)" autofocus class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
                   <input v-model="newSourceBrand" type="text" placeholder="Brand (optional)" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
                 </div>
                 <div class="flex items-center gap-2">
-                  <input v-model.number="newSourceSize" type="number" min="0.01" step="0.01" placeholder="Package size" class="w-40 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+                  <input v-model.number="newSourceSize" type="number" min="0.01" step="0.01" placeholder="Package size" class="w-full sm:w-40 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
                   <button type="button" @click="saveNewSource" :disabled="addSourceSaving || !newSourceProvider || !newSourceSize" class="py-1.5 px-4 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40">
                     <span v-if="addSourceSaving">Saving...</span>
                     <span v-else>Add</span>
                   </button>
-                  <button type="button" @click="cancelAddSource" :disabled="addSourceSaving" class="text-sm font-medium text-gray-500 hover:text-gray-700">Cancel</button>
+                  <button type="button" @click="cancelAddSource" :disabled="addSourceSaving" class="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">Cancel</button>
                 </div>
-                <p v-if="addSourceError" class="text-xs text-red-600">{{ addSourceError }}</p>
+                <p v-if="addSourceError" class="text-xs text-red-600 dark:text-red-400">{{ addSourceError }}</p>
               </div>
             </div>
           </div>
@@ -96,13 +100,7 @@
 
           <div class="flex items-center justify-between pt-6 border-t border-gray-200 dark:border-gray-700">
             <button type="button" @click="destroy" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Delete Entry</button>
-            <div class="flex space-x-3">
-              <Link :href="route('admin.costing.price-history.index')" class="bg-gray-200 dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600">Cancel</Link>
-              <button type="submit" :disabled="form.processing" class="bg-indigo-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
-                <span v-if="form.processing">Saving...</span>
-                <span v-else>Save Changes</span>
-              </button>
-            </div>
+            <Link :href="route('admin.costing.price-history.index')" class="bg-gray-200 dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600">Cancel</Link>
           </div>
         </form>
       </div>
@@ -118,6 +116,7 @@ import { useWeightEntry } from '../Shared/useWeightEntry'
 import { useIngredientSources, sourceLabel } from '../Shared/useIngredientSources'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
+import SaveIndicator from '@/Components/Admin/SaveIndicator.vue'
 
 defineOptions({ layout: AdminLayout })
 
@@ -162,6 +161,10 @@ const initialData: FormData = {
 const form = usePersistedForm<FormData>(initialData, {
   key: `costing-price-history-edit-${props.entry.id}`,
   initialData,
+  autosave: {
+    url: route('admin.costing.price-history.update', props.entry.id),
+    requiredFields: ['ingredient_id', 'package_size_id'],
+  },
 })
 
 const selectedIngredient = computed(() => props.ingredients.find((i) => i.id === form.ingredient_id) ?? null)
@@ -205,11 +208,12 @@ const saveNewSource = async () => {
 
 // Weight input for gram-based ingredients -- kg/g toggle plus an optional
 // case breakdown, resolving to a single grams total stored in form.qty.
-// Seeded with the entry's existing (already-in-grams) qty, shown as-is
-// rather than converted to kg, so the displayed number matches what's
-// actually stored until the user changes something.
+// Seeded from form.qty (not props.entry.qty) so a localStorage draft
+// restored by usePersistedForm above is what's shown -- seeding from the
+// stale server value here would otherwise get silently overwritten the
+// moment the kg/g toggle is touched.
 const { weightValue, weightUnit, isCase, eachesPerCase, totalGrams } = useWeightEntry(
-  isGramBased.value ? props.entry.qty : null,
+  isGramBased.value ? form.qty : null,
   'g',
 )
 
@@ -218,10 +222,6 @@ watch(totalGrams, (total) => {
     form.qty = total
   }
 })
-
-const submit = () => {
-  form.put(route('admin.costing.price-history.update', props.entry.id))
-}
 
 const destroy = () => {
   if (confirm('Delete this price entry?')) {

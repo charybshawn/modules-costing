@@ -6,6 +6,7 @@ use Cultpantry\Costing\Models\Ingredient;
 use Cultpantry\Costing\Models\PackageSize;
 use Cultpantry\Costing\Models\ProductionRun;
 use Cultpantry\Costing\Models\Recipe;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Marks a production run complete and draws its required ingredient
@@ -25,8 +26,23 @@ class CompleteProductionRun
         private readonly RecordInventoryAdjustment $recordInventoryAdjustment,
     ) {}
 
-    public function handle(ProductionRun $productionRun): void
+    /**
+     * @return array<int, string> human-readable shortfall warnings, one per
+     *     ingredient that ran out of stock before its required quantity was
+     *     fully drawn down -- empty when every requirement was covered.
+     */
+    public function handle(ProductionRun $productionRun): array
     {
+        return DB::transaction(fn () => $this->run($productionRun));
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function run(ProductionRun $productionRun): array
+    {
+        $shortfalls = [];
+
         $plan = $this->calculateProductionPlan->handle($productionRun);
 
         foreach ($plan['rows'] as $row) {
@@ -87,6 +103,10 @@ class CompleteProductionRun
             // go negative" floor the old single-column decrement had.
             $newOnHand = $oldOnHand - ($required - $remaining);
 
+            if ($remaining > 0) {
+                $shortfalls[] = "{$ingredient->name} (short by ".rtrim(rtrim(number_format($remaining, 2), '0'), '.')." {$ingredient->unit_type})";
+            }
+
             $this->checkIngredientLowStock->handle($ingredient, $oldOnHand, $newOnHand);
         }
 
@@ -103,5 +123,7 @@ class CompleteProductionRun
         }
 
         $productionRun->update(['completed_at' => now()]);
+
+        return $shortfalls;
     }
 }

@@ -69,9 +69,4 @@ class KitchenRental extends Model
     {
         return $this->belongsTo(ProductionRun::class);
     }
-
-    public function isPlanned(): bool
-    {
-        return $this->production_run_id !== null;
-    }
 }

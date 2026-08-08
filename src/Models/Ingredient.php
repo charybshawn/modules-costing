@@ -88,11 +88,6 @@ class Ingredient extends Model
         return $this->unit_type !== 'unit';
     }
 
-    public function hasByproduct(): bool
-    {
-        return !empty($this->byproduct_name);
-    }
-
     /**
      * $/100g, for comparing against grocery store shelf tags (which
      * usually price by 100g/100mL, not by kg). Weight and volume are

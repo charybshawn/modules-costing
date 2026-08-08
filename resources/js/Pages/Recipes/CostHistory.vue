@@ -66,7 +66,10 @@ import {
   Legend,
 } from 'chart.js'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
+import { useDarkMode } from '@/composables/useDarkMode'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
+
+const { isDark } = useDarkMode()
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend)
 
@@ -168,9 +171,21 @@ const chartData = computed(() => ({
   ],
 }))
 
-const chartOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: { legend: { display: false } },
-}
+// Chart.js doesn't respond to Tailwind's dark: classes -- ticks/grid lines
+// have to be recomputed from isDark directly, or they stay black-on-dark
+// (axis labels) and near-invisible (grid lines) when the app is dark.
+const chartOptions = computed(() => {
+  const tickColor = isDark.value ? '#9ca3af' : '#6b7280'
+  const gridColor = isDark.value ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
+
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { color: tickColor }, grid: { color: gridColor } },
+      y: { ticks: { color: tickColor }, grid: { color: gridColor } },
+    },
+  }
+})
 </script>

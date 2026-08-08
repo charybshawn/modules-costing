@@ -102,7 +102,10 @@ class KitchenRentalController extends Controller implements HasMiddleware
 
     /**
      * Links a slot to a run that was already created separately -- covers
-     * planning a run before its matching CSV export exists.
+     * planning a run before its matching CSV export exists. No UI calls
+     * this yet (a run-picker to choose which existing run to attach is
+     * real scope, deliberately deferred) -- detachRun below has a minimal
+     * "Unlink Run" row action, but there's no matching "Link Run" one.
      */
     public function attachRun(Request $request, KitchenRental $kitchenRental): RedirectResponse
     {

@@ -5,7 +5,7 @@
     <p v-else-if="priceOptions.length === 0" class="mt-6 text-sm text-gray-500 dark:text-gray-400">No sources logged yet for this ingredient.</p>
 
     <div v-else class="mt-4 -mx-6 max-h-96 overflow-y-auto">
-      <DataTable :columns="columns" :items="priceOptions" item-key="package_size_id">
+      <DataTable :columns="columns" :items="priceOptions" item-key="package_size_id" hide-toolbar>
         <template #cell-source="{ item }">
           <span class="text-sm text-gray-900 dark:text-white">{{ item.provider }}<span v-if="item.brand"> — {{ item.brand }}</span></span>
           <span v-if="item.is_stale" class="ml-1 text-xs text-amber-600 dark:text-amber-400">needs update</span>
@@ -14,7 +14,7 @@
             type="button"
             @click="deleteSource(item)"
             :disabled="item.quantity_on_hand > 0"
-            class="ml-1.5 text-gray-300 dark:text-gray-600 hover:text-red-600 dark:hover:text-red-400 disabled:opacity-40 disabled:hover:text-gray-300 dark:disabled:hover:text-gray-600"
+            class="ml-1.5 p-2 -m-2 text-gray-300 dark:text-gray-600 hover:text-red-600 dark:hover:text-red-400 disabled:opacity-40 disabled:hover:text-gray-300 dark:disabled:hover:text-gray-600"
             :title="item.quantity_on_hand > 0 ? 'Still has stock on hand -- recount it to 0 on Inventory first' : 'Remove this source'"
           >
             <svg class="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -28,7 +28,7 @@
             v-if="packageSizeEditKey !== optionKey(item)"
             type="button"
             @click="startPackageSizeEdit(item)"
-            class="text-sm -mx-2 px-2 py-0.5 rounded-md border border-transparent hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
+            class="text-sm -mx-2 px-2 py-1.5 rounded-md border border-transparent hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
           >
             <span v-if="item.package_size !== null" class="text-gray-700 dark:text-gray-300">{{ formatQuantity(item.package_size, props.ingredient.unit_type) }}</span>
             <span v-else class="italic text-gray-400 dark:text-gray-500">not set</span>
@@ -64,7 +64,7 @@
             v-if="inlineEditKey !== optionKey(item)"
             type="button"
             @click="startInlineEdit(item)"
-            class="text-sm -mx-2 px-2 py-0.5 rounded-md border border-transparent hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
+            class="text-sm -mx-2 px-2 py-1.5 rounded-md border border-transparent hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
           >
             <span v-if="item.price_per_unit !== null" class="text-gray-900 dark:text-white">
               ${{ Number(item.price_per_unit).toFixed(2) }}{{ props.ingredient.unit_type === 'unit' ? '/unit' : '/kg' }}
@@ -119,11 +119,11 @@
         + Add a new source
       </button>
       <div v-else class="rounded-md border border-gray-200 dark:border-gray-600 p-3 space-y-2">
-        <div class="grid grid-cols-2 gap-2">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <input v-model="newSourceProvider" type="text" placeholder="Provider (e.g. GFS)" autofocus :disabled="newSourceSaving" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
           <input v-model="newSourceBrand" type="text" placeholder="Brand (optional)" :disabled="newSourceSaving" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
         </div>
-        <div class="grid grid-cols-2 gap-2">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <input v-model.number="newSourceSize" type="number" min="0.01" step="0.01" :placeholder="`Package size (${props.ingredient.unit_type === 'unit' ? 'units' : 'g'})`" :disabled="newSourceSaving" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
           <input v-model.number="newSourcePrice" type="number" min="0" step="0.01" placeholder="Price for one package ($)" :disabled="newSourceSaving" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
         </div>
@@ -165,7 +165,7 @@ export interface SourcesIngredient {
 }
 
 interface PriceOption {
-  price_history_entry_id: number
+  price_history_entry_id: number | null
   package_size_id: number | null
   provider: string
   brand: string | null
@@ -208,6 +208,7 @@ const deleteSource = (option: PriceOption) => {
 
   router.delete(route('admin.costing.inventory.sources.destroy', [props.ingredient.id, option.package_size_id]), {
     preserveScroll: true,
+    preserveState: true,
     onSuccess: () => fetchPriceOptions(),
   })
 }
@@ -231,7 +232,7 @@ const selectPreferred = (option: PriceOption) => {
   router.post(
     route('admin.costing.ingredients.set-preferred', props.ingredient.id),
     { provider: option.provider, brand: option.brand },
-    { preserveScroll: true, onSuccess: () => fetchPriceOptions() },
+    { preserveScroll: true, preserveState: true, onSuccess: () => fetchPriceOptions() },
   )
 }
 
@@ -239,7 +240,7 @@ const clearPreferred = () => {
   router.post(
     route('admin.costing.ingredients.set-preferred', props.ingredient.id),
     { provider: null, brand: null },
-    { preserveScroll: true, onSuccess: () => fetchPriceOptions() },
+    { preserveScroll: true, preserveState: true, onSuccess: () => fetchPriceOptions() },
   )
 }
 
@@ -268,23 +269,40 @@ const saveInlineEdit = (option: PriceOption) => {
   inlineEditSaving.value = true
   inlineEditError.value = null
 
-  router.post(
-    route('admin.costing.price-history.update-price', option.price_history_entry_id),
-    { total_price: inlineEditPrice.value },
-    {
-      preserveScroll: true,
-      onSuccess: () => {
-        cancelInlineEdit()
-        fetchPriceOptions()
-      },
-      onError: (errors) => {
-        inlineEditError.value = errors.total_price ?? 'Could not save.'
-      },
-      onFinish: () => {
-        inlineEditSaving.value = false
-      },
+  // A source with no price history yet (added via Inventory's stock modal)
+  // has no entry to re-log from -- its first inline price creates the
+  // initial entry instead, dated today, qty = one package.
+  const request = option.price_history_entry_id === null
+    ? {
+        url: route('admin.costing.price-history.store'),
+        data: {
+          ingredient_id: props.ingredient.id,
+          package_size_id: option.package_size_id,
+          purchased_at: new Date().toISOString().slice(0, 10),
+          qty: option.package_size,
+          total_price: inlineEditPrice.value,
+          stay: true,
+        },
+      }
+    : {
+        url: route('admin.costing.price-history.update-price', option.price_history_entry_id),
+        data: { total_price: inlineEditPrice.value },
+      }
+
+  router.post(request.url, request.data, {
+    preserveScroll: true,
+    preserveState: true,
+    onSuccess: () => {
+      cancelInlineEdit()
+      fetchPriceOptions()
     },
-  )
+    onError: (errors) => {
+      inlineEditError.value = errors.total_price ?? 'Could not save.'
+    },
+    onFinish: () => {
+      inlineEditSaving.value = false
+    },
+  })
 }
 
 // Package size editing -- independent of the price inline edit above (a
@@ -317,6 +335,7 @@ const savePackageSizeEdit = (option: PriceOption) => {
     { provider: option.provider, brand: option.brand, package_size: packageSizeEditValue.value },
     {
       preserveScroll: true,
+      preserveState: true,
       onSuccess: () => {
         cancelPackageSizeEdit()
         fetchPriceOptions()
@@ -374,6 +393,7 @@ const saveNewSource = () => {
     { provider, brand, package_size: packageSize },
     {
       preserveScroll: true,
+      preserveState: true,
       onSuccess: async () => {
         // set-package-size redirects rather than returning JSON, so the
         // new (or matched-existing) Source's id has to be looked up --
@@ -401,6 +421,7 @@ const saveNewSource = () => {
           },
           {
             preserveScroll: true,
+            preserveState: true,
             onSuccess: () => {
               cancelAddSource()
               fetchPriceOptions()

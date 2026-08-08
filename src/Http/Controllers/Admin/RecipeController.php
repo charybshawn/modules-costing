@@ -59,14 +59,14 @@ class RecipeController extends Controller implements HasMiddleware
         $this->authorize('viewAny', Recipe::class);
 
         $ingredients = Ingredient::orderBy('name')->get(['id', 'name', 'unit_type', 'category']);
-        $recipes = Recipe::with('ingredients')->orderBy('name')->get(['id', 'name']);
+        $recipes = Recipe::with('mainIngredients')->orderBy('name')->get(['id', 'name']);
 
         return Inertia::render('Vendor/costing/Recipes/Grid', [
             'ingredients' => $ingredients,
             'recipes' => $recipes->map(fn (Recipe $recipe) => [
                 'id' => $recipe->id,
                 'name' => $recipe->name,
-                'quantities' => $recipe->ingredients->mapWithKeys(
+                'quantities' => $recipe->mainIngredients->mapWithKeys(
                     fn (Ingredient $ingredient) => [$ingredient->id => (float) $ingredient->pivot->quantity_per_jar]
                 ),
             ]),
@@ -247,6 +247,13 @@ class RecipeController extends Controller implements HasMiddleware
 
         $recipe->mainIngredients()->sync($this->syncData($validated['ingredients']));
         $recipe->byproductIngredients()->sync($this->syncData($validated['byproducts'] ?? []));
+
+        // usePersistedForm's autosave also PUTs here from Edit.vue and
+        // needs to stay put rather than navigate away mid-edit -- same
+        // "stay" pattern as PriceHistoryController::store()/update().
+        if ($request->boolean('stay')) {
+            return redirect()->back()->with('success', "Recipe '{$recipe->name}' updated.");
+        }
 
         return redirect()
             ->route('admin.costing.recipes.index')

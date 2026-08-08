@@ -164,6 +164,12 @@ class PriceHistoryController extends Controller implements HasMiddleware
 
         $priceHistoryEntry->update($this->withSourceSnapshot($validated));
 
+        // See store()'s "stay" handling above -- usePersistedForm's
+        // autosave also PUTs here from Edit.vue and needs to stay put.
+        if ($request->boolean('stay')) {
+            return redirect()->back()->with('success', 'Price entry updated.');
+        }
+
         return redirect()
             ->route('admin.costing.price-history.index')
             ->with('success', 'Price entry updated.');
@@ -183,7 +189,7 @@ class PriceHistoryController extends Controller implements HasMiddleware
             'total_price' => ['required', 'numeric', 'min:0'],
         ]);
 
-        PriceHistoryEntry::create([
+        $attributes = [
             'ingredient_id' => $priceHistoryEntry->ingredient_id,
             'package_size_id' => $priceHistoryEntry->package_size_id,
             'purchased_at' => now(),
@@ -193,7 +199,18 @@ class PriceHistoryController extends Controller implements HasMiddleware
             'total_price' => $validated['total_price'],
             'sku' => $priceHistoryEntry->sku,
             'notes' => $priceHistoryEntry->notes,
-        ]);
+        ];
+
+        // The linked Source may have been renamed/rebranded since
+        // $priceHistoryEntry was logged -- re-snapshot from the live Source
+        // rather than trusting the old entry's possibly-stale provider/brand.
+        // An orphaned entry (source since deleted, package_size_id null) has
+        // no source to read, so it keeps its existing snapshot.
+        PriceHistoryEntry::create(
+            $priceHistoryEntry->package_size_id !== null
+                ? $this->withSourceSnapshot($attributes)
+                : $attributes
+        );
 
         // Not a hardcoded route -- this action is reused from both the
         // Price History page and the Ingredients "Available Prices" modal,
