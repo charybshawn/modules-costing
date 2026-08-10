@@ -253,16 +253,15 @@ class PriceHistoryController extends Controller implements HasMiddleware
      * copied from the Source the entry actually points to.
      *
      * $refreshQty additionally overrides qty with the Source's current
-     * case_total ("one case" when the source is sold by the case, else
-     * just its package_size -- same convention SourcesTable's own
-     * entry-creation flows use) -- only safe for updatePrice()'s quick
-     * re-log, where qty was never user-typed either. A re-logged price is
-     * always naturally a case price for a case-lot source (that's the
-     * sellable/billable unit), so pricing it as a single package would
-     * compute the per-unit cost units_per_case times too expensive.
-     * store()/update() (the full Log a Price form) never pass this: there,
-     * qty is a genuine, independently-typed quantity that must not be
-     * silently overwritten.
+     * package_size -- only safe for updatePrice()'s quick re-log, where
+     * qty was never user-typed either. units_per_case is a purchasing
+     * constraint only (how many packages must be bought at once), never a
+     * pricing multiplier -- a re-logged price is always naturally a
+     * per-package price (that's what's on an invoice/shelf tag), so
+     * pricing it as a case would compute the per-unit cost units_per_case
+     * times too cheap. store()/update() (the full Log a Price form) never
+     * pass this: there, qty is a genuine, independently-typed quantity
+     * that must not be silently overwritten.
      */
     private function withSourceSnapshot(array $validated, bool $refreshQty = false): array
     {
@@ -272,7 +271,7 @@ class PriceHistoryController extends Controller implements HasMiddleware
             ...$validated,
             'provider' => $packageSize->provider,
             'brand' => $packageSize->brand,
-            ...($refreshQty ? ['qty' => $packageSize->case_total] : []),
+            ...($refreshQty ? ['qty' => $packageSize->package_size] : []),
         ];
     }
 }

@@ -8,6 +8,7 @@ use Cultpantry\Costing\Actions\CalculateIngredientCosting;
 use Cultpantry\Costing\Actions\GetIngredientPriceOptions;
 use Cultpantry\Costing\Models\Ingredient;
 use Cultpantry\Costing\Models\PackageSize;
+use Cultpantry\Costing\Models\PriceHistoryEntry;
 use Cultpantry\Costing\Support\CostingBreadcrumbs;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -205,7 +206,7 @@ class IngredientController extends Controller implements HasMiddleware
             'units_per_case' => ['required', 'integer', 'min:1'],
         ]);
 
-        PackageSize::updateOrCreate(
+        $packageSize = PackageSize::updateOrCreate(
             [
                 'ingredient_id' => $ingredient->id,
                 'provider' => $validated['provider'],
@@ -213,6 +214,26 @@ class IngredientController extends Controller implements HasMiddleware
             ],
             ['package_size' => $validated['package_size'], 'units_per_case' => $validated['units_per_case']],
         );
+
+        // Editing an existing source's package size leaves its most
+        // recently logged price's qty pointing at whatever size was true
+        // when that price was logged -- price_per_unit (total / qty) then
+        // silently reflects the OLD size forever, since nothing else
+        // re-derives it. Refresh just that one entry's qty to the new
+        // package_size, same convention updatePrice()'s quick re-log
+        // already uses (see PriceHistoryController::withSourceSnapshot) --
+        // the dollar amount actually paid is untouched, only the size it's
+        // divided by is corrected. Never case_total: units_per_case is a
+        // purchasing constraint only, the logged price is always per
+        // package. Skipped for a brand-new source: it has no price
+        // history yet to refresh.
+        if (!$packageSize->wasRecentlyCreated) {
+            PriceHistoryEntry::where('package_size_id', $packageSize->id)
+                ->orderByDesc('purchased_at')
+                ->orderByDesc('id')
+                ->first()
+                ?->update(['qty' => $packageSize->package_size]);
+        }
 
         // Not a hardcoded route -- same reasoning as setPreferred() above,
         // this is called from the same reused Available Prices modal.
