@@ -30,7 +30,9 @@
             @click="startPackageSizeEdit(item)"
             class="text-sm -mx-2 px-2 py-1.5 rounded-md border border-transparent hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
           >
-            <span v-if="item.package_size !== null" class="text-gray-700 dark:text-gray-300">{{ formatQuantity(item.package_size, props.ingredient.unit_type) }}</span>
+            <span v-if="item.package_size !== null" class="text-gray-700 dark:text-gray-300">
+              {{ formatQuantity(item.package_size, props.ingredient.unit_type) }}<span v-if="item.units_per_case > 1" class="text-gray-500 dark:text-gray-400">, case of {{ item.units_per_case }}</span>
+            </span>
             <span v-else class="italic text-gray-400 dark:text-gray-500">not set</span>
           </button>
           <div v-else class="flex items-center gap-1">
@@ -41,7 +43,19 @@
               step="0.01"
               autofocus
               :disabled="packageSizeEditSaving"
+              title="Package size"
               class="w-20 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+              @keyup.enter="savePackageSizeEdit(item)"
+              @keyup.esc="cancelPackageSizeEdit"
+            />
+            <input
+              v-model.number="packageSizeEditUnitsPerCase"
+              type="number"
+              min="1"
+              step="1"
+              :disabled="packageSizeEditSaving"
+              title="Units per case -- leave at 1 if not sold by the case"
+              class="w-16 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
               @keyup.enter="savePackageSizeEdit(item)"
               @keyup.esc="cancelPackageSizeEdit"
             />
@@ -125,7 +139,10 @@
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <input v-model.number="newSourceSize" type="number" min="0.01" step="0.01" :placeholder="`Package size (${props.ingredient.unit_type === 'unit' ? 'units' : 'g'})`" :disabled="newSourceSaving" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
-          <input v-model.number="newSourcePrice" type="number" min="0" step="0.01" placeholder="Price for one package ($)" :disabled="newSourceSaving" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+          <input v-model.number="newSourceUnitsPerCase" type="number" min="1" step="1" placeholder="Units per case" title="Leave at 1 if not sold by the case" :disabled="newSourceSaving" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <input v-model.number="newSourcePrice" type="number" min="0" step="0.01" :placeholder="newSourceUnitsPerCase > 1 ? 'Price for one case ($)' : 'Price for one package ($)'" :disabled="newSourceSaving" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
         </div>
         <div class="flex items-center gap-2">
           <button
@@ -177,6 +194,7 @@ interface PriceOption {
   is_stale: boolean
   is_preferred: boolean
   package_size: number | null
+  units_per_case: number
   quantity_on_hand: number
 }
 
@@ -271,7 +289,9 @@ const saveInlineEdit = (option: PriceOption) => {
 
   // A source with no price history yet (added via Inventory's stock modal)
   // has no entry to re-log from -- its first inline price creates the
-  // initial entry instead, dated today, qty = one package.
+  // initial entry instead, dated today, qty = one case for a case-lot
+  // source (that's the sellable/billable unit -- the price being typed
+  // here is naturally a case price), else one package.
   const request = option.price_history_entry_id === null
     ? {
         url: route('admin.costing.price-history.store'),
@@ -279,7 +299,7 @@ const saveInlineEdit = (option: PriceOption) => {
           ingredient_id: props.ingredient.id,
           package_size_id: option.package_size_id,
           purchased_at: new Date().toISOString().slice(0, 10),
-          qty: option.package_size,
+          qty: (option.package_size ?? 0) * (option.units_per_case || 1),
           total_price: inlineEditPrice.value,
           stay: true,
         },
@@ -310,12 +330,14 @@ const saveInlineEdit = (option: PriceOption) => {
 // rather than sharing inlineEditKey.
 const packageSizeEditKey = ref<string | null>(null)
 const packageSizeEditValue = ref<number | null>(null)
+const packageSizeEditUnitsPerCase = ref<number>(1)
 const packageSizeEditSaving = ref(false)
 const packageSizeEditError = ref<string | null>(null)
 
 const startPackageSizeEdit = (option: PriceOption) => {
   packageSizeEditKey.value = optionKey(option)
   packageSizeEditValue.value = option.package_size
+  packageSizeEditUnitsPerCase.value = option.units_per_case || 1
   packageSizeEditError.value = null
 }
 
@@ -332,7 +354,7 @@ const savePackageSizeEdit = (option: PriceOption) => {
 
   router.post(
     route('admin.costing.ingredients.set-package-size', props.ingredient.id),
-    { provider: option.provider, brand: option.brand, package_size: packageSizeEditValue.value },
+    { provider: option.provider, brand: option.brand, package_size: packageSizeEditValue.value, units_per_case: packageSizeEditUnitsPerCase.value || 1 },
     {
       preserveScroll: true,
       preserveState: true,
@@ -354,12 +376,15 @@ const savePackageSizeEdit = (option: PriceOption) => {
 // price in one step -- price_history.create's full form is still there via
 // "Advanced entry" for anything needing a custom date/notes/SKU, but the
 // common case ("found a new supplier, here's what one package costs") no
-// longer needs to leave this view. qty defaults to package_size (i.e.
-// "one package"), matching how price_per_unit is computed everywhere else.
+// longer needs to leave this view. qty defaults to package_size x
+// units_per_case (i.e. "one case" for a case-lot source, else "one
+// package"), matching how price_per_unit is computed everywhere else --
+// the price being typed is naturally for whatever the sellable unit is.
 const addingSource = ref(false)
 const newSourceProvider = ref('')
 const newSourceBrand = ref('')
 const newSourceSize = ref<number | null>(null)
+const newSourceUnitsPerCase = ref<number>(1)
 const newSourcePrice = ref<number | null>(null)
 const newSourceSaving = ref(false)
 const newSourceError = ref<string | null>(null)
@@ -369,6 +394,7 @@ const startAddSource = () => {
   newSourceProvider.value = ''
   newSourceBrand.value = ''
   newSourceSize.value = null
+  newSourceUnitsPerCase.value = 1
   newSourcePrice.value = null
   newSourceError.value = null
 }
@@ -383,6 +409,7 @@ const saveNewSource = () => {
   const provider = newSourceProvider.value
   const brand = newSourceBrand.value || null
   const packageSize = newSourceSize.value
+  const unitsPerCase = newSourceUnitsPerCase.value || 1
   const price = newSourcePrice.value
 
   newSourceSaving.value = true
@@ -390,7 +417,7 @@ const saveNewSource = () => {
 
   router.post(
     route('admin.costing.ingredients.set-package-size', props.ingredient.id),
-    { provider, brand, package_size: packageSize },
+    { provider, brand, package_size: packageSize, units_per_case: unitsPerCase },
     {
       preserveScroll: true,
       preserveState: true,
@@ -413,7 +440,7 @@ const saveNewSource = () => {
             ingredient_id: props.ingredient.id,
             package_size_id: source.id,
             purchased_at: new Date().toISOString().slice(0, 10),
-            qty: packageSize,
+            qty: packageSize * unitsPerCase,
             total_price: price,
             // Otherwise store() redirects to the Price History index,
             // navigating away from wherever this table is embedded.

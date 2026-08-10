@@ -197,6 +197,12 @@ class IngredientController extends Controller implements HasMiddleware
             'provider' => ['required', 'string', 'max:255'],
             'brand' => ['nullable', 'string', 'max:255'],
             'package_size' => ['required', 'numeric', 'min:0.01'],
+            // Required, not nullable/defaulted here -- every caller must
+            // explicitly send a value (1 when not sold by the case).
+            // updateOrCreate's update array only contains what's passed,
+            // so making this optional would let a package-size-only edit
+            // silently reset a previously-set case size back to 1.
+            'units_per_case' => ['required', 'integer', 'min:1'],
         ]);
 
         PackageSize::updateOrCreate(
@@ -205,7 +211,7 @@ class IngredientController extends Controller implements HasMiddleware
                 'provider' => $validated['provider'],
                 'brand' => $validated['brand'] ?? null,
             ],
-            ['package_size' => $validated['package_size']],
+            ['package_size' => $validated['package_size'], 'units_per_case' => $validated['units_per_case']],
         );
 
         // Not a hardcoded route -- same reasoning as setPreferred() above,

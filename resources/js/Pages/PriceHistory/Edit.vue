@@ -41,8 +41,9 @@
                   <input v-model="newSourceProvider" type="text" placeholder="Provider (e.g. GFS)" autofocus class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
                   <input v-model="newSourceBrand" type="text" placeholder="Brand (optional)" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
                 </div>
-                <div class="flex items-center gap-2">
-                  <input v-model.number="newSourceSize" type="number" min="0.01" step="0.01" placeholder="Package size" class="w-full sm:w-40 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+                <div class="flex flex-wrap items-center gap-2">
+                  <input v-model.number="newSourceSize" type="number" min="0.01" step="0.01" placeholder="Package size" class="w-full sm:w-32 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+                  <input v-model.number="newSourceUnitsPerCase" type="number" min="1" step="1" placeholder="Units/case" title="Leave at 1 if not sold by the case" class="w-full sm:w-28 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
                   <button type="button" @click="saveNewSource" :disabled="addSourceSaving || !newSourceProvider || !newSourceSize" class="py-1.5 px-4 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40">
                     <span v-if="addSourceSaving">Saving...</span>
                     <span v-else>Add</span>
@@ -185,12 +186,14 @@ const addingSource = ref(false)
 const newSourceProvider = ref('')
 const newSourceBrand = ref('')
 const newSourceSize = ref<number | null>(null)
+const newSourceUnitsPerCase = ref<number>(1)
 
 const startAddSource = () => {
   addingSource.value = true
   newSourceProvider.value = ''
   newSourceBrand.value = ''
   newSourceSize.value = null
+  newSourceUnitsPerCase.value = 1
 }
 
 const cancelAddSource = () => {
@@ -199,7 +202,7 @@ const cancelAddSource = () => {
 
 const saveNewSource = async () => {
   if (!newSourceProvider.value || !newSourceSize.value || !form.ingredient_id) return
-  const id = await addSource(form.ingredient_id, newSourceProvider.value, newSourceBrand.value || null, newSourceSize.value)
+  const id = await addSource(form.ingredient_id, newSourceProvider.value, newSourceBrand.value || null, newSourceSize.value, newSourceUnitsPerCase.value || 1)
   if (id !== null) {
     form.package_size_id = id
     addingSource.value = false

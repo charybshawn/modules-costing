@@ -44,19 +44,106 @@ class InventoryController extends Controller implements HasMiddleware
         $ingredients = Ingredient::with('packageSizes')
             ->orderBy('name')
             ->get()
-            ->map(fn (Ingredient $ingredient) => [
-                'ingredient_id' => $ingredient->id,
-                'name' => $ingredient->name,
-                'category' => $ingredient->category,
-                'unit_type' => $ingredient->unit_type,
-                'on_hand' => (float) $ingredient->packageSizes->sum('quantity_on_hand'),
-                'source_count' => $ingredient->packageSizes->count(),
-            ]);
+            ->map(function (Ingredient $ingredient) {
+                return [
+                    'ingredient_id' => $ingredient->id,
+                    'name' => $ingredient->name,
+                    'category' => $ingredient->category,
+                    'unit_type' => $ingredient->unit_type,
+                    'on_hand' => (float) $ingredient->packageSizes->sum('quantity_on_hand'),
+                    'source_count' => $ingredient->packageSizes->count(),
+                    // Every real source, so the bulk modal can let the user
+                    // pick which one a stock update actually applies to --
+                    // it's no longer forced onto the preferred/first source.
+                    'sources' => $ingredient->packageSizes->map(fn (PackageSize $packageSize) => [
+                        'id' => $packageSize->id,
+                        'provider' => $packageSize->provider,
+                        'brand' => $packageSize->brand,
+                        'package_size' => (float) $packageSize->package_size,
+                        'units_per_case' => (int) $packageSize->units_per_case,
+                    ])->values(),
+                    // Just a sensible default to preselect in the source
+                    // dropdown -- not authoritative like it used to be when
+                    // bulkUpdate() had no picker and had to resolve this itself.
+                    'preferred_source_id' => $this->bulkUpdateTargetSource($ingredient)?->id,
+                ];
+            });
 
         return Inertia::render('Vendor/costing/Inventory/Index', [
             'ingredients' => $ingredients,
             'breadcrumbs' => CostingBreadcrumbs::trail(['label' => 'Inventory']),
         ]);
+    }
+
+    /**
+     * Onboards an item that doesn't exist in the system at all yet --
+     * creates the Ingredient, its first Source (package size only, no
+     * price -- logged separately via Price History whenever convenient,
+     * same as a source added from the per-item Stock modal), and an
+     * optional starting on-hand quantity, all in one submission. Previously
+     * this needed three separate screens (Add Ingredient, find it again,
+     * add a source, then a separate recount) before a brand-new item had
+     * any usable stock. An ingredient that already exists but just needs a
+     * new source still goes through the per-item Stock modal, not this.
+     */
+    public function storeItem(Request $request, RecordInventoryAdjustment $recordInventoryAdjustment): RedirectResponse
+    {
+        $this->authorize('create', Ingredient::class);
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255', Rule::unique('costing_ingredients', 'name')],
+            'category' => ['nullable', 'string', 'max:255'],
+            'unit_type' => ['required', Rule::in(['g', 'unit'])],
+            'waste_percent' => ['required', 'numeric', 'min:1', 'max:100'],
+            'provider' => ['required', 'string', 'max:255'],
+            'brand' => ['nullable', 'string', 'max:255'],
+            'package_size' => ['required', 'numeric', 'min:0.01'],
+            // Nullable here, unlike setPackageSize()'s required version --
+            // this is a one-shot create with no prior value to accidentally
+            // clobber, so a plain 1-default is safe.
+            'units_per_case' => ['nullable', 'integer', 'min:1'],
+            // Packages, not a raw base-unit figure -- same reasoning as
+            // bulkUpdate() above: the physical count is what's actually
+            // known at intake time, not its gram equivalent.
+            'packages' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        DB::transaction(function () use ($validated, $request, $recordInventoryAdjustment) {
+            $ingredient = Ingredient::create([
+                'name' => $validated['name'],
+                'category' => $validated['category'] ?? null,
+                'unit_type' => $validated['unit_type'],
+                'waste_percent' => $validated['waste_percent'],
+            ]);
+
+            $packageSize = PackageSize::create([
+                'ingredient_id' => $ingredient->id,
+                'provider' => $validated['provider'],
+                'brand' => $validated['brand'] ?? null,
+                'package_size' => $validated['package_size'],
+                'units_per_case' => $validated['units_per_case'] ?? 1,
+                'quantity_on_hand' => 0,
+            ]);
+
+            $packages = (float) ($validated['packages'] ?? 0);
+            if ($packages > 0) {
+                $quantity = $packages * (float) $validated['package_size'];
+                $packageSize->update(['quantity_on_hand' => $quantity]);
+
+                $recordInventoryAdjustment->handle(
+                    packageSize: $packageSize,
+                    reason: 'received',
+                    onHandBefore: 0,
+                    onHandAfter: $quantity,
+                    notes: 'Initial stock (new item)',
+                    userId: $request->user()?->id,
+                );
+            }
+        });
+
+        return redirect()
+            ->route('admin.costing.inventory.index')
+            ->with('success', "'{$validated['name']}' added to Inventory.");
     }
 
     /**
@@ -78,6 +165,7 @@ class InventoryController extends Controller implements HasMiddleware
                 'provider' => $packageSize->provider,
                 'brand' => $packageSize->brand,
                 'package_size' => (float) $packageSize->package_size,
+                'units_per_case' => (int) $packageSize->units_per_case,
                 'quantity_on_hand' => (float) $packageSize->quantity_on_hand,
                 'packages' => (float) $packageSize->packages,
             ])->values(),
@@ -185,15 +273,14 @@ class InventoryController extends Controller implements HasMiddleware
     /**
      * Update stock for several ingredients in one submission, either
      * "adjust" (a quantity added to or subtracted from what's on hand) or
-     * "recount" (the entered quantity replaces the total outright).
-     * Targets each ingredient's preferred source, falling back to its first
-     * real source if no preference is set, rather than adding a per-row
-     * source picker to the bulk modal -- a bulk update is normally one
-     * shopping trip restocking the usual supplier across many items at
-     * once, not a mixed-source correction pass (that's what the
-     * per-ingredient modal is for). An ingredient with no sources at all
-     * has nothing to attach a quantity to, so it's skipped rather than
-     * updated -- add a real source for it first.
+     * "recount" (the entered quantity replaces that source's total
+     * outright). Each row picks its own source explicitly -- a bulk update
+     * is not assumed to be one shopping trip against everyone's usual
+     * supplier, the same as the per-ingredient Stock modal lets you touch
+     * any source, just batched here for speed across many ingredients at
+     * once. An ingredient with no sources at all has nothing to attach a
+     * quantity to, so it's skipped rather than updated -- add a real
+     * source for it first.
      */
     public function bulkUpdate(
         Request $request,
@@ -206,7 +293,7 @@ class InventoryController extends Controller implements HasMiddleware
         // adjust batch needs to allow it (a correction/writeoff) -- so the
         // quantity rule itself depends on mode, decided before validate()
         // runs rather than trying to express it as one static rule.
-        $quantityRule = $request->input('mode') === 'recount'
+        $packagesRule = $request->input('mode') === 'recount'
             ? ['required', 'numeric', 'min:0']
             : ['required', 'numeric'];
 
@@ -220,7 +307,17 @@ class InventoryController extends Controller implements HasMiddleware
             'notes' => ['nullable', 'string', 'max:255'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.ingredient_id' => ['required', 'distinct', 'exists:costing_ingredients,id'],
-            'items.*.quantity' => $quantityRule,
+            // Null for an ingredient with no sources at all -- validated
+            // for real existence here, but which source it must belong to
+            // (and whether it belongs to this row's ingredient at all) is
+            // re-checked in the loop below, not assumed from the client.
+            'items.*.package_size_id' => ['nullable', 'integer', 'exists:costing_ingredient_package_sizes,id'],
+            // Entered in packages (fractional allowed -- half a package
+            // used is a real physical count), not the ingredient's raw
+            // base unit -- matches how the per-ingredient Stock modal's
+            // own Recount already works, and avoids the modal silently
+            // expecting a typed-in gram figure with no unit shown.
+            'items.*.packages' => $packagesRule,
         ]);
 
         $reason = $validated['mode'] === 'recount' ? 'recount' : $validated['reason'];
@@ -232,51 +329,24 @@ class InventoryController extends Controller implements HasMiddleware
             foreach ($validated['items'] as $item) {
                 $ingredient = Ingredient::with('inventory', 'packageSizes')->find($item['ingredient_id']);
 
-                $packageSize = $ingredient->packageSizes
-                    ->first(fn (PackageSize $packageSize) => $ingredient->preferred_source
-                        && $packageSize->provider === $ingredient->preferred_source
-                        && (!$ingredient->preferred_brand || $packageSize->brand === $ingredient->preferred_brand))
-                    ?? $ingredient->packageSizes->first();
+                $packageSize = $item['package_size_id'] !== null
+                    ? $ingredient->packageSizes->firstWhere('id', $item['package_size_id'])
+                    : null;
 
                 if ($packageSize === null) {
                     $skipped[] = $ingredient->name;
                     continue;
                 }
 
+                // Same packages -> raw-unit conversion adjustSource() does
+                // for a single source; here it's just applied per bulk row.
+                $quantity = (float) $item['packages'] * (float) $packageSize->package_size;
+
                 $ingredientOldOnHand = (float) $ingredient->inventory->on_hand;
                 $sourceOldOnHand = (float) $packageSize->quantity_on_hand;
 
-                if ($validated['mode'] === 'recount') {
-                    // A recount is a physical count of everything on hand
-                    // for this ingredient, not just its preferred source --
-                    // zero every other source first (each logged in its own
-                    // right) so the ingredient's total actually equals what
-                    // was entered, rather than entered + whatever was still
-                    // sitting on other sources.
-                    foreach ($ingredient->packageSizes as $otherSource) {
-                        if ($otherSource->id === $packageSize->id) {
-                            continue;
-                        }
-
-                        $otherOldOnHand = (float) $otherSource->quantity_on_hand;
-                        if ($otherOldOnHand <= 0) {
-                            continue;
-                        }
-
-                        $otherSource->update(['quantity_on_hand' => 0]);
-                        $recordInventoryAdjustment->handle(
-                            packageSize: $otherSource,
-                            reason: 'recount',
-                            onHandBefore: $otherOldOnHand,
-                            onHandAfter: 0,
-                            notes: $validated['notes'] ?? null,
-                            userId: $request->user()?->id,
-                        );
-                    }
-                }
-
                 if ($validated['mode'] === 'adjust') {
-                    $rawNewOnHand = $sourceOldOnHand + (float) $item['quantity'];
+                    $rawNewOnHand = $sourceOldOnHand + $quantity;
                     $sourceNewOnHand = max(0, $rawNewOnHand);
                     if ($rawNewOnHand < 0) {
                         // A subtract larger than what's on hand floors at 0
@@ -286,7 +356,14 @@ class InventoryController extends Controller implements HasMiddleware
                         $clamped[] = sprintf('%s (by %s)', $ingredient->name, rtrim(rtrim(number_format(abs($rawNewOnHand), 2), '0'), '.'));
                     }
                 } else {
-                    $sourceNewOnHand = (float) $item['quantity'];
+                    // Recounts just this source -- not every source for the
+                    // ingredient. That "zero every other source" behavior
+                    // only made sense back when bulk had no source picker
+                    // and always wrote to one auto-resolved target; doing
+                    // it now that any source can be explicitly chosen would
+                    // silently wipe out real stock sitting on a source the
+                    // user never intended to touch in this row.
+                    $sourceNewOnHand = $quantity;
                 }
 
                 $packageSize->update(['quantity_on_hand' => $sourceNewOnHand]);
@@ -300,12 +377,7 @@ class InventoryController extends Controller implements HasMiddleware
                     userId: $request->user()?->id,
                 );
 
-                // Recount zeroes every other source, so the ingredient's new
-                // total is exactly what was entered -- not the old total
-                // plus the one target source's delta.
-                $ingredientNewOnHand = $validated['mode'] === 'recount'
-                    ? $sourceNewOnHand
-                    : $ingredientOldOnHand + ($sourceNewOnHand - $sourceOldOnHand);
+                $ingredientNewOnHand = $ingredientOldOnHand + ($sourceNewOnHand - $sourceOldOnHand);
 
                 $checkIngredientLowStock->handle($ingredient, $ingredientOldOnHand, $ingredientNewOnHand);
             }
@@ -374,5 +446,23 @@ class InventoryController extends Controller implements HasMiddleware
                 ['label' => 'Adjustment History'],
             ),
         ]);
+    }
+
+    /**
+     * A sensible default source to preselect in the bulk modal's per-row
+     * picker: the preferred source if one is set and matches, else
+     * whichever source happens to be first. The user can still choose a
+     * different one -- this is a suggestion, not the write target itself
+     * (see bulkUpdate(), which now always uses whatever the request
+     * actually specifies). $ingredient must already have packageSizes
+     * eager-loaded.
+     */
+    private function bulkUpdateTargetSource(Ingredient $ingredient): ?PackageSize
+    {
+        return $ingredient->packageSizes
+            ->first(fn (PackageSize $packageSize) => $ingredient->preferred_source
+                && $packageSize->provider === $ingredient->preferred_source
+                && $packageSize->brand === $ingredient->preferred_brand)
+            ?? $ingredient->packageSizes->first();
     }
 }

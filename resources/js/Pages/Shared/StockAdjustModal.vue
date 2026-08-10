@@ -27,6 +27,7 @@
 
               <div v-if="recountKey !== source.id" class="text-sm text-gray-500 dark:text-gray-400">
                 {{ formatPackages(source.packages) }} × {{ fmt(source.package_size) }} = {{ fmt(source.quantity_on_hand) }}
+                <span v-if="source.units_per_case > 1" class="text-gray-400 dark:text-gray-500">(case of {{ source.units_per_case }})</span>
                 <button type="button" @click="startRecount(source)" class="ml-1 font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">Recount</button>
               </div>
               <div v-else class="mt-1 flex items-center gap-1.5">
@@ -125,8 +126,9 @@
             <input v-model="newSourceProvider" type="text" placeholder="Provider (e.g. GFS)" autofocus class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
             <input v-model="newSourceBrand" type="text" placeholder="Brand (optional)" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-center gap-2">
             <input v-model.number="newSourceSize" type="number" inputmode="decimal" min="0.01" step="0.01" :placeholder="`Package size (${baseUnitLabel})`" class="w-full sm:w-40 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+            <input v-model.number="newSourceUnitsPerCase" type="number" inputmode="decimal" min="1" step="1" placeholder="Units/case" title="Leave at 1 if not sold by the case" class="w-full sm:w-28 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
             <button type="button" @click="saveNewSource" :disabled="addSourceSaving || !newSourceProvider || !newSourceSize" class="py-1.5 px-4 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40">
               <span v-if="addSourceSaving">Saving...</span>
               <span v-else>Add</span>
@@ -164,6 +166,7 @@ interface Source {
   provider: string
   brand: string | null
   package_size: number
+  units_per_case: number
   quantity_on_hand: number
   packages: number
 }
@@ -334,6 +337,7 @@ const addingSource = ref(false)
 const newSourceProvider = ref('')
 const newSourceBrand = ref('')
 const newSourceSize = ref<number | null>(null)
+const newSourceUnitsPerCase = ref<number>(1)
 const addSourceSaving = ref(false)
 const addSourceError = ref<string | null>(null)
 
@@ -342,6 +346,7 @@ const startAddSource = () => {
   newSourceProvider.value = ''
   newSourceBrand.value = ''
   newSourceSize.value = null
+  newSourceUnitsPerCase.value = 1
   addSourceError.value = null
 }
 
@@ -358,7 +363,7 @@ const saveNewSource = () => {
 
   router.post(
     route('admin.costing.ingredients.set-package-size', ingredientId),
-    { provider: newSourceProvider.value, brand: newSourceBrand.value || null, package_size: newSourceSize.value },
+    { provider: newSourceProvider.value, brand: newSourceBrand.value || null, package_size: newSourceSize.value, units_per_case: newSourceUnitsPerCase.value || 1 },
     {
       preserveScroll: true,
       preserveState: true,

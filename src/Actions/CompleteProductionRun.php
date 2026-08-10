@@ -64,15 +64,15 @@ class CompleteProductionRun
 
             $oldOnHand = (float) $ingredient->packageSizes->sum('quantity_on_hand');
 
-            // Preferred source drained first (same provider/brand match
-            // CalculateIngredientCosting already uses for pricing --
-            // preferred_brand only narrows the match when it's actually
-            // set, otherwise any brand from the preferred provider
-            // qualifies), spilling into the remaining sources in their
-            // existing order only once it's empty.
+            // Preferred source drained first (same strict provider+brand
+            // pair match CalculateIngredientCosting uses for pricing --
+            // see GetIngredientPriceOptions::isPreferred() for why this is
+            // an exact pair match, not "any brand from this provider"),
+            // spilling into the remaining sources in their existing order
+            // only once it's empty.
             $isPreferred = fn (PackageSize $packageSize) => $ingredient->preferred_source
                 && $packageSize->provider === $ingredient->preferred_source
-                && (!$ingredient->preferred_brand || $packageSize->brand === $ingredient->preferred_brand);
+                && $packageSize->brand === $ingredient->preferred_brand;
 
             $sources = $ingredient->packageSizes->sortByDesc($isPreferred)->values();
 

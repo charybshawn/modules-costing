@@ -28,6 +28,7 @@ class CalculateIngredientCosting
      *     last_price_date: string|null,
      *     purchase_size: float,
      *     purchase_unit: string|null,
+     *     units_per_case: int,
      *     status: 'ok'|'no_price_this_week',
      *     stale_price: float|null,
      *     stale_effective_price: float|null,
@@ -75,11 +76,13 @@ class CalculateIngredientCosting
                 && $entry->price_per_unit !== null);
 
         if ($ingredient->preferred_source) {
-            $measurableEntries = $measurableEntries->where('provider', $ingredient->preferred_source);
-
-            if ($ingredient->preferred_brand) {
-                $measurableEntries = $measurableEntries->where('brand', $ingredient->preferred_brand);
-            }
+            // Strict pair match (provider AND brand, including a null
+            // brand) -- the same exact PackageSize row Set Preferred was
+            // clicked on, never "any brand from this provider." See
+            // GetIngredientPriceOptions::isPreferred() for why.
+            $measurableEntries = $measurableEntries
+                ->where('provider', $ingredient->preferred_source)
+                ->filter(fn (PriceHistoryEntry $entry) => $entry->brand === $ingredient->preferred_brand);
         }
 
         $entries = $measurableEntries->filter(
@@ -89,7 +92,7 @@ class CalculateIngredientCosting
         if ($entries->isEmpty()) {
             $latest = $measurableEntries->first();
             $waste = max((float) $ingredient->waste_percent, 0.01);
-            [$packageSize, $packageUnitLabel] = $this->resolvePackageSize($ingredient, $latest?->provider, $latest?->brand);
+            [$packageSize, $packageUnitLabel, $unitsPerCase] = $this->resolvePackageSize($ingredient, $latest?->provider, $latest?->brand);
 
             return [
                 'weekly_price' => null,
@@ -98,6 +101,7 @@ class CalculateIngredientCosting
                 'last_price_date' => null,
                 'purchase_size' => $packageSize,
                 'purchase_unit' => $packageUnitLabel,
+                'units_per_case' => $unitsPerCase,
                 'status' => 'no_price_this_week',
                 'stale_price' => $latest ? round($latest->price_per_unit, 4) : null,
                 'stale_effective_price' => $latest ? round($latest->price_per_unit * (100 / $waste), 4) : null,
@@ -118,7 +122,7 @@ class CalculateIngredientCosting
         $weeklyPrice = $best->price_per_unit;
         $waste = max((float) $ingredient->waste_percent, 0.01);
         $effectivePrice = $weeklyPrice * (100 / $waste);
-        [$packageSize, $packageUnitLabel] = $this->resolvePackageSize($ingredient, $best->provider, $best->brand);
+        [$packageSize, $packageUnitLabel, $unitsPerCase] = $this->resolvePackageSize($ingredient, $best->provider, $best->brand);
 
         return [
             'weekly_price' => round($weeklyPrice, 4),
@@ -127,6 +131,7 @@ class CalculateIngredientCosting
             'last_price_date' => $best->purchased_at->format('Y-m-d'),
             'purchase_size' => $packageSize,
             'purchase_unit' => $packageUnitLabel,
+            'units_per_case' => $unitsPerCase,
             'status' => 'ok',
             'stale_price' => null,
             'stale_effective_price' => null,
@@ -146,6 +151,9 @@ class CalculateIngredientCosting
      *
      * @return array{0: float, 1: string|null}
      */
+    /**
+     * @return array{0: float, 1: string|null, 2: int}
+     */
     private function resolvePackageSize(Ingredient $ingredient, ?string $provider, ?string $brand): array
     {
         if ($provider !== null) {
@@ -155,16 +163,23 @@ class CalculateIngredientCosting
 
             if ($brandSize !== null && (float) $brandSize->package_size > 0) {
                 $size = (float) $brandSize->package_size;
+                $unitsPerCase = max(1, (int) $brandSize->units_per_case);
                 $source = $brand ? "{$provider} -- {$brand}" : $provider;
 
-                return [$size, $this->formatPackageSize($ingredient, $size, $source)];
+                return [$size, $this->formatPackageSize($ingredient, $size, $unitsPerCase, $source), $unitsPerCase];
             }
         }
 
-        return [1.0, null];
+        return [1.0, null, 1];
     }
 
-    private function formatPackageSize(Ingredient $ingredient, float $size, string $source): string
+    /**
+     * units_per_case is a purchasing constraint only ("only orderable in
+     * cases of N") -- it's appended to the label so the shopping list and
+     * Bulk Update both show it, but $size itself always stays the
+     * individual package size, never the case total.
+     */
+    private function formatPackageSize(Ingredient $ingredient, float $size, int $unitsPerCase, string $source): string
     {
         if ($ingredient->isGramBased()) {
             $kg = rtrim(rtrim(number_format($size / 1000, 2), '0'), '.');
@@ -174,6 +189,8 @@ class CalculateIngredientCosting
             $sizeLabel = "{$units} unit".($units === 1 ? '' : 's');
         }
 
-        return "{$sizeLabel} ({$source})";
+        $caseSuffix = $unitsPerCase > 1 ? ", case of {$unitsPerCase}" : '';
+
+        return "{$sizeLabel}{$caseSuffix} ({$source})";
     }
 }

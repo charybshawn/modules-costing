@@ -43,14 +43,14 @@ export function useIngredientSources(ingredientId: Ref<number | ''>) {
   const addSourceSaving = ref(false)
   const addSourceError = ref<string | null>(null)
 
-  const addSource = (id: number, provider: string, brand: string | null, packageSize: number): Promise<number | null> => {
+  const addSource = (id: number, provider: string, brand: string | null, packageSize: number, unitsPerCase: number = 1): Promise<number | null> => {
     addSourceSaving.value = true
     addSourceError.value = null
 
     return new Promise((resolve) => {
       router.post(
         route('admin.costing.ingredients.set-package-size', id),
-        { provider, brand, package_size: packageSize },
+        { provider, brand, package_size: packageSize, units_per_case: unitsPerCase },
         {
           preserveScroll: true,
           onSuccess: async () => {

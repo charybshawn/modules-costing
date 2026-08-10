@@ -85,7 +85,18 @@ class CalculateProductionPlan
             $costing = $this->calculateIngredientCosting->handle($ingredient);
 
             $purchaseSize = $costing['purchase_size'] > 0 ? $costing['purchase_size'] : 1.0;
-            $unitsToBuy = $toPurchase > 0 ? (int) ceil($toPurchase / $purchaseSize) : 0;
+            $unitsPerCase = max(1, (int) ($costing['units_per_case'] ?? 1));
+
+            // Individual packages needed to cover the shortfall, then
+            // rounded up to a whole number of CASES -- some sources are
+            // only orderable in multiples (e.g. GFS beef stock concentrate:
+            // 946g packages, only sold in cases of 4), so buying "5
+            // packages' worth" really means buying 2 whole cases (8). When
+            // units_per_case is 1 (the common case) this collapses to
+            // exactly the old unitsToBuy = ceil(toPurchase / purchaseSize).
+            $individualUnitsNeeded = $toPurchase > 0 ? (int) ceil($toPurchase / $purchaseSize) : 0;
+            $casesNeeded = $individualUnitsNeeded > 0 ? (int) ceil($individualUnitsNeeded / $unitsPerCase) : 0;
+            $unitsToBuy = $casesNeeded * $unitsPerCase;
 
             // The real total quantity that will actually be ordered/received
             // -- always a whole multiple of the package size (e.g. 1 case of

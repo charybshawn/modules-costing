@@ -17,6 +17,13 @@
           >
             Bulk Update Stock
           </button>
+          <button
+            type="button"
+            @click="openAddItemModal"
+            class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+          >
+            + Add Item
+          </button>
           <Link :href="route('admin.costing.inventory.adjustments')" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
             View History
           </Link>
@@ -115,40 +122,59 @@
           </div>
 
           <div class="mt-4 space-y-3 max-h-80 overflow-y-auto">
-            <div v-for="(row, index) in bulkForm.items" :key="index" class="flex flex-wrap items-center gap-3">
-              <select
-                v-model.number="row.ingredient_id"
-                required
-                class="flex-1 min-w-[10rem] rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
-              >
-                <option :value="null" disabled>Select an ingredient&hellip;</option>
-                <option
-                  v-for="ingredient in availableIngredients(row.ingredient_id)"
-                  :key="ingredient.ingredient_id"
-                  :value="ingredient.ingredient_id"
+            <div v-for="(row, index) in bulkForm.items" :key="index">
+              <div class="flex flex-wrap items-center gap-3">
+                <select
+                  v-model.number="row.ingredient_id"
+                  required
+                  @change="onIngredientChange(row)"
+                  class="flex-1 min-w-[10rem] rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
                 >
-                  {{ ingredient.name }} ({{ formatQuantity(ingredient.on_hand, ingredient.unit_type) }} on hand){{ ingredient.source_count === 0 ? ' -- no sources yet' : '' }}
-                </option>
-              </select>
-              <input
-                v-model.number="row.quantity"
-                type="number"
-                :min="bulkForm.mode === 'recount' ? 0 : undefined"
-                step="0.01"
-                required
-                :placeholder="bulkForm.mode === 'adjust' ? 'Qty (+/-)' : 'New count'"
-                class="w-full sm:w-32 flex-1 sm:flex-none min-w-0 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
-              />
-              <button
-                type="button"
-                @click="removeRow(index)"
-                :disabled="bulkForm.items.length === 1"
-                class="text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 disabled:opacity-30 disabled:hover:text-gray-400 dark:disabled:hover:text-gray-500"
-              >
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+                  <option :value="null" disabled>Select an ingredient&hellip;</option>
+                  <option
+                    v-for="ingredient in availableIngredients(row.ingredient_id)"
+                    :key="ingredient.ingredient_id"
+                    :value="ingredient.ingredient_id"
+                  >
+                    {{ ingredient.name }} ({{ formatQuantity(ingredient.on_hand, ingredient.unit_type) }} on hand){{ ingredient.source_count === 0 ? ' -- no sources yet' : '' }}
+                  </option>
+                </select>
+                <select
+                  v-model.number="row.package_size_id"
+                  required
+                  :disabled="sourcesFor(row.ingredient_id).length === 0"
+                  class="flex-1 min-w-[10rem] rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm disabled:opacity-50"
+                >
+                  <option :value="null" disabled>{{ sourcesFor(row.ingredient_id).length === 0 ? 'No sources yet' : 'Select a source…' }}</option>
+                  <option v-for="source in sourcesFor(row.ingredient_id)" :key="source.id" :value="source.id">
+                    {{ source.provider }}{{ source.brand ? ' — ' + source.brand : '' }} ({{ formatQuantity(source.package_size, ingredientFor(row.ingredient_id)?.unit_type ?? 'g') }}/pkg{{ source.units_per_case > 1 ? `, case of ${source.units_per_case}` : '' }})
+                  </option>
+                </select>
+                <input
+                  v-model.number="row.packages"
+                  type="number"
+                  inputmode="decimal"
+                  :min="bulkForm.mode === 'recount' ? 0 : undefined"
+                  step="0.01"
+                  required
+                  :disabled="row.package_size_id === null"
+                  :placeholder="bulkForm.mode === 'adjust' ? 'Packages (+/-)' : 'Packages on hand'"
+                  class="w-full sm:w-36 flex-1 sm:flex-none min-w-0 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm disabled:opacity-50"
+                />
+                <button
+                  type="button"
+                  @click="removeRow(index)"
+                  :disabled="bulkForm.items.length === 1"
+                  class="text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 disabled:opacity-30 disabled:hover:text-gray-400 dark:disabled:hover:text-gray-500"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <p v-if="row.package_size_id !== null" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {{ packageSizeHint(row) }}
+              </p>
             </div>
           </div>
 
@@ -172,12 +198,90 @@
           </div>
         </form>
       </Modal>
+
+      <!-- Add Item modal -- for something not in the system at all yet.
+           An existing ingredient that just needs a new source still uses
+           the per-item Stock modal (opened via the ingredient name above),
+           not this. -->
+      <Modal :show="showAddItemModal" max-width="lg" @close="closeAddItemModal">
+        <form @submit.prevent="submitAddItem" class="p-6">
+          <h2 class="text-lg font-medium text-gray-900 dark:text-white">Add Item</h2>
+          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">For something not in the system yet -- creates the ingredient, its first source, and a starting count in one go.</p>
+
+          <FormErrorSummary :errors="addItemForm.errors" class="mt-4" />
+
+          <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="sm:col-span-2">
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Name *</label>
+              <input v-model="addItemForm.name" type="text" required autofocus placeholder="e.g. Cream Cheese" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Category</label>
+              <input v-model="addItemForm.category" type="text" placeholder="e.g. Dairy & Eggs" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Measured In *</label>
+              <select v-model="addItemForm.unit_type" required class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+                <option value="g">Grams (priced per kg)</option>
+                <option value="unit">Units (priced per unit)</option>
+              </select>
+            </div>
+            <div class="sm:col-span-2">
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Waste % *</label>
+              <input v-model.number="addItemForm.waste_percent" type="number" min="1" max="100" step="0.01" required class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">100 = no waste, 95 = 5% trim loss. Adjust later on the Ingredients page if unsure.</p>
+            </div>
+          </div>
+
+          <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <h3 class="text-sm font-medium text-gray-900 dark:text-white mb-2">First Source</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Provider *</label>
+                <input v-model="addItemForm.provider" type="text" required placeholder="e.g. GFS" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Brand</label>
+                <input v-model="addItemForm.brand" type="text" placeholder="Optional" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Package Size *</label>
+                <input v-model.number="addItemForm.package_size" type="number" min="0.01" step="0.01" required :placeholder="addItemForm.unit_type === 'unit' ? 'e.g. 500' : 'e.g. 3500'" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ addItemForm.unit_type === 'unit' ? 'Units per package.' : 'Grams per package -- e.g. 3.5kg = 3500.' }}</p>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Units Per Case</label>
+                <input v-model.number="addItemForm.units_per_case" type="number" min="1" step="1" placeholder="1" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Leave at 1 if not sold by the case.</p>
+              </div>
+              <div class="sm:col-span-2">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Packages On Hand</label>
+                <input v-model.number="addItemForm.packages" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  <template v-if="addItemQuantityPreview">= {{ addItemQuantityPreview }}</template>
+                  <template v-else>Leave blank to add this item with zero stock for now. Always individual packages, not cases.</template>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-6 flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <button type="button" @click="closeAddItemModal" class="bg-gray-200 dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">
+              Cancel
+            </button>
+            <button type="submit" :disabled="addItemForm.processing" class="bg-indigo-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
+              <span v-if="addItemForm.processing">Adding...</span>
+              <span v-else>Add Item</span>
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { Link, router, useForm } from '@inertiajs/vue3'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import DataTable, { type Column } from '@/Components/Admin/DataTable.vue'
@@ -189,6 +293,14 @@ import { formatQuantity } from '../Shared/formatWeight'
 
 defineOptions({ layout: AdminLayout })
 
+interface IngredientSource {
+  id: number
+  provider: string
+  brand: string | null
+  package_size: number
+  units_per_case: number
+}
+
 interface InventoryRow {
   ingredient_id: number
   name: string
@@ -196,6 +308,8 @@ interface InventoryRow {
   unit_type: 'g' | 'unit'
   on_hand: number
   source_count: number
+  sources: IngredientSource[]
+  preferred_source_id: number | null
 }
 
 interface Props {
@@ -229,7 +343,7 @@ interface BulkFormData {
   mode: 'adjust' | 'recount'
   reason: 'received' | 'correction'
   notes: string
-  items: Array<{ ingredient_id: number | null; quantity: number | null }>
+  items: Array<{ ingredient_id: number | null; package_size_id: number | null; packages: number | null }>
 }
 
 const showBulkModal = ref(false)
@@ -238,7 +352,7 @@ const bulkForm = useForm<BulkFormData>({
   mode: 'adjust',
   reason: 'received',
   notes: '',
-  items: [{ ingredient_id: null, quantity: null }],
+  items: [{ ingredient_id: null, package_size_id: null, packages: null }],
 })
 
 const openBulkModal = () => {
@@ -260,7 +374,7 @@ onMounted(() => {
 })
 
 const addRow = () => {
-  bulkForm.items.push({ ingredient_id: null, quantity: null })
+  bulkForm.items.push({ ingredient_id: null, package_size_id: null, packages: null })
 }
 
 const removeRow = (index: number) => {
@@ -276,11 +390,107 @@ const availableIngredients = (currentValue: number | null) => {
   return props.ingredients.filter((i) => !chosen.has(i.ingredient_id))
 }
 
+const ingredientFor = (ingredientId: number | null): InventoryRow | null => {
+  if (ingredientId === null) return null
+  return props.ingredients.find((i) => i.ingredient_id === ingredientId) ?? null
+}
+
+const sourcesFor = (ingredientId: number | null): IngredientSource[] => ingredientFor(ingredientId)?.sources ?? []
+
+// Picking a new ingredient resets the source/quantity below it -- a
+// previously-chosen source almost certainly doesn't belong to the newly
+// picked ingredient. Preselects the ingredient's preferred (else first)
+// source as a starting point, same default StockAdjustModal's own picker
+// would land on, but the user can still change it to any real source.
+const onIngredientChange = (row: { ingredient_id: number | null; package_size_id: number | null; packages: number | null }) => {
+  const ingredient = ingredientFor(row.ingredient_id)
+  row.package_size_id = ingredient?.preferred_source_id ?? ingredient?.sources[0]?.id ?? null
+  row.packages = null
+}
+
+// The packages field is entered in whole-or-fractional packages (e.g. 0.5
+// for half a package used), not the ingredient's raw base unit -- there's
+// no other way to tell what "one package" of the chosen source actually
+// is, or to see the resulting total, without leaving this modal.
+const packageSizeHint = (row: { ingredient_id: number | null; package_size_id: number | null; packages: number | null }): string => {
+  const ingredient = ingredientFor(row.ingredient_id)
+  const source = ingredient?.sources.find((s) => s.id === row.package_size_id)
+  if (!ingredient || !source) return ''
+
+  const size = formatQuantity(source.package_size, ingredient.unit_type)
+  const label = source.brand ? `${source.provider} — ${source.brand}` : source.provider
+  const caseSuffix = source.units_per_case > 1 ? `, case of ${source.units_per_case}` : ''
+  const base = `1 package = ${size}${caseSuffix} (${label})`
+
+  if (!row.packages) return base
+
+  // Always individual packages, never cases -- recount/adjust granularity
+  // is unaffected by units_per_case, which only matters for purchasing.
+  const total = row.packages * source.package_size
+  const sign = total < 0 ? '−' : ''
+  return `${base} → ${row.packages} × ${size} = ${sign}${formatQuantity(Math.abs(total), ingredient.unit_type)}`
+}
+
 const submitBulk = () => {
   bulkForm.post(route('admin.costing.inventory.bulk-update'), {
     preserveScroll: true,
     onSuccess: () => {
       showBulkModal.value = false
+    },
+  })
+}
+
+// Add Item modal -- onboards something not in the system at all yet:
+// creates the Ingredient, its first Source, and an optional starting
+// count in one submission (previously three separate screens). An
+// existing ingredient that just needs a new source still uses the
+// per-item Stock modal (openStockModal above), not this.
+interface AddItemFormData {
+  name: string
+  category: string
+  unit_type: 'g' | 'unit'
+  waste_percent: number
+  provider: string
+  brand: string
+  package_size: number | null
+  units_per_case: number
+  packages: number | null
+}
+
+const showAddItemModal = ref(false)
+
+const addItemForm = useForm<AddItemFormData>({
+  name: '',
+  category: '',
+  unit_type: 'g',
+  waste_percent: 100,
+  provider: '',
+  brand: '',
+  package_size: null,
+  units_per_case: 1,
+  packages: null,
+})
+
+const openAddItemModal = () => {
+  addItemForm.reset()
+  addItemForm.clearErrors()
+  showAddItemModal.value = true
+}
+
+const closeAddItemModal = () => {
+  showAddItemModal.value = false
+}
+
+const addItemQuantityPreview = computed<string | null>(() => {
+  if (!addItemForm.packages || !addItemForm.package_size) return null
+  return formatQuantity(addItemForm.packages * addItemForm.package_size, addItemForm.unit_type)
+})
+
+const submitAddItem = () => {
+  addItemForm.post(route('admin.costing.inventory.items.store'), {
+    preserveScroll: true,
+    onSuccess: () => {
+      showAddItemModal.value = false
     },
   })
 }

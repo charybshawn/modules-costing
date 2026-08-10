@@ -44,6 +44,7 @@ Route::prefix('admin')->name('admin.')->middleware(['web', 'auth', 'admin'])->gr
 
         Route::prefix('inventory')->name('inventory.')->group(function () {
             Route::get('/', [InventoryController::class, 'index'])->name('index');
+            Route::post('items', [InventoryController::class, 'storeItem'])->name('items.store');
             Route::post('bulk-update', [InventoryController::class, 'bulkUpdate'])->name('bulk-update');
             Route::get('adjustments', [InventoryController::class, 'adjustments'])->name('adjustments');
             Route::get('{ingredient}/sources', [InventoryController::class, 'sources'])->name('sources');

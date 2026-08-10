@@ -34,6 +34,7 @@ class GetIngredientPriceOptions
      *     is_stale: bool,
      *     is_preferred: bool,
      *     package_size: float|null,
+     *     units_per_case: int,
      *     quantity_on_hand: float,
      * }>
      */
@@ -72,6 +73,7 @@ class GetIngredientPriceOptions
                     'is_stale' => $entry->purchased_at === null || $entry->purchased_at->lt($cutoff),
                     'is_preferred' => $this->isPreferred($ingredient, $entry->provider, $entry->brand),
                     'package_size' => $entry->packageSize !== null ? (float) $entry->packageSize->package_size : null,
+                    'units_per_case' => $entry->packageSize !== null ? (int) $entry->packageSize->units_per_case : 1,
                     'quantity_on_hand' => $entry->packageSize !== null ? (float) $entry->packageSize->quantity_on_hand : 0.0,
                 ];
             });
@@ -96,6 +98,7 @@ class GetIngredientPriceOptions
                 'is_stale' => true,
                 'is_preferred' => $this->isPreferred($ingredient, $packageSize->provider, $packageSize->brand),
                 'package_size' => (float) $packageSize->package_size,
+                'units_per_case' => (int) $packageSize->units_per_case,
                 'quantity_on_hand' => (float) $packageSize->quantity_on_hand,
             ]);
 
@@ -106,15 +109,18 @@ class GetIngredientPriceOptions
     }
 
     /**
-     * Null preferred_brand means "any brand from that provider" -- the same
-     * rule CompleteProductionRun and InventoryController::bulkUpdate() use
-     * to pick a target source. Strict brand equality here previously meant
-     * a provider-only preference showed no "Preferred" badge in the UI
-     * while the backend still confidently drained that provider's rows.
+     * Strict pair equality, including null-brand rows: setPackageSize()'s
+     * updateOrCreate is keyed on (ingredient_id, provider, brand), so that
+     * pair already uniquely identifies one PackageSize row per ingredient.
+     * A previous version treated a null preferred_brand as a "any brand
+     * from that provider" wildcard, which let a source with no brand set
+     * (e.g. "GFS") and a differently-branded source from the same provider
+     * (e.g. "GFS -- Knorr") both show as preferred at once. Matching brand
+     * strictly (not just "if set") keeps this 1:1.
      */
     private function isPreferred(Ingredient $ingredient, string $provider, ?string $brand): bool
     {
         return $ingredient->preferred_source === $provider
-            && (!$ingredient->preferred_brand || $ingredient->preferred_brand === $brand);
+            && $ingredient->preferred_brand === $brand;
     }
 }

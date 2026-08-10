@@ -73,7 +73,13 @@ class CostingDatabaseSeeder extends Seeder
             );
         }
 
-        // Price History: [ingredient, days_ago (or null), provider, qty, total_price, sku, notes]
+        // Price History: [ingredient, days_ago (or null), provider, qty,
+        // total_price, sku, notes, package_size?, units_per_case?]. The
+        // last two are optional and default to [qty, 1] below -- i.e. "one
+        // package = the whole logged qty, not sold by the case" -- correct
+        // for every row except Beef Stock Concentrate/GFS, which is real
+        // case-lot demo data: qty=3784 is genuinely what $96.76 bought (a
+        // case), but the Source itself is one 946ml can, four to a case.
         $priceHistory = [
             ['Cream Cheese', 84, 'GFS', 15000, 151.62, null, 'GFS Cream Cheese'],
             ['Cream Cheese', 245, 'GFS', 15000, 144.09, null, 'GFS Cream Cheese'],
@@ -88,7 +94,7 @@ class CostingDatabaseSeeder extends Seeder
             ['Pickles', 245, 'GFS', 8000, 42.49, '2606805', "Bick's Mini Dill"],
             ['Pickles', 264, 'Wholesale Club', 4000, 21.99, null, null],
             ['Orange Juice Concentrate', 104, 'GFS', 10500, 263.74, null, null],
-            ['Beef Stock Concentrate', 104, 'GFS', 3784, 96.76, null, 'Knorr Professional 946ml'],
+            ['Beef Stock Concentrate', 104, 'GFS', 3784, 96.76, null, 'Knorr Professional 946ml', 946, 4],
             ['Beef Stock Concentrate', 104, 'Amazon', 946, 32.99, null, 'Knorr Professional 946ml'],
             ['Caramelized Onions', 104, 'GFS', 1816, 41.96, null, null],
             ['Caramelized Onions', 24, 'GFS', 1816, 40.09, null, null],
@@ -105,7 +111,11 @@ class CostingDatabaseSeeder extends Seeder
             ['8oz Deli Cup', null, 'GFS', null, null, null, 'Per unit (not per kg)'],
         ];
 
-        foreach ($priceHistory as [$name, $daysAgo, $provider, $qty, $totalPrice, $sku, $notes]) {
+        foreach ($priceHistory as $row) {
+            [$name, $daysAgo, $provider, $qty, $totalPrice, $sku, $notes] = $row;
+            $sourcePackageSize = $row[7] ?? ($qty ?: 1);
+            $unitsPerCase = $row[8] ?? 1;
+
             $ingredient = $ingredients[$name];
 
             // Same (ingredient, provider, brand) identity setPackageSize()
@@ -113,7 +123,7 @@ class CostingDatabaseSeeder extends Seeder
             // ingredient already has.
             $packageSize = PackageSize::firstOrCreate(
                 ['ingredient_id' => $ingredient->id, 'provider' => $provider, 'brand' => null],
-                ['package_size' => $qty ?: 1],
+                ['package_size' => $sourcePackageSize, 'units_per_case' => $unitsPerCase],
             );
 
             $ingredient->priceHistory()->create([
