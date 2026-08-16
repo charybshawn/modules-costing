@@ -7,8 +7,8 @@
           <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Production Runs</h1>
           <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Past and current production runs, newest first.</p>
         </div>
-        <Link :href="route('admin.costing.production-planner.create')" class="mt-4 md:mt-0 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
-          Plan a New Run
+        <Link :href="route('admin.costing.kitchen-rentals.index')" class="mt-4 md:mt-0 inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+          Rental Schedule
         </Link>
       </div>
 
@@ -24,8 +24,8 @@
           searchable
           search-placeholder="Search runs..."
           empty-message="No production runs yet."
-          empty-action-label="Plan your first run"
-          :empty-action-href="route('admin.costing.production-planner.index')"
+          empty-action-label="Plan one from the Rental Schedule"
+          :empty-action-href="route('admin.costing.kitchen-rentals.index')"
           table-id="costing-production-runs"
           item-key="id"
           @action="handleAction"
@@ -50,15 +50,18 @@
         </DataTable>
       </div>
     </div>
+
+    <ProductionPlanModal :production-run-id="openRunId" :auto-complete="autoComplete" @close="openRunId = null; autoComplete = false" @updated="router.reload({ only: ['runs'] })" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import DataTable, { type Column, type Action } from '@/Components/Admin/DataTable.vue'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
+import ProductionPlanModal from '../Shared/ProductionPlanModal.vue'
 
 defineOptions({ layout: AdminLayout })
 
@@ -91,16 +94,34 @@ const columns: Column[] = [
 ]
 
 const tableActions: Action[] = [
-  { name: 'view', icon: 'edit', color: 'indigo', label: 'View / Edit', href: (item) => route('admin.costing.production-planner.show', item.id) },
+  { name: 'view', icon: 'edit', color: 'indigo', label: 'View / Edit' },
+  // Row-level action, not a button inside the modal -- completing is a
+  // separate, deliberate step from editing batches, not something that
+  // should already be sitting there while a run is still being set up.
+  { name: 'complete', icon: 'check', color: 'green', label: 'Complete Run & Deduct Inventory', show: (item) => !item.completed_at },
   { name: 'purchase-order', icon: 'view', color: 'gray', label: 'Purchase Order', href: (item) => route('admin.costing.production-planner.purchase-order', item.id) },
   // Hidden rather than left to 422 -- a completed run's inventory
-  // deduction and cost snapshots are historical fact (see destroy()'s
-  // guard server-side).
+  // deduction and cost snapshots are historical fact until its completion
+  // is explicitly undone (see destroy()'s guard server-side, and the
+  // "Undo Completion" action inside the modal).
   { name: 'delete', icon: 'delete', color: 'red', label: 'Delete', show: (item) => !item.completed_at },
 ]
 
+// The run this modal is open for -- null means closed, same pattern as
+// KitchenRentals/Index.vue and Inventory/Adjustments.vue, which open the
+// same shared modal. autoComplete tells it to land on the actuals-
+// confirmation step instead of the batches editor.
+const openRunId = ref<number | null>(null)
+const autoComplete = ref(false)
+
 const handleAction = (action: string, item: ProductionRunRow) => {
-  if (action === 'delete') {
+  if (action === 'view') {
+    autoComplete.value = false
+    openRunId.value = item.id
+  } else if (action === 'complete') {
+    autoComplete.value = true
+    openRunId.value = item.id
+  } else if (action === 'delete') {
     if (confirm(`Delete production run "${item.name ?? item.run_date}"? This cannot be undone.`)) {
       router.delete(route('admin.costing.production-planner.destroy', item.id), { preserveScroll: true })
     }

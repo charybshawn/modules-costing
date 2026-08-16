@@ -66,14 +66,12 @@ Route::prefix('admin')->name('admin.')->middleware(['web', 'auth', 'admin'])->gr
         });
 
         Route::prefix('production-planner')->name('production-planner.')->group(function () {
-            Route::get('/', [ProductionPlannerController::class, 'index'])->name('index');
             Route::get('runs', [ProductionPlannerController::class, 'runs'])->name('runs');
-            Route::get('create', [ProductionPlannerController::class, 'create'])->name('create');
-            Route::post('/', [ProductionPlannerController::class, 'store'])->name('store');
             Route::get('{productionRun}', [ProductionPlannerController::class, 'show'])->name('show');
             Route::put('{productionRun}', [ProductionPlannerController::class, 'update'])->name('update');
             Route::delete('{productionRun}', [ProductionPlannerController::class, 'destroy'])->name('destroy');
             Route::post('{productionRun}/complete', [ProductionPlannerController::class, 'complete'])->name('complete');
+            Route::post('{productionRun}/uncomplete', [ProductionPlannerController::class, 'uncomplete'])->name('uncomplete');
             Route::get('{productionRun}/purchase-order', [ProductionPlannerController::class, 'purchaseOrder'])->name('purchase-order');
         });
 

@@ -44,7 +44,6 @@ const tabs: Tab[] = [
   { label: 'Price History', href: route('admin.costing.price-history.index'), match: '/admin/costing/price-history' },
   { label: 'Inventory', href: route('admin.costing.inventory.index'), match: '/admin/costing/inventory' },
   { label: 'Recipes', href: route('admin.costing.recipes.index'), match: '/admin/costing/recipes' },
-  { label: 'Production Planner', href: route('admin.costing.production-planner.index'), match: '/admin/costing/production-planner' },
   { label: 'Rental Schedule', href: route('admin.costing.kitchen-rentals.index'), match: '/admin/costing/kitchen-rentals' },
 ]
 

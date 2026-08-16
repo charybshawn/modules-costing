@@ -48,6 +48,12 @@
 
       <!-- Slots -->
       <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
+        <div class="flex items-center justify-end gap-2 px-6 pt-4">
+          <label class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+            <input v-model="hidePast" type="checkbox" class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500 dark:bg-gray-700" />
+            Hide Past Rental Dates
+          </label>
+        </div>
         <DataTable
           :columns="columns"
           :items="rows"
@@ -56,9 +62,7 @@
           :actions="tableActions"
           searchable
           search-placeholder="Search rental slots..."
-          empty-message="No rental slots imported yet."
-          empty-action-label="Plan a run without a slot instead"
-          :empty-action-href="route('admin.costing.production-planner.create')"
+          empty-message="No rental slots imported yet. Import a FoodCorridor CSV export above to get started."
           table-id="costing-kitchen-rentals"
           item-key="id"
           @action="handleAction"
@@ -103,16 +107,20 @@
         </DataTable>
       </div>
     </div>
+
+    <ProductionPlanModal :production-run-id="openRunId" :auto-complete="autoComplete" @close="openRunId = null; autoComplete = false" @updated="router.reload({ only: ['rentals'] })" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import axios from 'axios'
 import { Link, router, useForm } from '@inertiajs/vue3'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import DataTable, { type Column, type Action } from '@/Components/Admin/DataTable.vue'
 import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
+import ProductionPlanModal from '../Shared/ProductionPlanModal.vue'
 
 defineOptions({ layout: AdminLayout })
 
@@ -133,6 +141,7 @@ interface KitchenRentalRow {
   ends_at: string
   production_run_id: number | null
   production_run_name: string | null
+  production_run_completed: boolean
 }
 
 interface Props {
@@ -168,12 +177,6 @@ const handleSort = (field: string) => {
   }
 }
 
-const rows = computed(() => {
-  const field = sortField.value as keyof (typeof unsortedRows.value)[number]
-  const dir = sortDirection.value === 'asc' ? 1 : -1
-  return [...unsortedRows.value].sort((a, b) => String(a[field] ?? '').localeCompare(String(b[field] ?? '')) * dir)
-})
-
 // starts_at/ends_at arrive as 'Y-m-d H:i' -- split once here rather than
 // repeating the same date on both ends of the range, which is redundant
 // for same-day slots (the vast majority) and just clutter otherwise.
@@ -197,6 +200,25 @@ const parseSlotDateTime = (value: string) => {
   const [h, mi] = timePart.split(':').map(Number)
   return Date.UTC(y, mo - 1, d, h, mi)
 }
+
+const hidePast = ref(false)
+
+// "now" built from the same local Y/M/D/H/mi -> Date.UTC composition as
+// parseSlotDateTime above, so this comparison stays apples-to-apples
+// instead of drifting by the local UTC offset.
+const nowAsWallClockUtc = () => {
+  const d = new Date()
+  return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes())
+}
+
+const isPast = (item: KitchenRentalRow) => parseSlotDateTime(item.starts_at) < nowAsWallClockUtc()
+
+const rows = computed(() => {
+  const field = sortField.value as keyof (typeof unsortedRows.value)[number]
+  const dir = sortDirection.value === 'asc' ? 1 : -1
+  const source = hidePast.value ? unsortedRows.value.filter((row) => !isPast(row)) : unsortedRows.value
+  return [...source].sort((a, b) => String(a[field] ?? '').localeCompare(String(b[field] ?? '')) * dir)
+})
 
 const slotDuration = (item: KitchenRentalRow) => {
   const minutes = Math.round((parseSlotDateTime(item.ends_at) - parseSlotDateTime(item.starts_at)) / 60000)
@@ -283,7 +305,16 @@ const tableActions: Action[] = [
     color: 'gray',
     label: 'View Plan',
     show: (item) => !!item.production_run_id,
-    href: (item) => route('admin.costing.production-planner.show', item.production_run_id),
+  },
+  // Row-level action, not a button inside the modal -- completing is a
+  // separate, deliberate step from editing batches, not something that
+  // should already be sitting there while a run is still being set up.
+  {
+    name: 'complete-plan',
+    icon: 'check',
+    color: 'green',
+    label: 'Complete Run & Deduct Inventory',
+    show: (item) => !!item.production_run_id && !item.production_run_completed,
   },
   {
     name: 'unlink-plan',
@@ -294,9 +325,28 @@ const tableActions: Action[] = [
   },
 ]
 
-const handleAction = (action: string, item: KitchenRentalRow) => {
+// The run this modal is open for -- null means closed. Production plans
+// belong to their rental now, so both creating and viewing one happens
+// right here rather than navigating to a separate page. autoComplete tells
+// it to land on the actuals-confirmation step instead of the batches
+// editor.
+const openRunId = ref<number | null>(null)
+const autoComplete = ref(false)
+
+const handleAction = async (action: string, item: KitchenRentalRow) => {
   if (action === 'create-plan') {
-    router.post(route('admin.costing.kitchen-rentals.create-run', item.id))
+    // axios, not router.post -- this needs the new run's id back directly
+    // to open the modal, not an Inertia page redirect.
+    const { data } = await axios.post(route('admin.costing.kitchen-rentals.create-run', item.id))
+    router.reload({ only: ['rentals'] })
+    autoComplete.value = false
+    openRunId.value = data.production_run_id
+  } else if (action === 'view-plan') {
+    autoComplete.value = false
+    openRunId.value = item.production_run_id
+  } else if (action === 'complete-plan') {
+    autoComplete.value = true
+    openRunId.value = item.production_run_id
   } else if (action === 'unlink-plan') {
     if (confirm(`Unlink "${item.booking_title}" from its production run? The run itself is not affected.`)) {
       router.post(route('admin.costing.kitchen-rentals.detach-run', item.id), {}, { preserveScroll: true })

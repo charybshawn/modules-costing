@@ -8,6 +8,7 @@ use Cultpantry\Costing\Actions\ImportKitchenRentalsFromCsv;
 use Cultpantry\Costing\Models\KitchenRental;
 use Cultpantry\Costing\Models\ProductionRun;
 use Cultpantry\Costing\Support\CostingBreadcrumbs;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -57,6 +58,7 @@ class KitchenRentalController extends Controller implements HasMiddleware
                 'ends_at' => $rental->ends_at->format('Y-m-d H:i'),
                 'production_run_id' => $rental->production_run_id,
                 'production_run_name' => $rental->productionRun?->name ?? $rental->productionRun?->run_date->format('Y-m-d'),
+                'production_run_completed' => $rental->productionRun?->completed_at !== null,
             ]),
             'breadcrumbs' => CostingBreadcrumbs::trail(['label' => 'Rental Schedule']),
         ]);
@@ -79,10 +81,13 @@ class KitchenRentalController extends Controller implements HasMiddleware
 
     /**
      * Creates a blank ProductionRun pre-dated to this slot and links it,
-     * then hands off to the existing Production Planner edit form to fill
-     * in batches -- this is the "build a plan for this rental slot" flow.
+     * then hands the id back so the caller can open ProductionPlanModal.vue
+     * for it -- this is the "build a plan for this rental slot" flow. JSON,
+     * not an Inertia redirect: called via axios (not router.post) so the
+     * frontend gets the new run's id directly, rather than needing a page
+     * navigation or flash-message round trip to learn it.
      */
-    public function createRun(KitchenRental $kitchenRental): RedirectResponse
+    public function createRun(KitchenRental $kitchenRental): JsonResponse
     {
         $this->authorize('update', $kitchenRental);
         $this->authorize('create', ProductionRun::class);
@@ -95,9 +100,7 @@ class KitchenRentalController extends Controller implements HasMiddleware
 
         $kitchenRental->update(['production_run_id' => $run->id]);
 
-        return redirect()
-            ->route('admin.costing.production-planner.show', $run)
-            ->with('success', "Production run created for '{$kitchenRental->booking_title}'. Fill in batches below.");
+        return response()->json(['production_run_id' => $run->id]);
     }
 
     /**

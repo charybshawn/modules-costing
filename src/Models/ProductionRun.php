@@ -51,6 +51,11 @@ class ProductionRun extends Model
         return $this->hasMany(InventoryAdjustment::class);
     }
 
+    public function recipeCostSnapshots(): HasMany
+    {
+        return $this->hasMany(RecipeCostSnapshot::class);
+    }
+
     public function rentals(): HasMany
     {
         return $this->hasMany(KitchenRental::class);

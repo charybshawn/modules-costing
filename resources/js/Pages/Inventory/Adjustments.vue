@@ -52,13 +52,14 @@
           <template #cell-notes="{ item }">
             <span class="text-sm text-gray-700 dark:text-gray-300">
               {{ item.notes ?? '—' }}
-              <Link
+              <button
                 v-if="item.production_run_name"
-                :href="route('admin.costing.production-planner.show', item.production_run_id)"
+                type="button"
+                @click="openRunId = item.production_run_id"
                 class="block text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300"
               >
                 Run: {{ item.production_run_name }}
-              </Link>
+              </button>
             </span>
           </template>
 
@@ -68,15 +69,18 @@
         </DataTable>
       </div>
     </div>
+
+    <ProductionPlanModal :production-run-id="openRunId" @close="openRunId = null" @updated="router.reload({ only: ['adjustments'] })" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { Link } from '@inertiajs/vue3'
+import { Link, router } from '@inertiajs/vue3'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import DataTable, { type Column } from '@/Components/Admin/DataTable.vue'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
+import ProductionPlanModal from '../Shared/ProductionPlanModal.vue'
 import { formatQuantity } from '../Shared/formatWeight'
 
 defineOptions({ layout: AdminLayout })
@@ -86,7 +90,7 @@ interface AdjustmentRow {
   ingredient_name: string
   unit_type: 'g' | 'unit'
   source: string
-  reason: 'recount' | 'received' | 'correction' | 'production_run'
+  reason: 'recount' | 'received' | 'correction' | 'production_run' | 'production_run_reversal'
   delta: number
   on_hand_before: number
   on_hand_after: number
@@ -129,6 +133,7 @@ const REASON_LABELS: Record<AdjustmentRow['reason'], string> = {
   received: 'Received',
   correction: 'Correction',
   production_run: 'Production Run',
+  production_run_reversal: 'Run Undone',
 }
 
 const REASON_COLORS: Record<AdjustmentRow['reason'], string> = {
@@ -136,10 +141,15 @@ const REASON_COLORS: Record<AdjustmentRow['reason'], string> = {
   received: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
   correction: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
   production_run: 'bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-200',
+  production_run_reversal: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
 }
 
 const reasonLabel = (reason: AdjustmentRow['reason']) => REASON_LABELS[reason] ?? reason
 const reasonColor = (reason: AdjustmentRow['reason']) => REASON_COLORS[reason] ?? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+
+// Modal state for the "Run: X" link above -- opens the same shared
+// production-plan editor used from Rental Schedule and All Runs.
+const openRunId = ref<number | null>(null)
 
 const columns: Column[] = [
   { key: 'created_at', label: 'When', sortable: true },

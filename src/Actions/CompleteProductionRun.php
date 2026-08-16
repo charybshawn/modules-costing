@@ -47,6 +47,17 @@ class CompleteProductionRun
      */
     private function run(ProductionRun $productionRun, array $actuals): array
     {
+        // Re-fetched and locked, not the instance the controller passed in --
+        // closes a race where two near-simultaneous completion requests (a
+        // double-click before the button disables, a retried request, two
+        // open tabs) both read completed_at as null before either commits
+        // and both deduct inventory. The controller's own abort_if is only a
+        // cheap early rejection for the common non-race case; this is the
+        // actual guarantee, since it's inside the transaction and blocks a
+        // second concurrent caller until the first one commits.
+        $productionRun = ProductionRun::whereKey($productionRun->id)->lockForUpdate()->firstOrFail();
+        abort_if($productionRun->completed_at, 422, 'This run has already been completed.');
+
         $shortfalls = [];
 
         $plan = $this->calculateProductionPlan->handle($productionRun);
@@ -81,6 +92,16 @@ class CompleteProductionRun
             foreach ($sources as $packageSize) {
                 if ($remaining <= 0) {
                     break;
+                }
+
+                // Re-fetched under lock, not the eager-loaded value above --
+                // guards against a lost update if a manual inventory
+                // adjustment on this same source (InventoryController::
+                // adjustSource/bulkUpdate) commits between this loop
+                // starting and this row being written.
+                $packageSize = PackageSize::whereKey($packageSize->id)->lockForUpdate()->first();
+                if (!$packageSize) {
+                    continue;
                 }
 
                 $available = (float) $packageSize->quantity_on_hand;

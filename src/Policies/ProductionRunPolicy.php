@@ -32,6 +32,11 @@ class ProductionRunPolicy
         return $user->isAdmin();
     }
 
+    public function uncomplete(User $user, ProductionRun $productionRun): bool
+    {
+        return $user->isAdmin();
+    }
+
     public function delete(User $user, ProductionRun $productionRun): bool
     {
         return $user->isAdmin();

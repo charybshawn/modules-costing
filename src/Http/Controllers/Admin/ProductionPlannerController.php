@@ -6,9 +6,11 @@ use App\Actions\GetSiteSetting;
 use App\Http\Controllers\Controller;
 use Cultpantry\Costing\Actions\CalculateProductionPlan;
 use Cultpantry\Costing\Actions\CompleteProductionRun;
+use Cultpantry\Costing\Actions\UncompleteProductionRun;
 use Cultpantry\Costing\Models\ProductionRun;
 use Cultpantry\Costing\Models\Recipe;
 use Cultpantry\Costing\Support\CostingBreadcrumbs;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -32,26 +34,6 @@ class ProductionPlannerController extends Controller implements HasMiddleware
         ];
     }
 
-    public function index(CalculateProductionPlan $calculateProductionPlan): Response
-    {
-        $this->authorize('viewAny', ProductionRun::class);
-
-        $recipes = Recipe::orderBy('name')->get(['id', 'name']);
-        $latestRun = ProductionRun::with('recipes')->latest('run_date')->latest('id')->first();
-
-        return Inertia::render('Vendor/costing/ProductionPlanner/Index', [
-            'recipes' => $recipes,
-            'production_run' => $latestRun ? $this->serializeRun($latestRun) : null,
-            // Not computed for a completed run -- its shopping list is
-            // moot (nothing left to purchase for something already made)
-            // and the page doesn't render one, so skip the live
-            // pricing/inventory query entirely rather than compute and
-            // discard it.
-            'plan' => ($latestRun && !$latestRun->completed_at) ? $calculateProductionPlan->handle($latestRun) : null,
-            'breadcrumbs' => CostingBreadcrumbs::trail(['label' => 'Production Planner']),
-        ]);
-    }
-
     /**
      * List all production runs, newest first -- the sheet only ever had one
      * "current" state, so this is new functionality rather than a port.
@@ -70,80 +52,32 @@ class ProductionPlannerController extends Controller implements HasMiddleware
                 'total_units' => $run->totalUnits(),
                 'completed_at' => optional($run->completed_at)->format('Y-m-d H:i'),
             ]),
-            'breadcrumbs' => CostingBreadcrumbs::trail(
-                ['label' => 'Production Planner', 'href' => route('admin.costing.production-planner.index')],
-                ['label' => 'All Runs'],
-            ),
+            'breadcrumbs' => CostingBreadcrumbs::trail(['label' => 'All Runs']),
         ]);
     }
 
     /**
-     * A genuinely blank run -- unlike index(), which always preloads the
-     * latest run (so it can act as a "continue where I left off"
-     * dashboard), this is the only route that hands Index.vue a null
-     * production_run once at least one run already exists, which is what
-     * puts its form/submit() into create mode instead of edit mode.
+     * Run + plan data for ProductionPlanModal.vue -- there's no standalone
+     * page for a run anymore (planning is driven entirely from a Rental
+     * Schedule slot or the All Runs history list, both of which open this
+     * as a modal), so this returns JSON rather than an Inertia page, same
+     * pattern as InventoryController::sources() for StockAdjustModal.
      */
-    public function create(): Response
-    {
-        $this->authorize('create', ProductionRun::class);
-
-        $recipes = Recipe::orderBy('name')->get(['id', 'name']);
-
-        return Inertia::render('Vendor/costing/ProductionPlanner/Index', [
-            'recipes' => $recipes,
-            'production_run' => null,
-            'plan' => null,
-            'breadcrumbs' => CostingBreadcrumbs::trail(
-                ['label' => 'Production Planner', 'href' => route('admin.costing.production-planner.index')],
-                ['label' => 'New Run'],
-            ),
-        ]);
-    }
-
-    /**
-     * View (and edit) a specific past run -- reuses the same Index page the
-     * "latest run" view uses, since its form already creates-vs-updates
-     * based on whether a production_run prop is present.
-     */
-    public function show(ProductionRun $productionRun, CalculateProductionPlan $calculateProductionPlan): Response
+    public function show(ProductionRun $productionRun, CalculateProductionPlan $calculateProductionPlan): JsonResponse
     {
         $this->authorize('view', $productionRun);
 
         $recipes = Recipe::orderBy('name')->get(['id', 'name']);
-        $productionRun->load('recipes');
 
-        return Inertia::render('Vendor/costing/ProductionPlanner/Index', [
+        return response()->json([
             'recipes' => $recipes,
             'production_run' => $this->serializeRun($productionRun),
-            // See index()'s identical guard -- a completed run has no
-            // shopping list to show.
+            // Not computed for a completed run -- its shopping list is moot
+            // (nothing left to purchase for something already made) and the
+            // modal doesn't render one, so skip the live pricing/inventory
+            // query entirely rather than compute and discard it.
             'plan' => $productionRun->completed_at ? null : $calculateProductionPlan->handle($productionRun),
-            'breadcrumbs' => CostingBreadcrumbs::trail(
-                ['label' => 'Production Planner', 'href' => route('admin.costing.production-planner.index')],
-                ['label' => $productionRun->name ?? $productionRun->run_date->format('Y-m-d')],
-            ),
         ]);
-    }
-
-    public function store(Request $request, CalculateProductionPlan $calculateProductionPlan): RedirectResponse
-    {
-        $this->authorize('create', ProductionRun::class);
-
-        $validated = $this->validated($request);
-
-        $run = ProductionRun::create([
-            'name' => $validated['name'] ?? null,
-            'batch_size' => $validated['batch_size'],
-            'run_date' => $validated['run_date'],
-            'notes' => $validated['notes'] ?? null,
-        ]);
-
-        $run->recipes()->sync($this->syncData($validated['batches']));
-
-        return redirect()
-            ->route('admin.costing.production-planner.index')
-            ->with('success', 'Production run created.');
     }
 
     public function update(Request $request, ProductionRun $productionRun): RedirectResponse
@@ -166,23 +100,20 @@ class ProductionPlannerController extends Controller implements HasMiddleware
 
         $productionRun->recipes()->sync($this->syncData($validated['batches']));
 
-        // usePersistedForm's autosave also PUTs here while the user is
-        // still on this run's page and needs to stay put -- the index
-        // route redirects to whichever run is *latest*, which may not be
-        // this one, making the normal redirect actively wrong here, not
-        // just disruptive. Same "stay" pattern as the other controllers.
-        if ($request->boolean('stay')) {
-            return redirect()->back()->with('success', 'Production run updated.');
-        }
-
-        return redirect()
-            ->route('admin.costing.production-planner.index')
-            ->with('success', 'Production run updated.');
+        // Always back, never a page redirect -- this run is only ever
+        // edited from ProductionPlanModal.vue, layered over whichever page
+        // opened it (Rental Schedule, All Runs, or Inventory's adjustment
+        // log), so there's no standalone "the run's page" to redirect to
+        // anymore. usePersistedForm's autosave also PUTs here while the
+        // modal is open and needs the underlying page to stay put.
+        return redirect()->back()->with('success', 'Production run updated.');
     }
 
     /**
      * Mark a run complete and draw its required quantities down from
-     * Inventory. Idempotent -- a run can only be completed once.
+     * Inventory. Idempotent -- a run can only be completed once (see
+     * CompleteProductionRun's own locked re-check for the actual guarantee
+     * against a race, not just this pre-check).
      *
      * Ingredient deduction always uses the *planned* quantities (see
      * CompleteProductionRun) -- actual units produced can differ from the
@@ -214,22 +145,43 @@ class ProductionPlannerController extends Controller implements HasMiddleware
             $message .= ' Ran short on: '.implode(', ', $shortfalls).'.';
         }
 
-        return redirect()
-            ->route('admin.costing.production-planner.show', $productionRun)
-            ->with($shortfalls === [] ? 'success' : 'warning', $message);
+        return redirect()->back()->with($shortfalls === [] ? 'success' : 'warning', $message);
+    }
+
+    /**
+     * Reverses complete() -- credits back the ingredient quantities it
+     * deducted (via the InventoryAdjustment audit trail, see
+     * UncompleteProductionRun), deletes the cost snapshots it froze, and
+     * returns the run to "Planned" so it's editable and re-completable.
+     */
+    public function uncomplete(ProductionRun $productionRun, UncompleteProductionRun $uncompleteProductionRun): RedirectResponse
+    {
+        $this->authorize('uncomplete', $productionRun);
+
+        abort_unless($productionRun->completed_at, 422, 'This run has not been completed.');
+
+        $warnings = $uncompleteProductionRun->handle($productionRun);
+
+        $message = 'Production run completion undone. Inventory has been restored.';
+        if ($warnings !== []) {
+            $message .= ' Could not restore: '.implode(', ', $warnings).'.';
+        }
+
+        return redirect()->back()->with($warnings === [] ? 'success' : 'warning', $message);
     }
 
     /**
      * A completed run has already drawn down real Inventory and owns
      * cascade-deleted RecipeCostSnapshot rows (see CompleteProductionRun) --
      * deleting it afterward would silently erase that cost history, so it's
-     * blocked here the same way editing already is in update() above.
+     * blocked here the same way editing already is in update() above. Undo
+     * the completion first (uncomplete()) if the run needs to go away.
      */
     public function destroy(ProductionRun $productionRun): RedirectResponse
     {
         $this->authorize('delete', $productionRun);
 
-        abort_if($productionRun->completed_at, 422, 'A completed run cannot be deleted -- its inventory deduction and cost history are historical fact.');
+        abort_if($productionRun->completed_at, 422, 'A completed run cannot be deleted -- undo its completion first.');
 
         $name = $productionRun->name ?? $productionRun->run_date->format('Y-m-d');
         $productionRun->delete();
@@ -241,7 +193,8 @@ class ProductionPlannerController extends Controller implements HasMiddleware
 
     /**
      * Print-friendly view showing only ingredients that need purchasing --
-     * replaces the original Purchase Order tab.
+     * replaces the original Purchase Order tab. Stays a real page (unlike
+     * show() above) since it's meant to be printed.
      */
     public function purchaseOrder(ProductionRun $productionRun, CalculateProductionPlan $calculateProductionPlan): Response
     {
@@ -253,9 +206,8 @@ class ProductionPlannerController extends Controller implements HasMiddleware
             'production_run' => $this->serializeRun($productionRun),
             'plan' => $plan,
             'breadcrumbs' => CostingBreadcrumbs::trail(
-                ['label' => 'Production Planner', 'href' => route('admin.costing.production-planner.index')],
-                ['label' => $productionRun->name ?? $productionRun->run_date->format('Y-m-d'), 'href' => route('admin.costing.production-planner.show', $productionRun)],
-                ['label' => 'Purchase Order'],
+                ['label' => 'All Runs', 'href' => route('admin.costing.production-planner.runs')],
+                ['label' => ($productionRun->name ?? $productionRun->run_date->format('Y-m-d')).' -- Purchase Order'],
             ),
         ]);
     }

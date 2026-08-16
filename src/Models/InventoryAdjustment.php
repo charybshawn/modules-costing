@@ -34,7 +34,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class InventoryAdjustment extends Model
 {
-    public const REASONS = ['recount', 'received', 'correction', 'production_run'];
+    public const REASONS = ['recount', 'received', 'correction', 'production_run', 'production_run_reversal'];
 
     // The subset a user actually picks from a reason dropdown -- 'recount'
     // and 'production_run' are always derived by the system (recount mode,
