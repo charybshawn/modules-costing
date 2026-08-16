@@ -43,7 +43,7 @@
               step="0.01"
               autofocus
               :disabled="packageSizeEditSaving"
-              title="Package size"
+              title="Size of ONE individual package -- e.g. 1 lid. Never the case total, even if sold by the case."
               class="w-20 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
               @keyup.enter="savePackageSizeEdit(item)"
               @keyup.esc="cancelPackageSizeEdit"
@@ -54,7 +54,7 @@
               min="1"
               step="1"
               :disabled="packageSizeEditSaving"
-              title="Units per case -- leave at 1 if not sold by the case"
+              title="Units per case -- purchasing info only, doesn't change how stock is counted. Leave at 1 if not sold by the case."
               class="w-16 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
               @keyup.enter="savePackageSizeEdit(item)"
               @keyup.esc="cancelPackageSizeEdit"
@@ -70,6 +70,7 @@
               </svg>
             </button>
           </div>
+          <p v-if="packageSizeEditKey === optionKey(item)" class="mt-1 text-xs text-gray-400 dark:text-gray-500">First box = size of 1 package. Second box = units/case (purchasing only).</p>
           <p v-if="packageSizeEditKey === optionKey(item) && packageSizeEditError" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ packageSizeEditError }}</p>
         </template>
 
@@ -138,9 +139,10 @@
           <input v-model="newSourceBrand" type="text" placeholder="Brand (optional)" :disabled="newSourceSaving" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <input v-model.number="newSourceSize" type="number" min="0.01" step="0.01" :placeholder="`Package size (${props.ingredient.unit_type === 'unit' ? 'units' : 'g'})`" :disabled="newSourceSaving" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
-          <input v-model.number="newSourceUnitsPerCase" type="number" min="1" step="1" placeholder="Units per case" title="Leave at 1 if not sold by the case" :disabled="newSourceSaving" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+          <input v-model.number="newSourceSize" type="number" min="0.01" step="0.01" :placeholder="`Size of 1 package (${props.ingredient.unit_type === 'unit' ? 'units' : 'g'})`" title="The size of ONE individual package -- e.g. 1 lid. Never the case total, even if sold by the case." :disabled="newSourceSaving" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+          <input v-model.number="newSourceUnitsPerCase" type="number" min="1" step="1" placeholder="Units per case" title="Purchasing info only -- how many packages per case. Doesn't change how stock is counted. Leave at 1 if not sold by the case." :disabled="newSourceSaving" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
         </div>
+        <p class="text-xs text-gray-400 dark:text-gray-500">Package size is always ONE package -- Units/case is only for purchasing math, it never changes how stock is counted.</p>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <input v-model.number="newSourcePrice" type="number" min="0" step="0.01" placeholder="Price for one package ($)" :disabled="newSourceSaving" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
         </div>
@@ -208,7 +210,7 @@ const props = defineProps<Props>()
 // single ingredient rarely has more than a handful of sources.
 const columns: Column[] = [
   { key: 'source', label: 'Source' },
-  { key: 'package_size', label: 'Package Size' },
+  { key: 'package_size', label: 'Size of 1 Package' },
   { key: 'price', label: 'Price' },
   { key: 'checked', label: 'Checked' },
   { key: 'preferred', label: '' },

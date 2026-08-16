@@ -245,14 +245,14 @@
                 <input v-model="addItemForm.brand" type="text" placeholder="Optional" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
               </div>
               <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Package Size *</label>
-                <input v-model.number="addItemForm.package_size" type="number" min="0.01" step="0.01" required :placeholder="addItemForm.unit_type === 'unit' ? 'e.g. 500' : 'e.g. 3500'" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ addItemForm.unit_type === 'unit' ? 'Units per package.' : 'Grams per package -- e.g. 3.5kg = 3500.' }}</p>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Size of 1 Package *</label>
+                <input v-model.number="addItemForm.package_size" type="number" min="0.01" step="0.01" required :placeholder="addItemForm.unit_type === 'unit' ? 'e.g. 1' : 'e.g. 3500'" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ addItemForm.unit_type === 'unit' ? 'ONE individual package -- e.g. 1 lid, 1 bag. Never the case total, even if sold by the case (use Units Per Case for that).' : 'Grams in ONE package -- e.g. 3.5kg = 3500. Never the case total.' }}</p>
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Units Per Case</label>
                 <input v-model.number="addItemForm.units_per_case" type="number" min="1" step="1" placeholder="1" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Leave at 1 if not sold by the case.</p>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Purchasing info only -- how many of the above come in one case. Doesn't change how stock is counted. Leave at 1 if not sold by the case.</p>
               </div>
               <div class="sm:col-span-2">
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Packages On Hand</label>
