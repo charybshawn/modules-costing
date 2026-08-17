@@ -240,6 +240,65 @@ class IngredientController extends Controller implements HasMiddleware
         return redirect()->back()->with('success', "Package size for '{$ingredient->name}' ({$validated['provider']}) updated.");
     }
 
+    /**
+     * Renames an existing source's provider/brand in place -- a typo fix or
+     * "GFS" -> "GFS Foodservice" rename, not a new source. Distinct from
+     * setPackageSize()'s updateOrCreate, which is keyed BY provider/brand
+     * and would treat a changed name as a brand-new row rather than editing
+     * this one.
+     *
+     * Cascades to every linked PriceHistoryEntry's own provider/brand too,
+     * not just this PackageSize row. Those columns are a snapshot (see
+     * PriceHistoryEntry's docblock) so history survives the source being
+     * deleted, but as long as package_size_id still links back here, they
+     * need to track the live name -- CalculateIngredientCosting's preferred-
+     * source filter and GetIngredientPriceOptions's Sources table both match
+     * against these snapshots, and leaving them on the old name would make
+     * every price logged before the rename invisible to both (a renamed
+     * preferred source would silently look like it has no recent price at
+     * all). InventoryAdjustment's own source_provider/source_brand
+     * snapshot is deliberately left untouched by contrast -- nothing reads
+     * it for live matching, only for display, so there's no equivalent
+     * breakage to guard against there.
+     */
+    public function renameSource(Request $request, Ingredient $ingredient, PackageSize $packageSize): RedirectResponse
+    {
+        $this->authorize('update', $ingredient);
+        abort_unless($packageSize->ingredient_id === $ingredient->id, 404);
+
+        $validated = $request->validate([
+            'provider' => ['required', 'string', 'max:255'],
+            'brand' => ['nullable', 'string', 'max:255'],
+        ]);
+        $brand = $validated['brand'] ?? null;
+
+        $duplicate = PackageSize::where('ingredient_id', $ingredient->id)
+            ->where('id', '!=', $packageSize->id)
+            ->where('provider', $validated['provider'])
+            ->where('brand', $brand)
+            ->exists();
+
+        abort_if($duplicate, 422, "'{$ingredient->name}' already has a source with that provider/brand.");
+
+        // preferred_source/preferred_brand match a source by exact live
+        // string (see GetIngredientPriceOptions::isPreferred()), not by
+        // package_size_id -- renaming the currently-preferred source would
+        // otherwise silently break its "preferred" status.
+        $wasPreferred = $ingredient->preferred_source === $packageSize->provider
+            && $ingredient->preferred_brand === $packageSize->brand;
+
+        $packageSize->update(['provider' => $validated['provider'], 'brand' => $brand]);
+
+        PriceHistoryEntry::where('package_size_id', $packageSize->id)
+            ->update(['provider' => $validated['provider'], 'brand' => $brand]);
+
+        if ($wasPreferred) {
+            $ingredient->update(['preferred_source' => $validated['provider'], 'preferred_brand' => $brand]);
+        }
+
+        return redirect()->back()->with('success', "Source renamed to '{$validated['provider']}'.");
+    }
+
     public function destroy(Ingredient $ingredient): RedirectResponse
     {
         $this->authorize('delete', $ingredient);

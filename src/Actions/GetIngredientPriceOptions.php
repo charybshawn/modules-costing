@@ -60,18 +60,30 @@ class GetIngredientPriceOptions
                 : 'orphan:'.$entry->provider.'|'.($entry->brand ?? ''))
             ->map(fn (Collection $group) => $group->first())
             ->map(function (PriceHistoryEntry $entry) use ($ingredient, $cutoff) {
+                // Live identity off the still-existing PackageSize, not the
+                // entry's own provider/brand snapshot -- that snapshot
+                // exists purely so history survives the source being
+                // deleted (see PriceHistoryEntry's docblock), but this
+                // action's whole purpose is the CURRENT Sources table, so a
+                // rename (IngredientController::renameSource()) must show
+                // up here immediately rather than only on the next price
+                // logged. Falls back to the snapshot only when the source
+                // itself is gone (package_size_id null).
+                $provider = $entry->packageSize?->provider ?? $entry->provider;
+                $brand = $entry->packageSize !== null ? $entry->packageSize->brand : $entry->brand;
+
                 return [
                     'price_history_entry_id' => $entry->id,
                     'package_size_id' => $entry->package_size_id,
-                    'provider' => $entry->provider,
-                    'brand' => $entry->brand,
+                    'provider' => $provider,
+                    'brand' => $brand,
                     'price_per_unit' => $entry->price_per_unit,
                     'price_per_100g' => $ingredient->pricePer100g($entry->price_per_unit),
                     'total_price' => $entry->total_price !== null ? (float) $entry->total_price : null,
                     'qty' => $entry->qty !== null ? (float) $entry->qty : null,
                     'purchased_at' => optional($entry->purchased_at)->format('Y-m-d'),
                     'is_stale' => $entry->purchased_at === null || $entry->purchased_at->lt($cutoff),
-                    'is_preferred' => $this->isPreferred($ingredient, $entry->provider, $entry->brand),
+                    'is_preferred' => $this->isPreferred($ingredient, $provider, $brand),
                     'package_size' => $entry->packageSize !== null ? (float) $entry->packageSize->package_size : null,
                     'units_per_case' => $entry->packageSize !== null ? (int) $entry->packageSize->units_per_case : 1,
                     'quantity_on_hand' => $entry->packageSize !== null ? (float) $entry->packageSize->quantity_on_hand : 0.0,

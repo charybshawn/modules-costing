@@ -7,20 +7,65 @@
     <div v-else class="mt-4 -mx-6 max-h-96 overflow-y-auto">
       <DataTable :columns="columns" :items="priceOptions" item-key="package_size_id" hide-toolbar>
         <template #cell-source="{ item }">
-          <span class="text-sm text-gray-900 dark:text-white">{{ item.provider }}<span v-if="item.brand"> — {{ item.brand }}</span></span>
-          <span v-if="item.is_stale" class="ml-1 text-xs text-amber-600 dark:text-amber-400">needs update</span>
-          <button
-            v-if="item.package_size_id !== null"
-            type="button"
-            @click="deleteSource(item)"
-            :disabled="item.quantity_on_hand > 0"
-            class="ml-1.5 p-2 -m-2 text-gray-300 dark:text-gray-600 hover:text-red-600 dark:hover:text-red-400 disabled:opacity-40 disabled:hover:text-gray-300 dark:disabled:hover:text-gray-600"
-            :title="item.quantity_on_hand > 0 ? 'Still has stock on hand -- recount it to 0 on Inventory first' : 'Remove this source'"
-          >
-            <svg class="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-          </button>
+          <template v-if="sourceEditKey !== optionKey(item)">
+            <button
+              v-if="item.package_size_id !== null"
+              type="button"
+              @click="startSourceEdit(item)"
+              class="text-sm -mx-2 px-2 py-1 rounded-md border border-transparent hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
+              title="Click to rename this source"
+            >
+              <span class="text-gray-900 dark:text-white">{{ item.provider }}<span v-if="item.brand"> — {{ item.brand }}</span></span>
+            </button>
+            <!-- Orphaned price-history-only row (its PackageSize was
+                 deleted) -- nothing left to rename, so plain text. -->
+            <span v-else class="text-sm text-gray-900 dark:text-white">{{ item.provider }}<span v-if="item.brand"> — {{ item.brand }}</span></span>
+            <span v-if="item.is_stale" class="ml-1 text-xs text-amber-600 dark:text-amber-400">needs update</span>
+            <button
+              v-if="item.package_size_id !== null"
+              type="button"
+              @click="deleteSource(item)"
+              :disabled="item.quantity_on_hand > 0"
+              class="ml-1.5 p-2 -m-2 text-gray-300 dark:text-gray-600 hover:text-red-600 dark:hover:text-red-400 disabled:opacity-40 disabled:hover:text-gray-300 dark:disabled:hover:text-gray-600"
+              :title="item.quantity_on_hand > 0 ? 'Still has stock on hand -- recount it to 0 on Inventory first' : 'Remove this source'"
+            >
+              <svg class="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </template>
+          <div v-else class="flex items-center gap-1">
+            <input
+              v-model="sourceEditProvider"
+              type="text"
+              autofocus
+              :disabled="sourceEditSaving"
+              placeholder="Provider"
+              class="w-24 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+              @keyup.enter="saveSourceEdit(item)"
+              @keyup.esc="cancelSourceEdit"
+            />
+            <input
+              v-model="sourceEditBrand"
+              type="text"
+              :disabled="sourceEditSaving"
+              placeholder="Brand"
+              class="w-24 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+              @keyup.enter="saveSourceEdit(item)"
+              @keyup.esc="cancelSourceEdit"
+            />
+            <button type="button" @click="saveSourceEdit(item)" :disabled="sourceEditSaving" class="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 disabled:opacity-40" title="Save">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+            </button>
+            <button type="button" @click="cancelSourceEdit" :disabled="sourceEditSaving" class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-40" title="Cancel">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <p v-if="sourceEditKey === optionKey(item) && sourceEditError" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ sourceEditError }}</p>
         </template>
 
         <template #cell-package_size="{ item }">
@@ -326,6 +371,53 @@ const saveInlineEdit = (option: PriceOption) => {
       inlineEditSaving.value = false
     },
   })
+}
+
+// Inline source rename -- independent of the price/package-size edits
+// below (a different endpoint), own toggle state. Only real sources
+// (package_size_id !== null) can be renamed -- an orphaned price-history-
+// only row has no PackageSize left to rename.
+const sourceEditKey = ref<string | null>(null)
+const sourceEditProvider = ref('')
+const sourceEditBrand = ref('')
+const sourceEditSaving = ref(false)
+const sourceEditError = ref<string | null>(null)
+
+const startSourceEdit = (option: PriceOption) => {
+  sourceEditKey.value = optionKey(option)
+  sourceEditProvider.value = option.provider
+  sourceEditBrand.value = option.brand ?? ''
+  sourceEditError.value = null
+}
+
+const cancelSourceEdit = () => {
+  sourceEditKey.value = null
+  sourceEditError.value = null
+}
+
+const saveSourceEdit = (option: PriceOption) => {
+  if (!sourceEditProvider.value.trim() || option.package_size_id === null) return
+  sourceEditSaving.value = true
+  sourceEditError.value = null
+
+  router.post(
+    route('admin.costing.ingredients.sources.rename', [props.ingredient.id, option.package_size_id]),
+    { provider: sourceEditProvider.value, brand: sourceEditBrand.value || null },
+    {
+      preserveScroll: true,
+      preserveState: true,
+      onSuccess: () => {
+        cancelSourceEdit()
+        fetchPriceOptions()
+      },
+      onError: (errors) => {
+        sourceEditError.value = errors.provider ?? 'Could not save.'
+      },
+      onFinish: () => {
+        sourceEditSaving.value = false
+      },
+    },
+  )
 }
 
 // Package size editing -- independent of the price inline edit above (a
