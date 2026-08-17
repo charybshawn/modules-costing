@@ -1,0 +1,4 @@
+run_key,name,batch_size,days_offset,notes
+run1,The Cult Pantry,20,0,
+run2,The Cult Pantry,20,2,
+run3,The Cult Pantry,20,4,

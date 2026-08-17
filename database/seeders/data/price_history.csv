@@ -1,0 +1,43 @@
+ingredient_name,provider,brand,days_ago,qty,total_price,sku,notes
+Cream Cheese,GFS,,273,20000,254.00,10068100015406,Philadelphia Industrial Cream Cheese
+Cream Cheese,GFS,,254,15000,144.09,,GFS Cream Cheese
+Cream Cheese,GFS,,254,20000,246.00,10068100015406,Philadelphia Industrial Cream Cheese
+Cream Cheese,GFS,,93,15000,151.62,,GFS Cream Cheese
+Cream Cheese,GFS,,10,20000,251.72,,GFS Cream Cheese
+Cream Cheese,GFS,Philidelphia,7,20000,256.00,,
+Cream Cheese,Wholesale Club,No Name,7,1500,18.99,,
+Cream Cheese,Wholesale Club,No Name,7,1500,18.99,,
+Swiss Cheese,No Frills,,113,1500,25.99,,
+Cheddar Cheese,No Frills,,113,2270,28.99,,
+Cheddar Cheese,GFS,,113,4540,87.69,,
+Bacon Bits,Wholesale Club,,113,567,19.00,,Pre-cooked bacon bits
+Bacon Bits,Wholesale Club,,1,567,19.00,,Pre-cooked bacon bits
+Sriracha,GFS,,,714,,,
+Sriracha,Costco,Ho-Ya,0,1000,6.99,,
+Sriracha,No Frills,Sriracha,0,714,7.49,,
+Sriracha,Wholesale Club,Uni-Eagle,0,815,5.49,,
+Sriracha,Wholesale Club,Huy Fond,0,3500,26.99,,
+Sriracha,GFS,,0,714,8.02,,
+Maple Syrup,No Frills,,113,1000,13.50,,1L bottle
+Maple Syrup,No Frills,,113,500,13.50,,500ml bottle
+Pickles,Wholesale Club,,273,4000,21.99,,
+Pickles,GFS,,254,19000,110.79,1445501,Brickman's 19L pale
+Pickles,GFS,,254,8000,42.49,2606805,Bick's Mini Dill
+Orange Juice Concentrate,GFS,,113,10500,263.74,,
+Beef Stock Concentrate,GFS,,113,3784,96.76,,Knorr Professional 946ml
+Beef Stock Concentrate,Amazon,,113,946,32.99,,Knorr Professional 946ml
+Caramelized Onions,GFS,,113,1816,41.96,,
+Caramelized Onions,GFS,,33,1816,40.09,,
+Orange Zest,N/A,,,,,,Fresh — cost negligible
+Dried Cranberries,GFS,,113,6000,49.90,,
+Dried Cranberries,GFS,,33,6000,49.90,,
+Dried Cranberries,Wholesale Club,,33,1360,10.99,,
+Dried Dill,Shuswap Health Food,,93,100,7.70,,
+Pickled Jalapenos,GFS,,93,8000,51.75,,Gordon Choice Sliced Jalapeno Peppers
+Salt,No Frills,,113,20000,8.99,,Table salt
+8oz Deli Cup,GFS,,,,,,Per unit (not per kg)
+8oz Deli Cup,GFS,,1,1,55.80,,Per unit (not per kg)
+8oz Deli Lid,GFS,,1,500,37.07,,
+Bourbon Pure Vanilla Extract,Costco,Nielsen-Massey,0,236,64.99,,
+Bourbon Pure Vanilla Extract,Natural Vanilla Canada,Natural Vanilla,0,1600,180.00,,
+Bourbon Pure Vanilla Extract,Costco,Nielsen-Massey,0,236,64.99,,
