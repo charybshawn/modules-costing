@@ -35,7 +35,13 @@ return new class extends Migration
         });
 
         Schema::table('costing_ingredient_recipe', function (Blueprint $table) {
-            $table->unique(['recipe_id', 'ingredient_id', 'is_byproduct']);
+            // Explicit name: Laravel's auto-generated one
+            // ("costing_ingredient_recipe_recipe_id_ingredient_id_is_byproduct_unique",
+            // 70 chars) exceeds MySQL's 64-character identifier limit
+            // (error 1059) -- another SQLite/MySQL divergence this
+            // migration didn't hit until it ran against a real MySQL
+            // database.
+            $table->unique(['recipe_id', 'ingredient_id', 'is_byproduct'], 'costing_ingredient_recipe_composite_unique');
             $table->foreign('recipe_id')->references('id')->on('costing_recipes')->cascadeOnDelete();
             $table->foreign('ingredient_id')->references('id')->on('costing_ingredients')->cascadeOnDelete();
         });
@@ -46,7 +52,7 @@ return new class extends Migration
         Schema::table('costing_ingredient_recipe', function (Blueprint $table) {
             $table->dropForeign(['recipe_id']);
             $table->dropForeign(['ingredient_id']);
-            $table->dropUnique(['recipe_id', 'ingredient_id', 'is_byproduct']);
+            $table->dropUnique('costing_ingredient_recipe_composite_unique');
         });
 
         Schema::table('costing_ingredient_recipe', function (Blueprint $table) {
