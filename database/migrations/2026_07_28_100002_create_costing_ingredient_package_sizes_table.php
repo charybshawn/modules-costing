@@ -16,7 +16,11 @@ return new class extends Migration
             $table->decimal('package_size', 12, 2);
             $table->timestamps();
 
-            $table->index(['ingredient_id', 'provider', 'brand']);
+            // Explicit name: Laravel's auto-generated one
+            // ("costing_ingredient_package_sizes_ingredient_id_provider_brand_index",
+            // 67 chars) exceeds MySQL's 64-character identifier limit
+            // (error 1059).
+            $table->index(['ingredient_id', 'provider', 'brand'], 'costing_ingredient_package_sizes_ipb_index');
         });
     }
 
