@@ -2,21 +2,25 @@
 
 namespace Cultpantry\Costing\Models;
 
+use App\Models\Product;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
  * A "recipe" is a flavour (e.g. "Sriracha Maple Bacon") -- one row per
  * flavour, with ingredient quantities-per-jar attached via the pivot.
  *
- * Deliberately not linked to App\Models\Product yet -- costing/recipes and
- * the storefront catalogue are kept independent for now, by request. The
- * intended extension point for a future cost-vs-price/margin view is a
- * single additive migration adding a nullable `product_id` FK on
- * costing_recipes (`->nullOnDelete()`) plus a `belongsTo(Product::class)`
- * here. No schema change needed until that's actually wanted.
+ * Optionally linked to App\Models\Product via the nullable `product_id`
+ * FK (`->nullOnDelete()`) -- most recipes won't have one, but when set,
+ * completing a production run for this recipe credits that many units to
+ * the linked product's storefront stock (see CompleteProductionRun /
+ * UncompleteProductionRun), on top of the existing cost-snapshot/ingredient
+ * bookkeeping. The link is what turns a production run from a pure
+ * costing/inventory-deduction exercise into one that also stocks the shelf.
  *
  * @property int $id
+ * @property int|null $product_id
  * @property string $name
  * @property string|null $notes
  * @property float|null $sell_price
@@ -28,6 +32,7 @@ class Recipe extends Model
     protected $table = 'costing_recipes';
 
     protected $fillable = [
+        'product_id',
         'name',
         'notes',
         'sell_price',
@@ -40,6 +45,11 @@ class Recipe extends Model
         'fill_size_g' => 'decimal:2',
         'cost_buffer_percent' => 'decimal:2',
     ];
+
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
+    }
 
     public function ingredients(): BelongsToMany
     {

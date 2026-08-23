@@ -4,6 +4,7 @@ namespace Cultpantry\Costing\Http\Controllers\Admin;
 
 use App\Actions\GetSiteSetting;
 use App\Http\Controllers\Controller;
+use App\Models\Product;
 use Cultpantry\Costing\Actions\CalculateIngredientCosting;
 use Cultpantry\Costing\Actions\CalculateRecipeCost;
 use Cultpantry\Costing\Models\Ingredient;
@@ -161,6 +162,7 @@ class RecipeController extends Controller implements HasMiddleware
 
         return Inertia::render('Vendor/costing/Recipes/Create', [
             'ingredients' => Ingredient::orderBy('name')->get(['id', 'name', 'unit_type', 'byproduct_name']),
+            'products' => $this->productOptions(),
             'existingRecipeNames' => Recipe::orderBy('name')->pluck('name'),
             'breadcrumbs' => CostingBreadcrumbs::trail(
                 ['label' => 'Recipes', 'href' => route('admin.costing.recipes.index')],
@@ -178,6 +180,7 @@ class RecipeController extends Controller implements HasMiddleware
         $recipe = Recipe::create([
             'name' => $validated['name'],
             'notes' => $validated['notes'] ?? null,
+            'product_id' => $validated['product_id'] ?? null,
         ]);
 
         $recipe->mainIngredients()->sync($this->syncData($validated['ingredients']));
@@ -208,6 +211,7 @@ class RecipeController extends Controller implements HasMiddleware
                 'id' => $recipe->id,
                 'name' => $recipe->name,
                 'notes' => $recipe->notes,
+                'product_id' => $recipe->product_id,
                 'ingredients' => $recipe->mainIngredients->map(fn (Ingredient $ingredient) => [
                     'ingredient_id' => $ingredient->id,
                     'quantity_per_jar' => (float) $ingredient->pivot->quantity_per_jar,
@@ -226,6 +230,7 @@ class RecipeController extends Controller implements HasMiddleware
                 ],
                 $calculateIngredientCosting->handle($ingredient)
             )),
+            'products' => $this->productOptions(),
             'existingRecipeNames' => Recipe::where('id', '!=', $recipe->id)->orderBy('name')->pluck('name'),
             'breadcrumbs' => CostingBreadcrumbs::trail(
                 ['label' => 'Recipes', 'href' => route('admin.costing.recipes.index')],
@@ -243,6 +248,7 @@ class RecipeController extends Controller implements HasMiddleware
         $recipe->update([
             'name' => $validated['name'],
             'notes' => $validated['notes'] ?? null,
+            'product_id' => $validated['product_id'] ?? null,
         ]);
 
         $recipe->mainIngredients()->sync($this->syncData($validated['ingredients']));
@@ -295,6 +301,20 @@ class RecipeController extends Controller implements HasMiddleware
             ->with('success', "Recipe '{$name}' deleted.");
     }
 
+    /**
+     * Lightweight product list for the "Finished product" selector -- id and
+     * title only, never a raw Eloquent model passed to Vue (see
+     * .claude/CLAUDE.md).
+     *
+     * @return array<int, array{id: int, title: string}>
+     */
+    private function productOptions(): array
+    {
+        return Product::orderBy('title')->get(['id', 'title'])
+            ->map(fn (Product $product) => ['id' => $product->id, 'title' => $product->title])
+            ->all();
+    }
+
     private function validated(Request $request, ?int $ignoreId = null): array
     {
         return $request->validate([
@@ -303,6 +323,7 @@ class RecipeController extends Controller implements HasMiddleware
                 Rule::unique('costing_recipes', 'name')->ignore($ignoreId),
             ],
             'notes' => ['nullable', 'string'],
+            'product_id' => ['nullable', 'integer', 'exists:products,id'],
             'ingredients' => ['array'],
             'ingredients.*.ingredient_id' => ['required', 'exists:costing_ingredients,id'],
             'ingredients.*.quantity_per_jar' => ['required', 'numeric', 'min:0'],

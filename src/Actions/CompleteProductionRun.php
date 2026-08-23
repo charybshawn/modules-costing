@@ -2,6 +2,8 @@
 
 namespace Cultpantry\Costing\Actions;
 
+use App\Actions\SyncInventory;
+use App\Models\User;
 use Cultpantry\Costing\Models\Ingredient;
 use Cultpantry\Costing\Models\PackageSize;
 use Cultpantry\Costing\Models\ProductionRun;
@@ -16,6 +18,12 @@ use Illuminate\Support\Facades\DB;
  * and only trigger point for historical cost tracking (event-driven off
  * production, no manual snapshot path), so it belongs here rather than in
  * the controller.
+ *
+ * For any recipe linked to a storefront Product (Recipe::product), also
+ * credits that recipe's actual_units to the product's stock_quantity via
+ * SyncInventory -- the app's single stock-mutation funnel, so the write is
+ * locked, audited (an inventory.adjusted Event), and broadcast the same as
+ * every other stock change. Recipes with no linked product are unaffected.
  */
 class CompleteProductionRun
 {
@@ -31,21 +39,25 @@ class CompleteProductionRun
      *     for recipes where it differs from the plan. Never affects
      *     ingredient deduction below (that's always planned quantities) --
      *     purely overrides what gets frozen into that recipe's cost
-     *     snapshot and, from there, ProductionRun::totalUnits().
+     *     snapshot and, from there, ProductionRun::totalUnits() -- and now
+     *     also what gets credited to a linked product's stock.
+     * @param User|null $actor the user completing the run, threaded through
+     *     to the inventory.adjusted audit row for any linked product. Null
+     *     is fine (system/unattended completion) -- SyncInventory accepts it.
      * @return array<int, string> human-readable shortfall warnings, one per
      *     ingredient that ran out of stock before its required quantity was
      *     fully drawn down -- empty when every requirement was covered.
      */
-    public function handle(ProductionRun $productionRun, array $actuals = []): array
+    public function handle(ProductionRun $productionRun, array $actuals = [], ?User $actor = null): array
     {
-        return DB::transaction(fn () => $this->run($productionRun, $actuals));
+        return DB::transaction(fn () => $this->run($productionRun, $actuals, $actor));
     }
 
     /**
      * @param array<int, int> $actuals
      * @return array<int, string>
      */
-    private function run(ProductionRun $productionRun, array $actuals): array
+    private function run(ProductionRun $productionRun, array $actuals, ?User $actor): array
     {
         // Re-fetched and locked, not the instance the controller passed in --
         // closes a race where two near-simultaneous completion requests (a
@@ -138,7 +150,13 @@ class CompleteProductionRun
         }
 
         // $productionRun->recipes was already loaded (with the batches
-        // pivot) by calculateProductionPlan->handle() above.
+        // pivot) by calculateProductionPlan->handle() above. 'recipes.product'
+        // wasn't part of that eager load (CalculateProductionPlan has no
+        // reason to know about it), so top it up here -- $recipe->product is
+        // read below, and this app's Model::preventLazyLoading() (outside
+        // production) throws on an un-eager-loaded access.
+        $productionRun->loadMissing('recipes.product');
+
         /** @var Recipe $recipe */
         foreach ($productionRun->recipes as $recipe) {
             $plannedUnits = $productionRun->batch_size * (int) $recipe->pivot->batches;
@@ -154,6 +172,23 @@ class CompleteProductionRun
             $productionRun->recipes()->updateExistingPivot($recipe->id, ['actual_units' => $actualUnits]);
 
             $this->createRecipeCostSnapshot->handle($recipe, $productionRun, $actualUnits);
+
+            // Only recipes linked to a storefront product credit finished
+            // goods -- most recipes have no product_id yet (nullable, by
+            // design), and must behave exactly as before this feature.
+            if ($recipe->product_id) {
+                app(SyncInventory::class)->applyChange(
+                    product: $recipe->product,
+                    newQuantity: $recipe->product->stock_quantity + $actualUnits,
+                    reason: SyncInventory::REASONS['PRODUCTION_RUN'],
+                    actor: $actor,
+                    metadata: [
+                        'production_run_id' => $productionRun->id,
+                        'recipe_id' => $recipe->id,
+                        'units' => $actualUnits,
+                    ],
+                );
+            }
         }
 
         $productionRun->update(['completed_at' => now()]);

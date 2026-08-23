@@ -138,7 +138,7 @@ class ProductionPlannerController extends Controller implements HasMiddleware
             ->pluck('actual_units', 'recipe_id')
             ->all();
 
-        $shortfalls = $completeProductionRun->handle($productionRun, $actuals);
+        $shortfalls = $completeProductionRun->handle($productionRun, $actuals, $request->user());
 
         $message = 'Production run completed. Inventory has been updated.';
         if ($shortfalls !== []) {

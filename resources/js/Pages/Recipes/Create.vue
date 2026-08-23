@@ -26,6 +26,16 @@
           </div>
 
           <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Finished product</label>
+            <select v-model.number="form.product_id" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+              <option :value="null">Not linked to a storefront product</option>
+              <option v-for="product in props.products" :key="product.id" :value="product.id">{{ product.title }}</option>
+            </select>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">When set, completing a production run for this recipe credits the units produced to this product's storefront stock.</p>
+            <p v-if="form.errors.product_id" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.product_id }}</p>
+          </div>
+
+          <div>
             <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">Ingredients (per jar)</h3>
             <div v-if="form.ingredients.length" class="border border-gray-200 dark:border-gray-700 rounded-md divide-y divide-gray-200 dark:divide-gray-700">
               <div v-for="(row, index) in form.ingredients" :key="index" class="flex flex-wrap items-center gap-3 px-4 py-2">
@@ -95,8 +105,14 @@ interface IngredientOption {
   byproduct_name: string | null
 }
 
+interface ProductOption {
+  id: number
+  title: string
+}
+
 interface Props {
   ingredients: IngredientOption[]
+  products: ProductOption[]
   existingRecipeNames: string[]
 }
 
@@ -107,6 +123,7 @@ type Row = { ingredient_id: number | null; quantity_per_jar: number | null }
 interface FormData {
   name: string
   notes: string
+  product_id: number | null
   ingredients: Row[]
   byproducts: Row[]
 }
@@ -116,6 +133,7 @@ const byproductIngredients = props.ingredients.filter((i) => i.byproduct_name)
 const form = usePersistedForm<FormData>({
   name: '',
   notes: '',
+  product_id: null,
   ingredients: [],
   byproducts: [],
 }, { key: 'costing-recipe-create' })
