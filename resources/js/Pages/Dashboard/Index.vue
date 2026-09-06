@@ -6,7 +6,12 @@
 
       <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="hidden md:block mb-6">
-        <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Costing & Recipes</h1>
+        <div class="flex items-baseline gap-2">
+          <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Costing & Recipes</h1>
+          <span v-if="props.module_version" class="text-xs text-gray-400 dark:text-gray-500" :title="`Built ${props.module_version.date}`">
+            {{ props.module_version.commit }} · {{ props.module_version.date }}
+          </span>
+        </div>
         <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Pick up wherever you're at in the weekly routine.</p>
       </div>
 
@@ -48,6 +53,7 @@ defineOptions({ layout: (h, page) => h(AdminLayout, { wide: true, hideBreadcrumb
 interface Props {
   stale_price_count: number
   planned_run_count: number
+  module_version: { commit: string; date: string } | null
 }
 
 const props = defineProps<Props>()

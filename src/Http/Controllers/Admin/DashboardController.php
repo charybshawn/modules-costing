@@ -5,6 +5,7 @@ namespace Cultpantry\Costing\Http\Controllers\Admin;
 use App\Actions\GetSiteSetting;
 use App\Http\Controllers\Controller;
 use Cultpantry\Costing\Actions\CalculateIngredientCosting;
+use Cultpantry\Costing\Actions\GetModuleVersion;
 use Cultpantry\Costing\Models\Ingredient;
 use Cultpantry\Costing\Models\ProductionRun;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -34,7 +35,7 @@ class DashboardController extends Controller implements HasMiddleware
         ];
     }
 
-    public function index(CalculateIngredientCosting $calculateIngredientCosting): Response
+    public function index(CalculateIngredientCosting $calculateIngredientCosting, GetModuleVersion $getModuleVersion): Response
     {
         $this->authorize('viewAny', Ingredient::class);
         $this->authorize('viewAny', ProductionRun::class);
@@ -53,6 +54,7 @@ class DashboardController extends Controller implements HasMiddleware
         return Inertia::render('Vendor/costing/Dashboard/Index', [
             'stale_price_count' => $stalePriceCount,
             'planned_run_count' => $plannedRunCount,
+            'module_version' => $getModuleVersion->handle(),
             // Not CostingBreadcrumbs::trail() -- this IS the module root now,
             // so it's a single, non-linked crumb rather than a self-link.
             'breadcrumbs' => [['label' => 'Costing & Recipes']],
