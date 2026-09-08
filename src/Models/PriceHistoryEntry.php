@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $provider
  * @property string|null $brand
  * @property float|null $qty
+ * @property bool $priced_as_case
  * @property float|null $total_price
  * @property string|null $sku
  * @property string|null $notes
@@ -28,6 +29,7 @@ class PriceHistoryEntry extends Model
         'provider',
         'brand',
         'qty',
+        'priced_as_case',
         'total_price',
         'sku',
         'notes',
@@ -36,6 +38,7 @@ class PriceHistoryEntry extends Model
     protected $casts = [
         'purchased_at' => 'date',
         'qty' => 'decimal:2',
+        'priced_as_case' => 'boolean',
         'total_price' => 'decimal:2',
     ];
 

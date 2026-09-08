@@ -21,9 +21,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * quick-adjust, and quantity_on_hand all work at that granularity, never
  * cases. units_per_case is a purchasing constraint only ("GFS only sells
  * this in cases of 4"): it affects how CalculateProductionPlan rounds a
- * shopping-list shortfall up to a whole case, and how a re-logged/newly
- * seeded price's qty represents "one case" rather than one package, but
- * never how physical stock is counted.
+ * shopping-list shortfall up to a whole case, but never how physical stock
+ * is counted. A logged price's qty is one individual package UNLESS that
+ * entry's own priced_as_case flag says the price was for the whole case
+ * (see PriceHistoryEntry) -- that basis is per-entry, not implied by
+ * units_per_case alone.
  *
  * @property int $id
  * @property int $ingredient_id

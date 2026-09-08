@@ -90,6 +90,7 @@ class PriceHistoryController extends Controller implements HasMiddleware
                     'ingredient_id' => $source->ingredient_id,
                     'package_size_id' => $source->package_size_id,
                     'qty' => $source->qty ? (float) $source->qty : null,
+                    'priced_as_case' => $source->priced_as_case,
                     'total_price' => $source->total_price ? (float) $source->total_price : null,
                     'sku' => $source->sku,
                     'notes' => $source->notes,
@@ -144,6 +145,7 @@ class PriceHistoryController extends Controller implements HasMiddleware
                 'package_size_id' => $priceHistoryEntry->package_size_id,
                 'purchased_at' => optional($priceHistoryEntry->purchased_at)->format('Y-m-d'),
                 'qty' => $priceHistoryEntry->qty ? (float) $priceHistoryEntry->qty : null,
+                'priced_as_case' => $priceHistoryEntry->priced_as_case,
                 'total_price' => $priceHistoryEntry->total_price ? (float) $priceHistoryEntry->total_price : null,
                 'sku' => $priceHistoryEntry->sku,
                 'notes' => $priceHistoryEntry->notes,
@@ -196,6 +198,7 @@ class PriceHistoryController extends Controller implements HasMiddleware
             'provider' => $priceHistoryEntry->provider,
             'brand' => $priceHistoryEntry->brand,
             'qty' => $priceHistoryEntry->qty,
+            'priced_as_case' => $priceHistoryEntry->priced_as_case,
             'total_price' => $validated['total_price'],
             'sku' => $priceHistoryEntry->sku,
             'notes' => $priceHistoryEntry->notes,
@@ -208,9 +211,12 @@ class PriceHistoryController extends Controller implements HasMiddleware
         // Source rather than trusting the old entry's copy. Without this,
         // a null qty propagates through every future re-log forever: the
         // price saves fine each time, but price_per_unit stays permanently
-        // null ("incomplete") no matter how many times it's updated. An
-        // orphaned entry (source since deleted, package_size_id null) has
-        // no source to read, so it keeps its existing snapshot including qty.
+        // null ("incomplete") no matter how many times it's updated. The
+        // old entry's priced_as_case is carried into $attributes above so
+        // the refreshed qty keeps whatever basis (package or case) this
+        // entry was originally logged under. An orphaned entry (source
+        // since deleted, package_size_id null) has no source to read, so
+        // it keeps its existing snapshot including qty.
         PriceHistoryEntry::create(
             $priceHistoryEntry->package_size_id !== null
                 ? $this->withSourceSnapshot($attributes, refreshQty: true)
@@ -241,6 +247,7 @@ class PriceHistoryController extends Controller implements HasMiddleware
             'package_size_id' => ['required', 'exists:costing_ingredient_package_sizes,id'],
             'purchased_at' => ['nullable', 'date'],
             'qty' => ['nullable', 'numeric', 'min:0'],
+            'priced_as_case' => ['sometimes', 'boolean'],
             'total_price' => ['nullable', 'numeric', 'min:0'],
             'sku' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:255'],
@@ -253,15 +260,12 @@ class PriceHistoryController extends Controller implements HasMiddleware
      * copied from the Source the entry actually points to.
      *
      * $refreshQty additionally overrides qty with the Source's current
-     * package_size -- only safe for updatePrice()'s quick re-log, where
-     * qty was never user-typed either. units_per_case is a purchasing
-     * constraint only (how many packages must be bought at once), never a
-     * pricing multiplier -- a re-logged price is always naturally a
-     * per-package price (that's what's on an invoice/shelf tag), so
-     * pricing it as a case would compute the per-unit cost units_per_case
-     * times too cheap. store()/update() (the full Log a Price form) never
-     * pass this: there, qty is a genuine, independently-typed quantity
-     * that must not be silently overwritten.
+     * package_size (or case_total, if $validated['priced_as_case'] says the
+     * price being carried forward was for the whole case) -- only safe for
+     * updatePrice()'s quick re-log, where qty was never user-typed either.
+     * store()/update() (the full Log a Price form) never pass this: there,
+     * qty is a genuine, independently-typed quantity that must not be
+     * silently overwritten.
      */
     private function withSourceSnapshot(array $validated, bool $refreshQty = false): array
     {
@@ -271,7 +275,9 @@ class PriceHistoryController extends Controller implements HasMiddleware
             ...$validated,
             'provider' => $packageSize->provider,
             'brand' => $packageSize->brand,
-            ...($refreshQty ? ['qty' => $packageSize->package_size] : []),
+            ...($refreshQty ? [
+                'qty' => ($validated['priced_as_case'] ?? false) ? $packageSize->case_total : $packageSize->package_size,
+            ] : []),
         ];
     }
 }

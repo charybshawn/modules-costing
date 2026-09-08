@@ -220,19 +220,24 @@ class IngredientController extends Controller implements HasMiddleware
         // when that price was logged -- price_per_unit (total / qty) then
         // silently reflects the OLD size forever, since nothing else
         // re-derives it. Refresh just that one entry's qty to the new
-        // package_size, same convention updatePrice()'s quick re-log
-        // already uses (see PriceHistoryController::withSourceSnapshot) --
-        // the dollar amount actually paid is untouched, only the size it's
-        // divided by is corrected. Never case_total: units_per_case is a
-        // purchasing constraint only, the logged price is always per
-        // package. Skipped for a brand-new source: it has no price
-        // history yet to refresh.
+        // size, same convention updatePrice()'s quick re-log already uses
+        // (see PriceHistoryController::withSourceSnapshot) -- the dollar
+        // amount actually paid is untouched, only the size it's divided by
+        // is corrected. That entry's own priced_as_case decides whether
+        // "the new size" means package_size or case_total: units_per_case
+        // is a purchasing constraint on the Source, but whether a given
+        // logged price was for one package or the whole case is a property
+        // of that price entry, not of the Source. Skipped for a brand-new
+        // source: it has no price history yet to refresh.
         if (!$packageSize->wasRecentlyCreated) {
-            PriceHistoryEntry::where('package_size_id', $packageSize->id)
+            $latestEntry = PriceHistoryEntry::where('package_size_id', $packageSize->id)
                 ->orderByDesc('purchased_at')
                 ->orderByDesc('id')
-                ->first()
-                ?->update(['qty' => $packageSize->package_size]);
+                ->first();
+
+            $latestEntry?->update([
+                'qty' => $latestEntry->priced_as_case ? $packageSize->case_total : $packageSize->package_size,
+            ]);
         }
 
         // Not a hardcoded route -- same reasoning as setPreferred() above,

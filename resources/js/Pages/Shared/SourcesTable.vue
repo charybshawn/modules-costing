@@ -155,6 +155,19 @@
               </svg>
             </button>
           </div>
+          <div
+            v-if="inlineEditKey === optionKey(item) && item.price_history_entry_id === null && item.units_per_case > 1"
+            class="mt-1 flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400"
+          >
+            <label class="flex items-center gap-1">
+              <input type="radio" v-model="inlineEditPricedAsCase" :value="false" />
+              one package
+            </label>
+            <label class="flex items-center gap-1">
+              <input type="radio" v-model="inlineEditPricedAsCase" :value="true" />
+              whole case ({{ item.units_per_case }})
+            </label>
+          </div>
           <p v-if="inlineEditKey === optionKey(item) && inlineEditError" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ inlineEditError }}</p>
         </template>
 
@@ -189,7 +202,17 @@
         </div>
         <p class="text-xs text-gray-400 dark:text-gray-500">Package size is always ONE package -- Units/case is only for purchasing math, it never changes how stock is counted.</p>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <input v-model.number="newSourcePrice" type="number" min="0" step="0.01" placeholder="Price for one package ($)" :disabled="newSourceSaving" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+          <input v-model.number="newSourcePrice" type="number" min="0" step="0.01" :placeholder="newSourceUnitsPerCase > 1 && newSourcePricedAsCase ? 'Price for the whole case ($)' : 'Price for one package ($)'" :disabled="newSourceSaving" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+        </div>
+        <div v-if="newSourceUnitsPerCase > 1" class="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+          <label class="flex items-center gap-1">
+            <input type="radio" v-model="newSourcePricedAsCase" :value="false" />
+            one package
+          </label>
+          <label class="flex items-center gap-1">
+            <input type="radio" v-model="newSourcePricedAsCase" :value="true" />
+            whole case ({{ newSourceUnitsPerCase }})
+          </label>
         </div>
         <div class="flex items-center gap-2">
           <button
@@ -237,6 +260,7 @@ interface PriceOption {
   price_per_100g: number | null
   total_price: number | null
   qty: number | null
+  priced_as_case: boolean
   purchased_at: string | null
   is_stale: boolean
   is_preferred: boolean
@@ -314,18 +338,21 @@ const clearPreferred = () => {
 // qty/provider/brand, just a new price).
 const inlineEditKey = ref<string | null>(null)
 const inlineEditPrice = ref<number | null>(null)
+const inlineEditPricedAsCase = ref(false)
 const inlineEditSaving = ref(false)
 const inlineEditError = ref<string | null>(null)
 
 const startInlineEdit = (option: PriceOption) => {
   inlineEditKey.value = optionKey(option)
   inlineEditPrice.value = option.total_price
+  inlineEditPricedAsCase.value = false
   inlineEditError.value = null
 }
 
 const cancelInlineEdit = () => {
   inlineEditKey.value = null
   inlineEditPrice.value = null
+  inlineEditPricedAsCase.value = false
   inlineEditError.value = null
 }
 
@@ -336,10 +363,11 @@ const saveInlineEdit = (option: PriceOption) => {
 
   // A source with no price history yet (added via Inventory's stock modal)
   // has no entry to re-log from -- its first inline price creates the
-  // initial entry instead, dated today, qty = one individual package
-  // (units_per_case is a purchasing constraint only, never a pricing
-  // multiplier -- the price being typed is always per package, matching
-  // what's actually printed on an invoice/shelf tag, case-lot or not).
+  // initial entry instead, dated today. units_per_case is a purchasing
+  // constraint only, never implicitly a pricing multiplier -- whether the
+  // typed price is for one package or the whole case is instead the
+  // explicit choice captured by inlineEditPricedAsCase's toggle (shown only
+  // when the source is actually a case lot).
   const request = option.price_history_entry_id === null
     ? {
         url: route('admin.costing.price-history.store'),
@@ -347,7 +375,10 @@ const saveInlineEdit = (option: PriceOption) => {
           ingredient_id: props.ingredient.id,
           package_size_id: option.package_size_id,
           purchased_at: new Date().toISOString().slice(0, 10),
-          qty: option.package_size ?? 0,
+          qty: inlineEditPricedAsCase.value
+            ? (option.package_size ?? 0) * (option.units_per_case ?? 1)
+            : (option.package_size ?? 0),
+          priced_as_case: inlineEditPricedAsCase.value,
           total_price: inlineEditPrice.value,
           stay: true,
         },
@@ -471,17 +502,18 @@ const savePackageSizeEdit = (option: PriceOption) => {
 // price in one step -- price_history.create's full form is still there via
 // "Advanced entry" for anything needing a custom date/notes/SKU, but the
 // common case ("found a new supplier, here's what one package costs") no
-// longer needs to leave this view. qty always defaults to one individual
-// package -- units_per_case is a purchasing constraint only (how many
-// packages you must buy at once), never a pricing multiplier, so the price
-// being typed is always what one package costs, matching an invoice/shelf
-// tag's per-unit price regardless of case size.
+// longer needs to leave this view. units_per_case is a purchasing
+// constraint only (how many packages you must buy at once) -- whether the
+// price being typed is for one package or the whole case is the explicit
+// choice captured by newSourcePricedAsCase's toggle (shown only when the
+// source is actually a case lot), which decides what qty gets stored.
 const addingSource = ref(false)
 const newSourceProvider = ref('')
 const newSourceBrand = ref('')
 const newSourceSize = ref<number | null>(null)
 const newSourceUnitsPerCase = ref<number>(1)
 const newSourcePrice = ref<number | null>(null)
+const newSourcePricedAsCase = ref(false)
 const newSourceSaving = ref(false)
 const newSourceError = ref<string | null>(null)
 
@@ -492,6 +524,7 @@ const startAddSource = () => {
   newSourceSize.value = null
   newSourceUnitsPerCase.value = 1
   newSourcePrice.value = null
+  newSourcePricedAsCase.value = false
   newSourceError.value = null
 }
 
@@ -507,6 +540,7 @@ const saveNewSource = () => {
   const packageSize = newSourceSize.value
   const unitsPerCase = newSourceUnitsPerCase.value || 1
   const price = newSourcePrice.value
+  const pricedAsCase = newSourcePricedAsCase.value
 
   newSourceSaving.value = true
   newSourceError.value = null
@@ -536,7 +570,8 @@ const saveNewSource = () => {
             ingredient_id: props.ingredient.id,
             package_size_id: source.id,
             purchased_at: new Date().toISOString().slice(0, 10),
-            qty: packageSize,
+            qty: pricedAsCase ? packageSize * unitsPerCase : packageSize,
+            priced_as_case: pricedAsCase,
             total_price: price,
             // Otherwise store() redirects to the Price History index,
             // navigating away from wherever this table is embedded.

@@ -6,6 +6,8 @@ export interface IngredientSource {
   id: number
   provider: string
   brand: string | null
+  package_size: number
+  units_per_case: number
 }
 
 export const sourceLabel = (source: IngredientSource): string =>

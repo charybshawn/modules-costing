@@ -81,6 +81,17 @@
             <div v-else>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Qty (units)</label>
               <input v-model.number="form.qty" type="number" min="0" step="1" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+              <div v-if="selectedSource && selectedSource.units_per_case > 1" class="mt-2 flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                <span>Price is for:</span>
+                <label class="flex items-center gap-1">
+                  <input type="radio" :checked="!form.priced_as_case" @change="applyPricedAsCase(false)" />
+                  one package
+                </label>
+                <label class="flex items-center gap-1">
+                  <input type="radio" :checked="form.priced_as_case" @change="applyPricedAsCase(true)" />
+                  whole case ({{ selectedSource.units_per_case }})
+                </label>
+              </div>
             </div>
           </div>
 
@@ -128,6 +139,7 @@ interface Entry {
   package_size_id: number | null
   purchased_at: string | null
   qty: number | null
+  priced_as_case: boolean
   total_price: number | null
   sku: string | null
   notes: string | null
@@ -145,6 +157,7 @@ interface FormData {
   package_size_id: number | ''
   purchased_at: string
   qty: number | null
+  priced_as_case: boolean
   total_price: number | null
   sku: string
   notes: string
@@ -155,6 +168,7 @@ const initialData: FormData = {
   package_size_id: props.entry.package_size_id ?? '',
   purchased_at: props.entry.purchased_at ?? '',
   qty: props.entry.qty,
+  priced_as_case: props.entry.priced_as_case,
   total_price: props.entry.total_price,
   sku: props.entry.sku ?? '',
   notes: props.entry.notes ?? '',
@@ -173,6 +187,20 @@ const selectedIngredient = computed(() => props.ingredients.find((i) => i.id ===
 const isGramBased = computed(() => selectedIngredient.value?.unit_type !== 'unit')
 
 const { sources, addSource, addSourceSaving, addSourceError } = useIngredientSources(computed(() => form.ingredient_id))
+
+const selectedSource = computed(() => sources.value.find((s) => s.id === form.package_size_id) ?? null)
+
+// Picking either option here pre-fills qty from the selected source's
+// registered size -- still a plain number afterward, editable like any
+// other qty entry (e.g. if the actual invoiced qty differs slightly).
+const applyPricedAsCase = (pricedAsCase: boolean) => {
+  form.priced_as_case = pricedAsCase
+  if (selectedSource.value) {
+    form.qty = pricedAsCase
+      ? selectedSource.value.package_size * selectedSource.value.units_per_case
+      : selectedSource.value.package_size
+  }
+}
 
 // Only clear the selected source on a real ingredient change, not on the
 // initial mount -- the entry's current package_size_id must survive load.
@@ -224,6 +252,17 @@ const { weightValue, weightUnit, isCase, eachesPerCase, totalGrams } = useWeight
 watch(totalGrams, (total) => {
   if (isGramBased.value && total !== null) {
     form.qty = total
+  }
+})
+
+// Gram-based ingredients express "priced as a case" through the weight
+// entry's own "This was a case of multiple identical packages" checkbox
+// rather than the separate toggle above (which only applies to unit-type
+// ingredients) -- this form autosaves, so keep it in sync live rather than
+// only at a one-shot submit.
+watch(isCase, (value) => {
+  if (isGramBased.value) {
+    form.priced_as_case = value
   }
 })
 
