@@ -2,22 +2,26 @@
 
 namespace Cultpantry\Costing\Models;
 
-use App\Models\Product;
+use Cultpantry\Costing\Contracts\FinishedGood;
+use Cultpantry\Costing\Contracts\FinishedGoodRepository;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
  * A "recipe" is a flavour (e.g. "Sriracha Maple Bacon") -- one row per
  * flavour, with ingredient quantities-per-jar attached via the pivot.
  *
- * Optionally linked to App\Models\Product via the nullable `product_id`
- * FK (`->nullOnDelete()`) -- most recipes won't have one, but when set,
- * completing a production run for this recipe credits that many units to
- * the linked product's storefront stock (see CompleteProductionRun /
+ * Optionally linked to a host-app finished good (e.g. a storefront product)
+ * via the nullable `product_id` column -- most recipes won't have one, but
+ * when set, completing a production run for this recipe credits that many
+ * units to the linked finished good's stock (see CompleteProductionRun /
  * UncompleteProductionRun), on top of the existing cost-snapshot/ingredient
  * bookkeeping. The link is what turns a production run from a pure
  * costing/inventory-deduction exercise into one that also stocks the shelf.
+ * The host app owns what "product_id" actually points to -- resolved
+ * through Cultpantry\Costing\Contracts\FinishedGoodRepository, never a
+ * direct Eloquent relation into a host model, so this package has no
+ * dependency on any specific host app's schema.
  *
  * @property int $id
  * @property int|null $product_id
@@ -46,9 +50,11 @@ class Recipe extends Model
         'cost_buffer_percent' => 'decimal:2',
     ];
 
-    public function product(): BelongsTo
+    public function finishedGood(): ?FinishedGood
     {
-        return $this->belongsTo(Product::class);
+        return $this->product_id !== null
+            ? app(FinishedGoodRepository::class)->find($this->product_id)
+            : null;
     }
 
     public function ingredients(): BelongsToMany

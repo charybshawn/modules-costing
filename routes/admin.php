@@ -59,6 +59,7 @@ Route::prefix('admin')->name('admin.')->middleware(['web', 'auth', 'admin'])->gr
             Route::get('grid', [RecipeController::class, 'grid'])->name('grid');
             Route::get('costing', [RecipeController::class, 'costing'])->name('costing');
             Route::get('cost-history', [RecipeController::class, 'costHistory'])->name('cost-history');
+            Route::get('finished-goods/search', [RecipeController::class, 'searchFinishedGoods'])->name('finished-goods.search');
             Route::get('create', [RecipeController::class, 'create'])->name('create');
             Route::post('/', [RecipeController::class, 'store'])->name('store');
             Route::get('{recipe}/edit', [RecipeController::class, 'edit'])->name('edit');

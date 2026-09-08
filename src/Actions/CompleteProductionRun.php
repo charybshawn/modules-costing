@@ -2,7 +2,6 @@
 
 namespace Cultpantry\Costing\Actions;
 
-use App\Actions\SyncInventory;
 use App\Models\User;
 use Cultpantry\Costing\Models\Ingredient;
 use Cultpantry\Costing\Models\PackageSize;
@@ -19,11 +18,11 @@ use Illuminate\Support\Facades\DB;
  * production, no manual snapshot path), so it belongs here rather than in
  * the controller.
  *
- * For any recipe linked to a storefront Product (Recipe::product), also
- * credits that recipe's actual_units to the product's stock_quantity via
- * SyncInventory -- the app's single stock-mutation funnel, so the write is
- * locked, audited (an inventory.adjusted Event), and broadcast the same as
- * every other stock change. Recipes with no linked product are unaffected.
+ * For any recipe linked to a finished good (Recipe::finishedGood()), also
+ * credits that recipe's actual_units to it via the host app's own
+ * stock-mutation funnel (see Cultpantry\Costing\Contracts\FinishedGood) --
+ * this package never sees stock_quantity or how the host locks/audits/
+ * broadcasts the write. Recipes with no linked finished good are unaffected.
  */
 class CompleteProductionRun
 {
@@ -41,9 +40,9 @@ class CompleteProductionRun
      *     purely overrides what gets frozen into that recipe's cost
      *     snapshot and, from there, ProductionRun::totalUnits() -- and now
      *     also what gets credited to a linked product's stock.
-     * @param User|null $actor the user completing the run, threaded through
-     *     to the inventory.adjusted audit row for any linked product. Null
-     *     is fine (system/unattended completion) -- SyncInventory accepts it.
+     * @param User|null $actor the user completing the run, passed straight
+     *     through to the host's own audit trail for any linked finished
+     *     good. Null is fine (system/unattended completion).
      * @return array<int, string> human-readable shortfall warnings, one per
      *     ingredient that ran out of stock before its required quantity was
      *     fully drawn down -- empty when every requirement was covered.
@@ -149,14 +148,6 @@ class CompleteProductionRun
             $this->checkIngredientLowStock->handle($ingredient, $oldOnHand, $newOnHand);
         }
 
-        // $productionRun->recipes was already loaded (with the batches
-        // pivot) by calculateProductionPlan->handle() above. 'recipes.product'
-        // wasn't part of that eager load (CalculateProductionPlan has no
-        // reason to know about it), so top it up here -- $recipe->product is
-        // read below, and this app's Model::preventLazyLoading() (outside
-        // production) throws on an un-eager-loaded access.
-        $productionRun->loadMissing('recipes.product');
-
         /** @var Recipe $recipe */
         foreach ($productionRun->recipes as $recipe) {
             $plannedUnits = $productionRun->batch_size * (int) $recipe->pivot->batches;
@@ -173,14 +164,14 @@ class CompleteProductionRun
 
             $this->createRecipeCostSnapshot->handle($recipe, $productionRun, $actualUnits);
 
-            // Only recipes linked to a storefront product credit finished
-            // goods -- most recipes have no product_id yet (nullable, by
-            // design), and must behave exactly as before this feature.
-            if ($recipe->product_id) {
-                app(SyncInventory::class)->applyChange(
-                    product: $recipe->product,
-                    newQuantity: $recipe->product->stock_quantity + $actualUnits,
-                    reason: SyncInventory::REASONS['PRODUCTION_RUN'],
+            // Only recipes linked to a finished good credit anything --
+            // most recipes have no product_id yet (nullable, by design),
+            // and must behave exactly as before this feature.
+            $finishedGood = $recipe->finishedGood();
+            if ($finishedGood) {
+                $finishedGood->credit(
+                    units: $actualUnits,
+                    reason: 'production_run',
                     actor: $actor,
                     metadata: [
                         'production_run_id' => $productionRun->id,

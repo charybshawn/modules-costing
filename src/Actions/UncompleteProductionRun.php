@@ -2,7 +2,6 @@
 
 namespace Cultpantry\Costing\Actions;
 
-use App\Actions\SyncInventory;
 use Cultpantry\Costing\Models\InventoryAdjustment;
 use Cultpantry\Costing\Models\PackageSize;
 use Cultpantry\Costing\Models\ProductionRun;
@@ -14,8 +13,8 @@ use Illuminate\Support\Facades\DB;
  * quantity CompleteProductionRun deducted (via the InventoryAdjustment
  * audit trail it left behind, not a hard reset to a stored "before" value,
  * since other legitimate adjustments may have touched the same source
- * since), decrements finished-goods stock on any recipe's linked product by
- * the same actual_units CompleteProductionRun credited, deletes the frozen
+ * since), decrements finished-goods stock on any recipe's linked finished
+ * good by the same actual_units CompleteProductionRun credited, deletes the frozen
  * cost snapshots that completion created, and clears completed_at --
  * returning the run fully to "Planned" so it's editable and re-completable,
  * rather than a separate "reversed" status.
@@ -45,7 +44,7 @@ class UncompleteProductionRun
         // Locked the same way CompleteProductionRun locks the run before
         // deducting -- guards against a concurrent double-undo the same way
         // that guards against a concurrent double-complete.
-        $productionRun = ProductionRun::whereKey($productionRun->id)->lockForUpdate()->with('recipes.product')->firstOrFail();
+        $productionRun = ProductionRun::whereKey($productionRun->id)->lockForUpdate()->firstOrFail();
         abort_if(!$productionRun->completed_at, 422, 'This run has not been completed.');
 
         $warnings = [];
@@ -95,16 +94,18 @@ class UncompleteProductionRun
             // run before actual_units is nulled out below, since that's the
             // only record of how many units this recipe actually credited.
             if ($recipe->product_id && $recipe->pivot->actual_units !== null) {
-                app(SyncInventory::class)->applyChange(
-                    product: $recipe->product,
-                    newQuantity: $recipe->product->stock_quantity - (int) $recipe->pivot->actual_units,
-                    reason: SyncInventory::REASONS['PRODUCTION_RUN_REVERSAL'],
-                    metadata: [
-                        'production_run_id' => $productionRun->id,
-                        'recipe_id' => $recipe->id,
-                        'units' => (int) $recipe->pivot->actual_units,
-                    ],
-                );
+                $finishedGood = $recipe->finishedGood();
+                if ($finishedGood) {
+                    $finishedGood->debit(
+                        units: (int) $recipe->pivot->actual_units,
+                        reason: 'production_run_reversal',
+                        metadata: [
+                            'production_run_id' => $productionRun->id,
+                            'recipe_id' => $recipe->id,
+                            'units' => (int) $recipe->pivot->actual_units,
+                        ],
+                    );
+                }
             }
 
             $productionRun->recipes()->updateExistingPivot($recipe->id, ['actual_units' => null]);

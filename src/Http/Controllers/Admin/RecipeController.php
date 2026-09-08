@@ -4,13 +4,14 @@ namespace Cultpantry\Costing\Http\Controllers\Admin;
 
 use App\Actions\GetSiteSetting;
 use App\Http\Controllers\Controller;
-use App\Models\Product;
 use Cultpantry\Costing\Actions\CalculateIngredientCosting;
 use Cultpantry\Costing\Actions\CalculateRecipeCost;
+use Cultpantry\Costing\Contracts\FinishedGoodRepository;
 use Cultpantry\Costing\Models\Ingredient;
 use Cultpantry\Costing\Models\Recipe;
 use Cultpantry\Costing\Models\RecipeCostSnapshot;
 use Cultpantry\Costing\Support\CostingBreadcrumbs;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -162,7 +163,6 @@ class RecipeController extends Controller implements HasMiddleware
 
         return Inertia::render('Vendor/costing/Recipes/Create', [
             'ingredients' => Ingredient::orderBy('name')->get(['id', 'name', 'unit_type', 'byproduct_name']),
-            'products' => $this->productOptions(),
             'existingRecipeNames' => Recipe::orderBy('name')->pluck('name'),
             'breadcrumbs' => CostingBreadcrumbs::trail(
                 ['label' => 'Recipes', 'href' => route('admin.costing.recipes.index')],
@@ -230,7 +230,7 @@ class RecipeController extends Controller implements HasMiddleware
                 ],
                 $calculateIngredientCosting->handle($ingredient)
             )),
-            'products' => $this->productOptions(),
+            'finishedGoodOption' => $this->currentFinishedGoodOption($recipe),
             'existingRecipeNames' => Recipe::where('id', '!=', $recipe->id)->orderBy('name')->pluck('name'),
             'breadcrumbs' => CostingBreadcrumbs::trail(
                 ['label' => 'Recipes', 'href' => route('admin.costing.recipes.index')],
@@ -302,17 +302,41 @@ class RecipeController extends Controller implements HasMiddleware
     }
 
     /**
-     * Lightweight product list for the "Finished product" selector -- id and
-     * title only, never a raw Eloquent model passed to Vue (see
-     * .claude/CLAUDE.md).
+     * The currently-linked finished good's id/label only (never a raw
+     * Eloquent model passed to Vue -- see .claude/CLAUDE.md), for the
+     * picker's initial display. null when unlinked, or when the linked id
+     * no longer resolves (e.g. deleted on the host side).
      *
-     * @return array<int, array{id: int, title: string}>
+     * @return array{id: int, label: string}|null
      */
-    private function productOptions(): array
+    private function currentFinishedGoodOption(Recipe $recipe): ?array
     {
-        return Product::orderBy('title')->get(['id', 'title'])
-            ->map(fn (Product $product) => ['id' => $product->id, 'title' => $product->title])
-            ->all();
+        if ($recipe->product_id === null) {
+            return null;
+        }
+
+        $finishedGood = app(FinishedGoodRepository::class)->find($recipe->product_id);
+
+        return $finishedGood ? ['id' => $finishedGood->getId(), 'label' => $finishedGood->getLabel()] : null;
+    }
+
+    /**
+     * Live search backing the "Finished product" picker -- returns id/label
+     * pairs only, resolved through the host app's own FinishedGoodRepository
+     * binding rather than this package querying a host table directly.
+     */
+    public function searchFinishedGoods(Request $request, FinishedGoodRepository $finishedGoods): JsonResponse
+    {
+        $this->authorize('viewAny', Recipe::class);
+
+        $results = $finishedGoods->search((string) $request->query('q', ''), 20);
+
+        return response()->json([
+            'results' => array_map(fn ($finishedGood) => [
+                'id' => $finishedGood->getId(),
+                'label' => $finishedGood->getLabel(),
+            ], $results),
+        ]);
     }
 
     private function validated(Request $request, ?int $ignoreId = null): array
@@ -323,7 +347,11 @@ class RecipeController extends Controller implements HasMiddleware
                 Rule::unique('costing_recipes', 'name')->ignore($ignoreId),
             ],
             'notes' => ['nullable', 'string'],
-            'product_id' => ['nullable', 'integer', 'exists:products,id'],
+            'product_id' => ['nullable', 'integer', function ($attribute, $value, $fail) {
+                if ($value !== null && app(FinishedGoodRepository::class)->find((int) $value) === null) {
+                    $fail('The selected finished product is invalid.');
+                }
+            }],
             'ingredients' => ['array'],
             'ingredients.*.ingredient_id' => ['required', 'exists:costing_ingredients,id'],
             'ingredients.*.quantity_per_jar' => ['required', 'numeric', 'min:0'],
