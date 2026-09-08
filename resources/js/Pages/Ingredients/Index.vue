@@ -62,18 +62,22 @@
           </template>
 
           <template #cell-weekly_price="{ item }">
-            <button
-              type="button"
-              @click="openPricesModal(item)"
-              class="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline"
-            >
-              <span v-if="item.status === 'ok'">${{ Number(item.weekly_price).toFixed(2) }}{{ item.unit_type === 'unit' ? '/unit' : '/kg' }}</span>
-              <span v-else-if="item.stale_price !== null">${{ Number(item.stale_price).toFixed(2) }}{{ item.unit_type === 'unit' ? '/unit' : '/kg' }}</span>
-              <span v-else class="italic font-normal">no price logged</span>
-            </button>
-            <span v-if="item.status !== 'ok' && item.stale_price !== null" class="ml-1.5 inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-300">
-              needs update
-            </span>
+            <div class="inline-flex items-center gap-1.5">
+              <button
+                type="button"
+                @click="openPricesModal(item)"
+                class="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline"
+              >
+                <span v-if="item.status === 'ok'">${{ Number(item.weekly_price).toFixed(2) }}{{ item.unit_type === 'unit' ? '/unit' : '/kg' }}</span>
+                <span v-else-if="item.stale_price !== null">${{ Number(item.stale_price).toFixed(2) }}{{ item.unit_type === 'unit' ? '/unit' : '/kg' }}</span>
+                <span v-else class="italic font-normal">no price logged</span>
+              </button>
+              <span
+                v-if="item.status !== 'ok' && item.stale_price !== null"
+                class="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400 flex-shrink-0"
+                title="No price logged in the last 7 days -- needs update"
+              ></span>
+            </div>
           </template>
 
           <template #cell-price_per_100g="{ item }">
