@@ -67,19 +67,23 @@
               @click="openPricesModal(item)"
               class="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline"
             >
-              <span v-if="item.status === 'ok'">
-                ${{ Number(item.weekly_price).toFixed(2) }}{{ item.unit_type === 'unit' ? '/unit' : '/kg' }}
-                <span v-if="item.price_per_100g !== null" class="font-normal">(${{ Number(item.price_per_100g).toFixed(2) }}/100g)</span>
-              </span>
-              <span v-else-if="item.stale_price !== null">
-                ${{ Number(item.stale_price).toFixed(2) }}{{ item.unit_type === 'unit' ? '/unit' : '/kg' }}
-                <span v-if="item.stale_price_per_100g !== null" class="font-normal">(${{ Number(item.stale_price_per_100g).toFixed(2) }}/100g)</span>
-              </span>
+              <span v-if="item.status === 'ok'">${{ Number(item.weekly_price).toFixed(2) }}{{ item.unit_type === 'unit' ? '/unit' : '/kg' }}</span>
+              <span v-else-if="item.stale_price !== null">${{ Number(item.stale_price).toFixed(2) }}{{ item.unit_type === 'unit' ? '/unit' : '/kg' }}</span>
               <span v-else class="italic font-normal">no price logged</span>
             </button>
             <span v-if="item.status !== 'ok' && item.stale_price !== null" class="ml-1.5 inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-300">
               needs update
             </span>
+          </template>
+
+          <template #cell-price_per_100g="{ item }">
+            <span v-if="item.status === 'ok' && item.price_per_100g !== null" class="text-sm text-gray-900 dark:text-white">
+              ${{ Number(item.price_per_100g).toFixed(2) }}
+            </span>
+            <span v-else-if="item.status !== 'ok' && item.stale_price_per_100g !== null" class="text-sm text-gray-500 dark:text-gray-400">
+              ${{ Number(item.stale_price_per_100g).toFixed(2) }}
+            </span>
+            <span v-else class="text-sm text-gray-400 dark:text-gray-500">—</span>
           </template>
 
           <template #cell-effective_price="{ item }">
@@ -167,8 +171,9 @@ const ingredients = computed(() => {
 const columns: Column[] = [
   { key: 'name', label: 'Ingredient', sortable: true },
   { key: 'category', label: 'Category', sortable: true, hideable: true, filterable: true },
-  { key: 'waste_percent', label: 'Waste %', hideable: true },
   { key: 'weekly_price', label: '$/kg', hideable: true },
+  { key: 'price_per_100g', label: '$/100g', hideable: true },
+  { key: 'waste_percent', label: 'Waste %', hideable: true },
   { key: 'effective_price', label: 'Effective $/kg', hideable: true },
   { key: 'source_count', label: 'Sources', hideable: true },
   { key: 'purchase_unit', label: 'Purchase Unit', hideable: true },
