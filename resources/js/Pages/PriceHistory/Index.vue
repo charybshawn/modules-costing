@@ -75,14 +75,14 @@
           <template #cell-purchased_at="{ item }">
             <div class="flex flex-col">
               <span class="inline-flex items-center gap-1.5">
-                <span class="text-sm text-gray-900 dark:text-white">{{ item.purchased_at ?? '—' }}</span>
+                <span class="text-sm text-gray-900 dark:text-white whitespace-nowrap">{{ item.purchased_at ?? '—' }}</span>
                 <span
                   v-if="item.needs_update"
                   class="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400 flex-shrink-0"
                   title="No price logged in the last 7 days -- needs update"
                 ></span>
               </span>
-              <span v-if="item.logged_at" class="text-xs text-gray-500 dark:text-gray-400">{{ item.logged_at }}</span>
+              <span v-if="item.logged_at" class="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{{ item.logged_at }}</span>
             </div>
           </template>
 
