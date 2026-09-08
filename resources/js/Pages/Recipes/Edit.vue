@@ -13,7 +13,7 @@
         <form @submit.prevent class="p-6 space-y-6">
           <FormErrorSummary :errors="form.errors" />
 
-          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
             <!-- Details -->
             <div class="lg:col-span-1 space-y-6">
               <div>
@@ -52,15 +52,6 @@
                     </select>
                     <input v-model.number="row.quantity_per_jar" type="number" min="0" step="0.01" required class="w-28 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
                     <span class="text-xs text-gray-500 dark:text-gray-400 w-10">{{ ingredientUnit(row.ingredient_id) }}</span>
-                    <button
-                      v-if="row.ingredient_id !== null"
-                      type="button"
-                      @click="openPricesModal(row.ingredient_id)"
-                      class="text-xs font-medium whitespace-nowrap"
-                      :class="priceIndicatorClass(row.ingredient_id)"
-                    >
-                      {{ priceIndicatorLabel(row.ingredient_id) }}
-                    </button>
                     <button type="button" @click="form.ingredients.splice(index, 1)" class="text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400">
                       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
@@ -69,13 +60,6 @@
                 <button type="button" @click="addRow(form.ingredients)" :disabled="form.ingredients.length >= props.ingredients.length" class="mt-3 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 disabled:opacity-40">
                   + Add Ingredient
                 </button>
-
-                <div v-if="form.ingredients.length" class="mt-4 rounded-md bg-gray-50 dark:bg-gray-700/50 px-4 py-3">
-                  <p class="text-sm font-medium text-gray-900 dark:text-white">Estimated cost per jar: ${{ costPerJar.total.toFixed(2) }}</p>
-                  <p v-if="costPerJar.anyStale || costPerJar.anyMissing" class="mt-1 text-xs text-amber-600 dark:text-amber-500">
-                    Estimate only -- {{ costPerJar.anyMissing ? 'one or more ingredients have no logged price' : 'one or more ingredients are using a price that needs updating' }}. Click a price above to fix it.
-                  </p>
-                </div>
               </div>
 
               <div>
@@ -97,6 +81,41 @@
                 <button type="button" @click="addRow(form.byproducts, byproductIngredients)" :disabled="byproductIngredients.length === 0 || form.byproducts.length >= byproductIngredients.length" class="mt-3 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 disabled:opacity-40">
                   + Add Byproduct
                 </button>
+              </div>
+            </div>
+
+            <!-- Costing breakdown -->
+            <div class="lg:col-span-1">
+              <div class="lg:sticky lg:top-6 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 p-4">
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">Costing Breakdown</h3>
+
+                <p v-if="!costBreakdown.length" class="text-sm text-gray-500 dark:text-gray-400">Add ingredients to see the cost per jar.</p>
+
+                <dl v-else class="space-y-3">
+                  <div v-for="line in costBreakdown" :key="line.ingredientId" class="flex items-start justify-between gap-3 text-sm">
+                    <div class="min-w-0">
+                      <dt class="font-medium text-gray-900 dark:text-white truncate">{{ line.name }}</dt>
+                      <dd class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                        {{ line.quantity }}{{ line.unit }}
+                        <span class="mx-1">&middot;</span>
+                        <button type="button" @click="openPricesModal(line.ingredientId)" class="font-medium" :class="priceIndicatorClass(line.ingredientId)">
+                          {{ priceIndicatorLabel(line.ingredientId) }}
+                        </button>
+                      </dd>
+                    </div>
+                    <dd class="shrink-0 text-gray-900 dark:text-white tabular-nums">{{ line.subtotal === null ? '—' : `$${line.subtotal.toFixed(2)}` }}</dd>
+                  </div>
+                </dl>
+
+                <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <div class="flex items-center justify-between">
+                    <span class="text-sm font-medium text-gray-900 dark:text-white">Cost per jar</span>
+                    <span class="text-lg font-semibold text-gray-900 dark:text-white tabular-nums">${{ costPerJar.total.toFixed(2) }}</span>
+                  </div>
+                  <p v-if="costPerJar.anyStale || costPerJar.anyMissing" class="mt-2 text-xs text-amber-600 dark:text-amber-500">
+                    Estimate only -- {{ costPerJar.anyMissing ? 'one or more ingredients have no logged price' : 'one or more ingredients are using a price that needs updating' }}. Click a price above to fix it.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -260,6 +279,44 @@ const costPerJar = computed(() => {
   }
 
   return { total, anyStale, anyMissing }
+})
+
+interface CostLine {
+  ingredientId: number
+  name: string
+  quantity: number
+  unit: string
+  subtotal: number | null
+}
+
+// Per-ingredient line items backing the Costing Breakdown panel -- same
+// effective-price logic as costPerJar, just kept per-row instead of summed.
+const costBreakdown = computed<CostLine[]>(() => {
+  const lines: CostLine[] = []
+
+  for (const row of form.ingredients) {
+    if (row.ingredient_id === null) continue
+    const ingredient = findIngredient(row.ingredient_id)
+    if (!ingredient) continue
+
+    const quantity = row.quantity_per_jar ?? 0
+    const effectivePrice = ingredient.status === 'ok' ? ingredient.effective_price : ingredient.stale_effective_price
+    const subtotal = effectivePrice === null || !quantity
+      ? null
+      : ingredient.unit_type === 'unit'
+        ? quantity * effectivePrice
+        : (quantity * effectivePrice) / 1000
+
+    lines.push({
+      ingredientId: ingredient.id,
+      name: ingredient.name,
+      quantity,
+      unit: ingredientUnit(row.ingredient_id),
+      subtotal,
+    })
+  }
+
+  return lines
 })
 
 const availableIngredients = (rows: Row[], currentValue: number | null, pool: IngredientOption[] = props.ingredients) => {
