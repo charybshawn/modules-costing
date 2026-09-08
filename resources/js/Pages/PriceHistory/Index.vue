@@ -26,10 +26,25 @@
         <p class="text-sm font-medium text-green-800 dark:text-green-200">{{ $page.props.flash.success }}</p>
       </div>
 
-      <label class="mb-4 inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-        <input v-model="needsUpdateOnly" type="checkbox" class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500 dark:bg-gray-700" />
-        Needs update only ({{ needsUpdateCount }})
-      </label>
+      <div class="mb-4 flex flex-wrap items-center gap-4">
+        <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+          <input v-model="needsUpdateOnly" type="checkbox" class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500 dark:bg-gray-700" />
+          Needs update only ({{ needsUpdateCount }})
+        </label>
+
+        <span v-if="ingredientFilterName" class="inline-flex items-center gap-1 rounded-full border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 pl-3 pr-1.5 py-1 text-sm text-gray-700 dark:text-gray-200">
+          Ingredient: <span class="font-medium">{{ ingredientFilterName }}</span>
+          <button
+            type="button"
+            @click="ingredientFilterId = null"
+            class="p-0.5 rounded-full text-gray-400 dark:text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-600 dark:hover:text-gray-300"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </span>
+      </div>
 
       <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
         <DataTable
@@ -114,7 +129,21 @@ const props = defineProps<Props>()
 // deep-link straight into the filtered view instead of landing on everything.
 const needsUpdateOnly = ref(new URLSearchParams(window.location.search).get('needs_update') === '1')
 const needsUpdateCount = computed(() => props.entries.filter((e) => e.needs_update).length)
-const filteredEntries = computed(() => (needsUpdateOnly.value ? props.entries.filter((e) => e.needs_update) : props.entries))
+
+// Defaults from ?ingredient_id=123 so the Ingredients table's "Price History"
+// row action can deep-link straight into that ingredient's entries.
+const initialIngredientId = new URLSearchParams(window.location.search).get('ingredient_id')
+const ingredientFilterId = ref<number | null>(initialIngredientId ? Number(initialIngredientId) : null)
+const ingredientFilterName = computed(
+  () => props.entries.find((e) => e.ingredient_id === ingredientFilterId.value)?.ingredient_name ?? null
+)
+
+const filteredEntries = computed(() => {
+  let result = props.entries
+  if (needsUpdateOnly.value) result = result.filter((e) => e.needs_update)
+  if (ingredientFilterId.value !== null) result = result.filter((e) => e.ingredient_id === ingredientFilterId.value)
+  return result
+})
 
 const columns: Column[] = [
   { key: 'ingredient_name', label: 'Ingredient', sortable: true },

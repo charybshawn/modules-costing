@@ -175,6 +175,7 @@ const columns: Column[] = [
 ]
 
 const tableActions: Action[] = [
+  { name: 'price-history', icon: 'history', color: 'blue', label: 'Price History', href: (item) => route('admin.costing.price-history.index', { ingredient_id: item.id }) },
   { name: 'edit', icon: 'edit', color: 'indigo', label: 'Edit', href: (item) => route('admin.costing.ingredients.edit', item.id) },
   { name: 'delete', icon: 'delete', color: 'red', label: 'Delete' },
 ]
