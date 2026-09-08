@@ -88,7 +88,7 @@
                 This was a case of multiple identical packages
               </label>
               <div v-if="isCase" class="mt-1 flex items-center gap-2">
-                <span class="text-xs text-gray-500 dark:text-gray-400">Eaches per case</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">Items per case</span>
                 <input v-model.number="eachesPerCase" type="number" min="1" step="1" class="w-20 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-xs" />
               </div>
 
