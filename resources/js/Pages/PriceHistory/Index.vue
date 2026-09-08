@@ -50,6 +50,8 @@
         <DataTable
           :columns="columns"
           :items="filteredEntries"
+          :sort-field="sortField"
+          :sort-direction="sortDirection"
           :actions="tableActions"
           searchable
           search-placeholder="Search price history..."
@@ -58,6 +60,7 @@
           :empty-action-href="route('admin.costing.price-history.create')"
           table-id="costing-price-history"
           item-key="id"
+          @sort="handleSort"
           @action="handleAction"
         >
           <template #cell-ingredient_name="{ item }">
@@ -142,10 +145,27 @@ const ingredientFilterName = computed(
   () => props.entries.find((e) => e.ingredient_id === ingredientFilterId.value)?.ingredient_name ?? null
 )
 
+const sortField = ref('purchased_at')
+const sortDirection = ref<'asc' | 'desc'>('desc')
+
+const handleSort = (field: string) => {
+  if (sortField.value === field) {
+    sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortField.value = field
+    sortDirection.value = 'asc'
+  }
+}
+
 const filteredEntries = computed(() => {
   let result = props.entries
   if (needsUpdateOnly.value) result = result.filter((e) => e.needs_update)
   if (ingredientFilterId.value !== null) result = result.filter((e) => e.ingredient_id === ingredientFilterId.value)
+  if (sortField.value) {
+    const field = sortField.value as keyof PriceHistoryRow
+    const dir = sortDirection.value === 'asc' ? 1 : -1
+    result = [...result].sort((a, b) => String(a[field] ?? '').localeCompare(String(b[field] ?? '')) * dir)
+  }
   return result
 })
 
