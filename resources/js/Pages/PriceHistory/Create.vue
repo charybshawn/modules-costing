@@ -97,7 +97,15 @@
             <div v-else>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Qty (units)</label>
               <input v-model.number="form.qty" type="number" min="0" step="1" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="e.g. 24" />
-              <div v-if="selectedSource && selectedSource.units_per_case > 1" class="mt-2 flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Total Price ($)</label>
+              <input v-model.number="form.total_price" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">$/kg (or $/unit) is calculated automatically from the weight/qty above and this price.</p>
+              <div v-if="!isGramBased && selectedSource && selectedSource.units_per_case > 1" class="mt-2 flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
                 <span>Price is for:</span>
                 <label class="flex items-center gap-1">
                   <input type="radio" :checked="!form.priced_as_case" @change="applyPricedAsCase(false)" />
@@ -108,14 +116,6 @@
                   whole case ({{ selectedSource.units_per_case }})
                 </label>
               </div>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Total Price ($)</label>
-              <input v-model.number="form.total_price" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
-              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">$/kg (or $/unit) is calculated automatically from the weight/qty above and this price.</p>
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">SKU</label>
