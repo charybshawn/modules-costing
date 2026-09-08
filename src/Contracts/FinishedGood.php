@@ -16,6 +16,12 @@ interface FinishedGood
     public function getLabel(): string;
 
     /**
+     * Secondary display text (e.g. a SKU) shown alongside the label in a
+     * picker's result list -- null when the host has nothing more to show.
+     */
+    public function getSublabel(): ?string;
+
+    /**
      * Credits (adds) $units to this finished good's on-hand stock via
      * whatever the host app's own stock-mutation funnel is -- locking,
      * audit trail, and broadcasting are entirely the host's responsibility.

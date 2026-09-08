@@ -307,7 +307,7 @@ class RecipeController extends Controller implements HasMiddleware
      * picker's initial display. null when unlinked, or when the linked id
      * no longer resolves (e.g. deleted on the host side).
      *
-     * @return array{id: int, label: string}|null
+     * @return array{id: int, label: string, sublabel: string|null}|null
      */
     private function currentFinishedGoodOption(Recipe $recipe): ?array
     {
@@ -317,7 +317,11 @@ class RecipeController extends Controller implements HasMiddleware
 
         $finishedGood = app(FinishedGoodRepository::class)->find($recipe->product_id);
 
-        return $finishedGood ? ['id' => $finishedGood->getId(), 'label' => $finishedGood->getLabel()] : null;
+        return $finishedGood ? [
+            'id' => $finishedGood->getId(),
+            'label' => $finishedGood->getLabel(),
+            'sublabel' => $finishedGood->getSublabel(),
+        ] : null;
     }
 
     /**
@@ -335,6 +339,7 @@ class RecipeController extends Controller implements HasMiddleware
             'results' => array_map(fn ($finishedGood) => [
                 'id' => $finishedGood->getId(),
                 'label' => $finishedGood->getLabel(),
+                'sublabel' => $finishedGood->getSublabel(),
             ], $results),
         ]);
     }

@@ -30,10 +30,11 @@
         v-for="option in results"
         :key="option.id"
         type="button"
-        class="block w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600"
+        class="block w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-600"
         @click="select(option)"
       >
-        {{ option.label }}
+        <span class="block text-sm text-gray-700 dark:text-gray-200">{{ option.label }}</span>
+        <span v-if="option.sublabel" class="block text-xs text-gray-500 dark:text-gray-400">{{ option.sublabel }}</span>
       </button>
     </div>
   </div>
@@ -46,6 +47,7 @@ import axios from 'axios'
 export interface FinishedGoodOption {
   id: number
   label: string
+  sublabel?: string | null
 }
 
 interface Props {
