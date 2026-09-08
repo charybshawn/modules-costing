@@ -75,6 +75,7 @@
           <template #cell-purchased_at="{ item }">
             <div class="inline-flex items-center gap-1.5">
               <span class="text-sm text-gray-900 dark:text-white">{{ item.purchased_at ?? '—' }}</span>
+              <span v-if="item.logged_at" class="text-xs text-gray-500 dark:text-gray-400">{{ item.logged_at }}</span>
               <span
                 v-if="item.needs_update"
                 class="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400 flex-shrink-0"
@@ -115,6 +116,7 @@ interface PriceHistoryRow {
   ingredient_name: string
   unit_type: 'g' | 'unit' | null
   purchased_at: string | null
+  logged_at: string | null
   provider: string
   brand: string | null
   qty: number | null

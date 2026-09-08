@@ -37,6 +37,8 @@ class PriceHistoryController extends Controller implements HasMiddleware
 
         $allEntries = PriceHistoryEntry::with('ingredient:id,name,unit_type')
             ->orderByDesc('purchased_at')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
             ->get();
 
         $cutoff = now()->subDays(7)->startOfDay();
@@ -56,6 +58,7 @@ class PriceHistoryController extends Controller implements HasMiddleware
             'ingredient_name' => $entry->ingredient?->name,
             'unit_type' => $entry->ingredient?->unit_type,
             'purchased_at' => optional($entry->purchased_at)->format('Y-m-d'),
+            'logged_at' => $entry->created_at?->format('g:i A'),
             'provider' => $entry->provider,
             'brand' => $entry->brand,
             'qty' => $entry->qty ? (float) $entry->qty : null,
