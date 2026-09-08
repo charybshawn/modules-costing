@@ -4,6 +4,7 @@ namespace Cultpantry\Costing\Http\Controllers\Admin;
 
 use App\Actions\GetSiteSetting;
 use App\Http\Controllers\Controller;
+use Cultpantry\Costing\Actions\GetPriceStalenessDays;
 use Cultpantry\Costing\Models\Ingredient;
 use Cultpantry\Costing\Models\PackageSize;
 use Cultpantry\Costing\Models\PriceHistoryEntry;
@@ -41,7 +42,8 @@ class PriceHistoryController extends Controller implements HasMiddleware
             ->orderByDesc('id')
             ->get();
 
-        $cutoff = now()->subDays(7)->startOfDay();
+        $stalenessDays = app(GetPriceStalenessDays::class)->handle();
+        $cutoff = now()->subDays($stalenessDays)->startOfDay();
 
         // A row "needs an update" only if it's the *latest* logged price for
         // its ingredient/wholesaler/brand combination and that latest price
@@ -73,6 +75,7 @@ class PriceHistoryController extends Controller implements HasMiddleware
 
         return Inertia::render('Vendor/costing/PriceHistory/Index', [
             'entries' => $entries,
+            'staleness_days' => $stalenessDays,
             'breadcrumbs' => CostingBreadcrumbs::trail(['label' => 'Price History']),
         ]);
     }

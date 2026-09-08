@@ -12,14 +12,12 @@ use Cultpantry\Costing\Models\PriceHistoryEntry;
  * LAST_PRICE_DATE / PURCHASE_SIZE / PURCHASE_UNIT) into one Action.
  *
  * Finds the cheapest (or preferred-source) price logged for an ingredient
- * within the last 7 days, waste-adjusts it, and builds a human-readable
+ * within the configured staleness window (GetPriceStalenessDays, default 7 days), waste-adjusts it, and builds a human-readable
  * purchase unit label. Returns a clean "no price this week" status instead
  * of the original's #DIV/0! / #REF! errors when data is missing.
  */
 class CalculateIngredientCosting
 {
-    private const LOOKBACK_DAYS = 7;
-
     /**
      * @return array{
      *     weekly_price: float|null,
@@ -50,7 +48,7 @@ class CalculateIngredientCosting
      * so it only ever influences cost-per-kg, not purchase sizing.
      *
      * The weekly_price/effective_price/status fields only ever reflect a
-     * price within the last 7 days -- that's what recipe/production
+     * price within the configured staleness window -- that's what recipe/production
      * costing actually trusts. stale_* fields are purely for display: the
      * most recently logged price regardless of age (respecting a preferred
      * source/brand if one is set), so the UI can show "here's the last
@@ -66,7 +64,7 @@ class CalculateIngredientCosting
         // usage, from a LazyLoadingViolationException.
         $ingredient->loadMissing('priceHistory.ingredient', 'inventory', 'packageSizes');
 
-        $cutoff = now()->subDays(self::LOOKBACK_DAYS)->startOfDay();
+        $cutoff = now()->subDays(app(GetPriceStalenessDays::class)->handle())->startOfDay();
 
         // Already ordered newest-first by the priceHistory() relation.
         $measurableEntries = $ingredient->priceHistory

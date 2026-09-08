@@ -75,7 +75,7 @@
               <span
                 v-if="item.status !== 'ok' && item.stale_price !== null"
                 class="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400 flex-shrink-0"
-                title="No price logged in the last 7 days -- needs update"
+                :title="`No price logged in the last ${props.staleness_days} days -- needs update`"
               ></span>
             </div>
           </template>
@@ -150,6 +150,7 @@ interface IngredientRow {
 
 interface Props {
   ingredients: IngredientRow[]
+  staleness_days: number
 }
 
 const props = defineProps<Props>()

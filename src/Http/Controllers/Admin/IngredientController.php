@@ -6,6 +6,7 @@ use App\Actions\GetSiteSetting;
 use App\Http\Controllers\Controller;
 use Cultpantry\Costing\Actions\CalculateIngredientCosting;
 use Cultpantry\Costing\Actions\GetIngredientPriceOptions;
+use Cultpantry\Costing\Actions\GetPriceStalenessDays;
 use Cultpantry\Costing\Models\Ingredient;
 use Cultpantry\Costing\Models\PackageSize;
 use Cultpantry\Costing\Models\PriceHistoryEntry;
@@ -76,6 +77,7 @@ class IngredientController extends Controller implements HasMiddleware
 
         return Inertia::render('Vendor/costing/Ingredients/Index', [
             'ingredients' => $ingredients,
+            'staleness_days' => app(GetPriceStalenessDays::class)->handle(),
             'breadcrumbs' => CostingBreadcrumbs::trail(['label' => 'Ingredients']),
         ]);
     }

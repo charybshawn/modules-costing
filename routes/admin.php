@@ -7,6 +7,7 @@ use Cultpantry\Costing\Http\Controllers\Admin\KitchenRentalController;
 use Cultpantry\Costing\Http\Controllers\Admin\PriceHistoryController;
 use Cultpantry\Costing\Http\Controllers\Admin\ProductionPlannerController;
 use Cultpantry\Costing\Http\Controllers\Admin\RecipeController;
+use Cultpantry\Costing\Http\Controllers\Admin\SettingsController;
 use Illuminate\Support\Facades\Route;
 
 // 'web' is REQUIRED here and is not optional. Core routes/web.php gets the
@@ -74,6 +75,11 @@ Route::prefix('admin')->name('admin.')->middleware(['web', 'auth', 'admin'])->gr
             Route::post('{productionRun}/complete', [ProductionPlannerController::class, 'complete'])->name('complete');
             Route::post('{productionRun}/uncomplete', [ProductionPlannerController::class, 'uncomplete'])->name('uncomplete');
             Route::get('{productionRun}/purchase-order', [ProductionPlannerController::class, 'purchaseOrder'])->name('purchase-order');
+        });
+
+        Route::prefix('settings')->name('settings.')->group(function () {
+            Route::get('/', [SettingsController::class, 'index'])->name('index');
+            Route::put('/', [SettingsController::class, 'update'])->name('update');
         });
 
         Route::prefix('kitchen-rentals')->name('kitchen-rentals.')->group(function () {

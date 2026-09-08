@@ -18,8 +18,6 @@ use Illuminate\Support\Collection;
  */
 class GetIngredientPriceOptions
 {
-    private const STALE_AFTER_DAYS = 7;
-
     /**
      * @return Collection<int, array{
      *     price_history_entry_id: int|null,
@@ -43,7 +41,7 @@ class GetIngredientPriceOptions
     {
         $ingredient->loadMissing('priceHistory.ingredient', 'priceHistory.packageSize', 'packageSizes');
 
-        $cutoff = now()->subDays(self::STALE_AFTER_DAYS)->startOfDay();
+        $cutoff = now()->subDays(app(GetPriceStalenessDays::class)->handle())->startOfDay();
 
         $priceRows = $ingredient->priceHistory
             // Most recent first (by date, then id as a tiebreaker), so

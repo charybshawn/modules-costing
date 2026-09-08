@@ -6,7 +6,7 @@
         <div>
           <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Price History</h1>
           <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            Log every wholesaler you check, even if you don't buy. Only entries from the last 7 days count toward an ingredient's current price.
+            Log every wholesaler you check, even if you don't buy. Only entries from the last {{ props.staleness_days }} days count toward an ingredient's current price.
           </p>
         </div>
         <div class="mt-4 md:mt-0 flex flex-wrap gap-2">
@@ -79,7 +79,7 @@
                 <span
                   v-if="item.needs_update"
                   class="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400 flex-shrink-0"
-                  title="No price logged in the last 7 days -- needs update"
+                  :title="`No price logged in the last ${props.staleness_days} days -- needs update`"
                 ></span>
               </span>
               <span v-if="item.logged_at" class="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{{ item.logged_at }}</span>
@@ -132,6 +132,7 @@ interface PriceHistoryRow {
 
 interface Props {
   entries: PriceHistoryRow[]
+  staleness_days: number
 }
 
 const props = defineProps<Props>()

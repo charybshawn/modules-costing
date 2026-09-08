@@ -45,6 +45,7 @@ const tabs: Tab[] = [
   { label: 'Inventory', href: route('admin.costing.inventory.index'), match: '/admin/costing/inventory' },
   { label: 'Recipes', href: route('admin.costing.recipes.index'), match: '/admin/costing/recipes' },
   { label: 'Rental Schedule', href: route('admin.costing.kitchen-rentals.index'), match: '/admin/costing/kitchen-rentals' },
+  { label: 'Settings', href: route('admin.costing.settings.index'), match: '/admin/costing/settings' },
 ]
 
 const isActive = (tab: Tab) => {
