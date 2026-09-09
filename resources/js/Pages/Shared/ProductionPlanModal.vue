@@ -187,54 +187,6 @@
             </div>
           </div>
         </div>
-
-        <!-- Shopping list -- null (not rendered) for a completed run;
-             purchasing decisions are moot for something already made. Also
-             skipped for a prep run -- no recipes/batches means nothing to
-             shop for. -->
-        <div v-if="plan && showBatches" class="mt-6 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-          <div class="p-4 pb-0 flex items-center justify-between">
-            <h3 class="text-base font-medium text-gray-900 dark:text-white">Shopping List</h3>
-            <Link
-              :href="route('admin.costing.production-planner.purchase-order', productionRun.id)"
-              class="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300"
-            >
-              View Purchase Order &rarr;
-            </Link>
-          </div>
-          <p class="px-4 pt-2 text-sm text-gray-500 dark:text-gray-400">Amber rows need purchasing. Green rows are covered by inventory.</p>
-
-          <div class="overflow-x-auto mt-4">
-            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead class="bg-gray-50 dark:bg-gray-900">
-                <tr>
-                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Ingredient</th>
-                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Required</th>
-                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">On Hand</th>
-                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">To Purchase</th>
-                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Best Source</th>
-                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Est. Cost</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                <tr v-for="row in plan.rows" :key="row.ingredient_id" :class="row.needs_purchase ? 'bg-amber-50 dark:bg-amber-900/20' : 'bg-green-50 dark:bg-green-900/10'">
-                  <td class="px-4 py-2 text-sm text-gray-900 dark:text-white">{{ row.ingredient_name }}</td>
-                  <td class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{{ formatQuantity(row.required, row.unit_type) }}</td>
-                  <td class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{{ formatQuantity(row.on_hand, row.unit_type) }}</td>
-                  <td class="px-4 py-2 text-sm font-medium text-gray-900 dark:text-white">{{ formatQuantity(row.to_purchase, row.unit_type) }}</td>
-                  <td class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{{ row.best_source ?? '— no price this week' }}</td>
-                  <td class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">${{ row.est_cost.toFixed(2) }}</td>
-                </tr>
-              </tbody>
-              <tfoot>
-                <tr class="bg-gray-50 dark:bg-gray-900">
-                  <td colspan="5" class="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-white text-right">Total Estimated Purchase Cost</td>
-                  <td class="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-white">${{ plan.total_estimated_cost.toFixed(2) }}</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </div>
       </template>
     </div>
   </Modal>
@@ -243,31 +195,13 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import axios from 'axios'
-import { Link, router } from '@inertiajs/vue3'
+import { router } from '@inertiajs/vue3'
 import Modal from '@/Components/Modal.vue'
 import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
-import { formatQuantity } from './formatWeight'
 
 interface Recipe {
   id: number
   name: string
-}
-
-interface PlanRow {
-  ingredient_id: number
-  ingredient_name: string
-  unit_type: 'g' | 'unit'
-  required: number
-  on_hand: number
-  to_purchase: number
-  best_source: string | null
-  est_cost: number
-  needs_purchase: boolean
-}
-
-interface Plan {
-  rows: PlanRow[]
-  total_estimated_cost: number
 }
 
 interface RunBatch {
@@ -312,7 +246,6 @@ const emit = defineEmits<{ close: []; updated: [] }>()
 const loading = ref(false)
 const recipes = ref<Recipe[]>([])
 const productionRun = ref<ProductionRunData | null>(null)
-const plan = ref<Plan | null>(null)
 const errors = ref<Record<string, string>>({})
 const saving = ref(false)
 const completing = ref(false)
@@ -425,7 +358,6 @@ const fetchRun = async (id: number) => {
     const { data } = await axios.get(route('admin.costing.production-planner.show', id))
     recipes.value = data.recipes
     productionRun.value = data.production_run
-    plan.value = data.plan
     resetFormFromRun()
     if (props.autoComplete && !isCompleted.value) {
       startCompleteRun()
@@ -464,7 +396,6 @@ watch(
       fetchRun(id)
     } else {
       productionRun.value = null
-      plan.value = null
     }
   },
   { immediate: true },

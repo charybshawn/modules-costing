@@ -138,13 +138,15 @@ class ProductionPlannerController extends Controller implements HasMiddleware
     }
 
     /**
-     * Run + plan data for ProductionPlanModal.vue -- there's no standalone
-     * page for a run anymore (planning is driven entirely from a Rental
+     * Run data for ProductionPlanModal.vue -- there's no standalone page
+     * for a run anymore (planning is driven entirely from a Rental
      * Schedule slot or the All Runs history list, both of which open this
      * as a modal), so this returns JSON rather than an Inertia page, same
-     * pattern as InventoryController::sources() for StockAdjustModal.
+     * pattern as InventoryController::sources() for StockAdjustModal. The
+     * shopping list/plan lives only on the print-friendly Purchase Order
+     * page (purchaseOrder() below) -- the modal doesn't show it.
      */
-    public function show(ProductionRun $productionRun, CalculateProductionPlan $calculateProductionPlan): JsonResponse
+    public function show(ProductionRun $productionRun): JsonResponse
     {
         $this->authorize('view', $productionRun);
 
@@ -153,11 +155,6 @@ class ProductionPlannerController extends Controller implements HasMiddleware
         return response()->json([
             'recipes' => $recipes,
             'production_run' => $this->serializeRun($productionRun),
-            // Not computed for a completed run -- its shopping list is moot
-            // (nothing left to purchase for something already made) and the
-            // modal doesn't render one, so skip the live pricing/inventory
-            // query entirely rather than compute and discard it.
-            'plan' => $productionRun->completed_at ? null : $calculateProductionPlan->handle($productionRun),
         ]);
     }
 
