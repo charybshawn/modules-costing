@@ -103,34 +103,43 @@ class ImportKitchenRentalsFromCsv
                 $endsAt = collect($rows)->pluck('ends_at')->filter()->max() ?? $startsAt;
             }
 
-            $rental = KitchenRental::updateOrCreate(
-                [
-                    'booking_title' => $spaceRow['Booking Title'] ?? '',
-                    'venue_name' => $spaceRow['Kitchen Name'] ?? null,
-                    // Every row in this group was bucketed by its own
-                    // starts_at date, so they all share one calendar day --
-                    // safe to read it off the canonical $startsAt.
-                    'booking_date' => $startsAt->toDateString(),
-                ],
-                [
-                    'booked_for' => $spaceRow['Booked For'] ?? null,
-                    'status' => $spaceRow['Booking Status'] ?? null,
-                    'space_name' => $spaceRow['Calendar Name'] ?? '',
-                    'equipment' => $equipment,
-                    'starts_at' => $startsAt,
-                    'ends_at' => $endsAt ?? $startsAt,
-                    'booking_length' => is_numeric($spaceRow['Booking Length'] ?? null) ? (float) $spaceRow['Booking Length'] : null,
-                ],
-            );
+            // Not updateOrCreate() -- building the CostingRecordSaved event
+            // needs getDirty()/getOriginal() read *before* the save, which
+            // updateOrCreate() doesn't give a hook for (it saves internally
+            // before returning). Matched on the same natural key it used.
+            $matchOn = [
+                'booking_title' => $spaceRow['Booking Title'] ?? '',
+                'venue_name' => $spaceRow['Kitchen Name'] ?? null,
+                // Every row in this group was bucketed by its own
+                // starts_at date, so they all share one calendar day --
+                // safe to read it off the canonical $startsAt.
+                'booking_date' => $startsAt->toDateString(),
+            ];
+
+            $rental = KitchenRental::where($matchOn)->first() ?? new KitchenRental($matchOn);
+            $isNew = ! $rental->exists;
+
+            $rental->fill([
+                ...$matchOn,
+                'booked_for' => $spaceRow['Booked For'] ?? null,
+                'status' => $spaceRow['Booking Status'] ?? null,
+                'space_name' => $spaceRow['Calendar Name'] ?? '',
+                'equipment' => $equipment,
+                'starts_at' => $startsAt,
+                'ends_at' => $endsAt ?? $startsAt,
+                'booking_length' => is_numeric($spaceRow['Booking Length'] ?? null) ? (float) $spaceRow['Booking Length'] : null,
+            ]);
 
             $actorId = auth()->id();
-            event(
-                $rental->wasRecentlyCreated
-                    ? CostingRecordSaved::forCreated($rental, $actorId, ['source' => 'csv_import'])
-                    : CostingRecordSaved::forUpdated($rental, $actorId, ['source' => 'csv_import'])
-            );
+            $savedEvent = $isNew
+                ? null
+                : CostingRecordSaved::forUpdated($rental, $actorId, ['source' => 'csv_import']);
 
-            $rental->wasRecentlyCreated ? $created++ : $updated++;
+            $rental->save();
+
+            event($isNew ? CostingRecordSaved::forCreated($rental, $actorId, ['source' => 'csv_import']) : $savedEvent);
+
+            $isNew ? $created++ : $updated++;
         }
 
         return ['created' => $created, 'updated' => $updated];

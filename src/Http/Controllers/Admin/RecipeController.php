@@ -264,18 +264,20 @@ class RecipeController extends Controller implements HasMiddleware
 
         $validated = $this->validated($request, $recipe->id);
 
-        $recipe->update([
+        $recipe->fill([
             'name' => $validated['name'],
             'notes' => $validated['notes'] ?? null,
             'product_id' => $validated['product_id'] ?? null,
             'min_stock_threshold' => $validated['min_stock_threshold'] ?? null,
             'is_active' => $validated['is_active'] ?? true,
         ]);
+        $savedEvent = CostingRecordSaved::forUpdated($recipe, auth()->id());
+        $recipe->save();
 
         $recipe->mainIngredients()->sync($this->syncData($validated['ingredients']));
         $recipe->byproductIngredients()->sync($this->syncData($validated['byproducts'] ?? []));
 
-        event(CostingRecordSaved::forUpdated($recipe, auth()->id()));
+        event($savedEvent);
 
         // usePersistedForm's autosave also PUTs here from Edit.vue and
         // needs to stay put rather than navigate away mid-edit -- same
@@ -305,9 +307,10 @@ class RecipeController extends Controller implements HasMiddleware
             'cost_buffer_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ]);
 
-        $recipe->update($validated);
-
-        event(CostingRecordSaved::forUpdated($recipe, auth()->id()));
+        $recipe->fill($validated);
+        $savedEvent = CostingRecordSaved::forUpdated($recipe, auth()->id());
+        $recipe->save();
+        event($savedEvent);
 
         // Not a hardcoded route -- redirects back to the Costing dashboard
         // that submitted this, matching the update-price/set-preferred fix.
@@ -358,8 +361,10 @@ class RecipeController extends Controller implements HasMiddleware
                     event($deletedEvent);
                 } else {
                     $this->authorize('update', $recipe);
-                    $recipe->update(['is_active' => $validated['action'] === 'activate']);
-                    event(CostingRecordSaved::forUpdated($recipe, auth()->id(), $context));
+                    $recipe->fill(['is_active' => $validated['action'] === 'activate']);
+                    $savedEvent = CostingRecordSaved::forUpdated($recipe, auth()->id(), $context);
+                    $recipe->save();
+                    event($savedEvent);
                 }
 
                 $successCount++;

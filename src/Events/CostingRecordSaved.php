@@ -56,14 +56,21 @@ final class CostingRecordSaved
     }
 
     /**
-     * Call *after* $model->update(...) -- Eloquent still has the pre-save
-     * values available via getOriginal() at that point, paired with
-     * getChanges() for exactly what actually changed.
+     * Call after $model->fill(...) but *before* $model->save() -- e.g.
+     * `$model->fill($validated); $event = self::forUpdated($model, ...);
+     * $model->save(); event($event);` (same "build the event, mutate,
+     * then dispatch" shape used for deletes elsewhere in this package).
+     * getOriginal() is only accurate pre-save -- Eloquent's own save()
+     * calls syncOriginal() as its last step, so by the time control
+     * returns from a plain ->update() call, getOriginal() already equals
+     * the *new* values, not the old ones. getDirty() (not getChanges(),
+     * which reflects the last save rather than pending changes) is the
+     * matching pre-save equivalent.
      */
     public static function forUpdated(Model $model, ?int $actorId, array $context = []): self
     {
         $changes = [];
-        foreach ($model->getChanges() as $key => $new) {
+        foreach ($model->getDirty() as $key => $new) {
             if ($key === 'updated_at') {
                 continue;
             }

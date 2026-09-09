@@ -139,9 +139,10 @@ class IngredientController extends Controller implements HasMiddleware
 
         $validated = $this->validated($request, $ingredient->id);
 
-        $ingredient->update($validated);
-
-        event(CostingRecordSaved::forUpdated($ingredient, auth()->id()));
+        $ingredient->fill($validated);
+        $savedEvent = CostingRecordSaved::forUpdated($ingredient, auth()->id());
+        $ingredient->save();
+        event($savedEvent);
 
         // Normally lands on the index -- this is the explicit Save button's
         // primary action. But usePersistedForm's autosave also PUTs here in

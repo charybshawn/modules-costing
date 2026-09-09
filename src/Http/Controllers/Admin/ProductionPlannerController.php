@@ -121,8 +121,10 @@ class ProductionPlannerController extends Controller implements HasMiddleware
         // CostingRecordSaved -- a mass update bypasses Eloquent's change
         // tracking entirely.
         $rental = KitchenRental::findOrFail($validated['kitchen_rental_id']);
-        $rental->update(['production_run_id' => $productionRun->id]);
-        event(CostingRecordSaved::forUpdated($rental, auth()->id(), ['source' => 'attach_rental']));
+        $rental->fill(['production_run_id' => $productionRun->id]);
+        $savedEvent = CostingRecordSaved::forUpdated($rental, auth()->id(), ['source' => 'attach_rental']);
+        $rental->save();
+        event($savedEvent);
 
         return redirect()->back()->with('success', 'Rental slot attached to this run.');
     }
@@ -136,8 +138,10 @@ class ProductionPlannerController extends Controller implements HasMiddleware
         // diffable event (there's realistically only ever one, but this
         // stays correct if that ever changes).
         foreach ($productionRun->rentals as $rental) {
-            $rental->update(['production_run_id' => null]);
-            event(CostingRecordSaved::forUpdated($rental, auth()->id(), ['source' => 'detach_rental']));
+            $rental->fill(['production_run_id' => null]);
+            $savedEvent = CostingRecordSaved::forUpdated($rental, auth()->id(), ['source' => 'detach_rental']);
+            $rental->save();
+            event($savedEvent);
         }
 
         return redirect()->back()->with('success', 'Rental slot detached from this run.');
@@ -196,16 +200,18 @@ class ProductionPlannerController extends Controller implements HasMiddleware
         // creation (see store()'s GenerateBatchCode default) and has no
         // editable field in ProductionPlanModal.vue, so a batch code can't
         // be inadvertently changed after the fact.
-        $productionRun->update([
+        $productionRun->fill([
             'type' => $validated['type'] ?? $productionRun->type,
             'batch_size' => $validated['batch_size'],
             'run_date' => $validated['run_date'],
             'notes' => $validated['notes'] ?? null,
         ]);
+        $savedEvent = CostingRecordSaved::forUpdated($productionRun, auth()->id());
+        $productionRun->save();
 
         $productionRun->recipes()->sync($this->syncData($validated['batches']));
 
-        event(CostingRecordSaved::forUpdated($productionRun, auth()->id()));
+        event($savedEvent);
 
         // Always back, never a page redirect -- this run is only ever
         // edited from ProductionPlanModal.vue, layered over whichever page

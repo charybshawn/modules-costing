@@ -100,8 +100,10 @@ class KitchenRentalController extends Controller implements HasMiddleware
         ]);
         event(CostingRecordSaved::forCreated($run, auth()->id(), ['source' => 'kitchen_rental_create_run']));
 
-        $kitchenRental->update(['production_run_id' => $run->id]);
-        event(CostingRecordSaved::forUpdated($kitchenRental, auth()->id(), ['source' => 'kitchen_rental_create_run']));
+        $kitchenRental->fill(['production_run_id' => $run->id]);
+        $savedEvent = CostingRecordSaved::forUpdated($kitchenRental, auth()->id(), ['source' => 'kitchen_rental_create_run']);
+        $kitchenRental->save();
+        event($savedEvent);
 
         return response()->json(['production_run_id' => $run->id]);
     }
@@ -121,8 +123,10 @@ class KitchenRentalController extends Controller implements HasMiddleware
             'production_run_id' => ['required', 'exists:costing_production_runs,id'],
         ]);
 
-        $kitchenRental->update(['production_run_id' => $validated['production_run_id']]);
-        event(CostingRecordSaved::forUpdated($kitchenRental, auth()->id(), ['source' => 'attach_run']));
+        $kitchenRental->fill(['production_run_id' => $validated['production_run_id']]);
+        $savedEvent = CostingRecordSaved::forUpdated($kitchenRental, auth()->id(), ['source' => 'attach_run']);
+        $kitchenRental->save();
+        event($savedEvent);
 
         return redirect()
             ->route('admin.costing.kitchen-rentals.index')
@@ -133,8 +137,10 @@ class KitchenRentalController extends Controller implements HasMiddleware
     {
         $this->authorize('update', $kitchenRental);
 
-        $kitchenRental->update(['production_run_id' => null]);
-        event(CostingRecordSaved::forUpdated($kitchenRental, auth()->id(), ['source' => 'detach_run']));
+        $kitchenRental->fill(['production_run_id' => null]);
+        $savedEvent = CostingRecordSaved::forUpdated($kitchenRental, auth()->id(), ['source' => 'detach_run']);
+        $kitchenRental->save();
+        event($savedEvent);
 
         return redirect()
             ->route('admin.costing.kitchen-rentals.index')
@@ -154,8 +160,10 @@ class KitchenRentalController extends Controller implements HasMiddleware
             'status' => ['required', 'string', Rule::in(KitchenRental::STATUSES)],
         ]);
 
-        $kitchenRental->update(['status' => $validated['status']]);
-        event(CostingRecordSaved::forUpdated($kitchenRental, auth()->id()));
+        $kitchenRental->fill(['status' => $validated['status']]);
+        $savedEvent = CostingRecordSaved::forUpdated($kitchenRental, auth()->id());
+        $kitchenRental->save();
+        event($savedEvent);
 
         return redirect()
             ->route('admin.costing.kitchen-rentals.index')

@@ -175,9 +175,10 @@ class PriceHistoryController extends Controller implements HasMiddleware
 
         $validated = $this->validated($request);
 
-        $priceHistoryEntry->update($this->withSourceSnapshot($validated));
-
-        event(CostingRecordSaved::forUpdated($priceHistoryEntry, auth()->id()));
+        $priceHistoryEntry->fill($this->withSourceSnapshot($validated));
+        $savedEvent = CostingRecordSaved::forUpdated($priceHistoryEntry, auth()->id());
+        $priceHistoryEntry->save();
+        event($savedEvent);
 
         // See store()'s "stay" handling above -- usePersistedForm's
         // autosave also PUTs here from Edit.vue and needs to stay put.
