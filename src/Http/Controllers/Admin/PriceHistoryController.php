@@ -13,6 +13,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -244,6 +245,40 @@ class PriceHistoryController extends Controller implements HasMiddleware
         return redirect()
             ->route('admin.costing.price-history.index')
             ->with('success', 'Price entry deleted.');
+    }
+
+    /**
+     * Multi-select "Delete" from the Price History table -- same per-item
+     * try/catch + success/fail tally as IngredientController::bulkAction().
+     */
+    public function bulkAction(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'action' => ['required', 'string', Rule::in(['delete'])],
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer', 'exists:costing_price_history,id'],
+        ]);
+
+        $successCount = 0;
+        $failCount = 0;
+
+        foreach ($validated['ids'] as $id) {
+            try {
+                $entry = PriceHistoryEntry::findOrFail($id);
+                $this->authorize('delete', $entry);
+                $entry->delete();
+                $successCount++;
+            } catch (\Throwable) {
+                $failCount++;
+            }
+        }
+
+        $message = "Deleted {$successCount} price ".($successCount === 1 ? 'entry' : 'entries').'.';
+        if ($failCount > 0) {
+            $message .= " {$failCount} could not be deleted.";
+        }
+
+        return redirect()->back()->with($failCount === 0 ? 'success' : 'warning', $message);
     }
 
     private function validated(Request $request): array

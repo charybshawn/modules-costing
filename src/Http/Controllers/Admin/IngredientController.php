@@ -316,6 +316,43 @@ class IngredientController extends Controller implements HasMiddleware
             ->with('success', "Ingredient '{$name}' deleted.");
     }
 
+    /**
+     * Multi-select "Delete" from the Ingredients table -- same per-row
+     * destroy() above, just looped with a per-item try/catch so one
+     * unexpected failure (e.g. a stale id) doesn't abort the rest of the
+     * batch, same success/fail tally pattern as the host app's
+     * CategoryController::bulkAction().
+     */
+    public function bulkAction(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'action' => ['required', 'string', Rule::in(['delete'])],
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer', 'exists:costing_ingredients,id'],
+        ]);
+
+        $successCount = 0;
+        $failCount = 0;
+
+        foreach ($validated['ids'] as $id) {
+            try {
+                $ingredient = Ingredient::findOrFail($id);
+                $this->authorize('delete', $ingredient);
+                $ingredient->delete();
+                $successCount++;
+            } catch (\Throwable) {
+                $failCount++;
+            }
+        }
+
+        $message = "Deleted {$successCount} ingredient".($successCount === 1 ? '' : 's').'.';
+        if ($failCount > 0) {
+            $message .= " {$failCount} could not be deleted.";
+        }
+
+        return redirect()->back()->with($failCount === 0 ? 'success' : 'warning', $message);
+    }
+
     private function validated(Request $request, ?int $ignoreId = null): array
     {
         return $request->validate([

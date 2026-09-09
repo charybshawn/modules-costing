@@ -319,6 +319,55 @@ class RecipeController extends Controller implements HasMiddleware
     }
 
     /**
+     * Multi-select actions from the Recipes table -- delete, plus
+     * activate/deactivate since is_active is already a real, per-recipe
+     * toggle (see Create/Edit.vue and scopeActive()), not something
+     * invented just for this. Same per-item try/catch + tally pattern as
+     * IngredientController::bulkAction().
+     */
+    public function bulkAction(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'action' => ['required', 'string', Rule::in(['delete', 'activate', 'deactivate'])],
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer', 'exists:costing_recipes,id'],
+        ]);
+
+        $successCount = 0;
+        $failCount = 0;
+
+        foreach ($validated['ids'] as $id) {
+            try {
+                $recipe = Recipe::findOrFail($id);
+
+                if ($validated['action'] === 'delete') {
+                    $this->authorize('delete', $recipe);
+                    $recipe->delete();
+                } else {
+                    $this->authorize('update', $recipe);
+                    $recipe->update(['is_active' => $validated['action'] === 'activate']);
+                }
+
+                $successCount++;
+            } catch (\Throwable) {
+                $failCount++;
+            }
+        }
+
+        $verb = match ($validated['action']) {
+            'delete' => 'Deleted',
+            'activate' => 'Activated',
+            'deactivate' => 'Deactivated',
+        };
+        $message = "{$verb} {$successCount} recipe".($successCount === 1 ? '' : 's').'.';
+        if ($failCount > 0) {
+            $message .= " {$failCount} could not be updated.";
+        }
+
+        return redirect()->back()->with($failCount === 0 ? 'success' : 'warning', $message);
+    }
+
+    /**
      * The currently-linked finished good's id/label only (never a raw
      * Eloquent model passed to Vue -- see .claude/CLAUDE.md), for the
      * picker's initial display. null when unlinked, or when the linked id

@@ -31,10 +31,23 @@
       </div>
 
       <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
+        <BulkActionsBar :count="selectedIds.length" singular="recipe" plural="recipes" @clear="selectedIds = []">
+          <button type="button" @click="bulkAction('activate')" class="px-3 py-1.5 text-xs font-medium bg-green-600 text-white rounded-md hover:bg-green-700">
+            Activate
+          </button>
+          <button type="button" @click="bulkAction('deactivate')" class="px-3 py-1.5 text-xs font-medium bg-yellow-600 text-white rounded-md hover:bg-yellow-700">
+            Deactivate
+          </button>
+          <button type="button" @click="bulkAction('delete')" class="px-3 py-1.5 text-xs font-medium bg-red-600 text-white rounded-md hover:bg-red-700">
+            Delete
+          </button>
+        </BulkActionsBar>
         <DataTable
           :columns="columns"
           :items="recipes"
           :actions="tableActions"
+          selectable
+          v-model:selected-ids="selectedIds"
           searchable
           search-placeholder="Search recipes..."
           empty-message="No recipes yet."
@@ -75,9 +88,11 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import DataTable, { type Column, type Action } from '@/Components/Admin/DataTable.vue'
+import BulkActionsBar from '../Shared/BulkActionsBar.vue'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
 
 defineOptions({ layout: AdminLayout })
@@ -121,5 +136,18 @@ const handleAction = (action: string, item: Recipe) => {
       router.delete(route('admin.costing.recipes.destroy', item.id), { preserveScroll: true })
     }
   }
+}
+
+const selectedIds = ref<number[]>([])
+
+const bulkAction = (action: 'delete' | 'activate' | 'deactivate') => {
+  if (selectedIds.value.length === 0) return
+  const verb = action === 'delete' ? 'delete' : action
+  if (!confirm(`${verb.charAt(0).toUpperCase() + verb.slice(1)} ${selectedIds.value.length} recipe${selectedIds.value.length === 1 ? '' : 's'}?`)) return
+
+  router.post(route('admin.costing.recipes.bulk-action'), { action, ids: selectedIds.value }, {
+    preserveScroll: true,
+    onSuccess: () => { selectedIds.value = [] },
+  })
 }
 </script>

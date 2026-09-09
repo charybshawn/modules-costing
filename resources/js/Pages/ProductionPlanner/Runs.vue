@@ -29,10 +29,17 @@
       </div>
 
       <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
+        <BulkActionsBar :count="selectedIds.length" singular="run" plural="runs" @clear="selectedIds = []">
+          <button type="button" @click="bulkDelete" class="px-3 py-1.5 text-xs font-medium bg-red-600 text-white rounded-md hover:bg-red-700">
+            Delete
+          </button>
+        </BulkActionsBar>
         <DataTable
           :columns="columns"
           :items="rows"
           :actions="tableActions"
+          selectable
+          v-model:selected-ids="selectedIds"
           searchable
           search-placeholder="Search runs..."
           empty-message="No production runs yet -- click New Production Run above to create one."
@@ -76,6 +83,7 @@ import { computed, ref } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import DataTable, { type Column, type Action } from '@/Components/Admin/DataTable.vue'
+import BulkActionsBar from '../Shared/BulkActionsBar.vue'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
 import NewProductionRunModal from '../Shared/NewProductionRunModal.vue'
 import ProductionPlanModal from '../Shared/ProductionPlanModal.vue'
@@ -167,5 +175,17 @@ const handleAction = (action: string, item: ProductionRunRow) => {
       router.delete(route('admin.costing.production-planner.destroy', item.id), { preserveScroll: true })
     }
   }
+}
+
+const selectedIds = ref<number[]>([])
+
+const bulkDelete = () => {
+  if (selectedIds.value.length === 0) return
+  if (!confirm(`Delete ${selectedIds.value.length} production run${selectedIds.value.length === 1 ? '' : 's'}? Completed runs are skipped -- undo their completion first if they need to go too.`)) return
+
+  router.post(route('admin.costing.production-planner.bulk-action'), { action: 'delete', ids: selectedIds.value }, {
+    preserveScroll: true,
+    onSuccess: () => { selectedIds.value = [] },
+  })
 }
 </script>

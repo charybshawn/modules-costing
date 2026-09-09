@@ -32,6 +32,7 @@ Route::prefix('admin')->name('admin.')->middleware(['web', 'auth', 'admin'])->gr
             Route::post('{ingredient}/package-size', [IngredientController::class, 'setPackageSize'])->name('set-package-size');
             Route::post('{ingredient}/sources/{packageSize}/rename', [IngredientController::class, 'renameSource'])->name('sources.rename');
             Route::delete('{ingredient}', [IngredientController::class, 'destroy'])->name('destroy');
+            Route::post('bulk-action', [IngredientController::class, 'bulkAction'])->name('bulk-action');
         });
 
         Route::prefix('price-history')->name('price-history.')->group(function () {
@@ -42,6 +43,7 @@ Route::prefix('admin')->name('admin.')->middleware(['web', 'auth', 'admin'])->gr
             Route::put('{priceHistoryEntry}', [PriceHistoryController::class, 'update'])->name('update');
             Route::post('{priceHistoryEntry}/update-price', [PriceHistoryController::class, 'updatePrice'])->name('update-price');
             Route::delete('{priceHistoryEntry}', [PriceHistoryController::class, 'destroy'])->name('destroy');
+            Route::post('bulk-action', [PriceHistoryController::class, 'bulkAction'])->name('bulk-action');
         });
 
         Route::prefix('inventory')->name('inventory.')->group(function () {
@@ -66,11 +68,13 @@ Route::prefix('admin')->name('admin.')->middleware(['web', 'auth', 'admin'])->gr
             Route::put('{recipe}', [RecipeController::class, 'update'])->name('update');
             Route::put('{recipe}/costing', [RecipeController::class, 'updateCosting'])->name('update-costing');
             Route::delete('{recipe}', [RecipeController::class, 'destroy'])->name('destroy');
+            Route::post('bulk-action', [RecipeController::class, 'bulkAction'])->name('bulk-action');
         });
 
         Route::prefix('production-planner')->name('production-planner.')->group(function () {
             Route::get('runs', [ProductionPlannerController::class, 'runs'])->name('runs');
             Route::post('/', [ProductionPlannerController::class, 'store'])->name('store');
+            Route::post('bulk-action', [ProductionPlannerController::class, 'bulkAction'])->name('bulk-action');
             Route::get('unattached-rentals', [ProductionPlannerController::class, 'unattachedRentals'])->name('unattached-rentals');
             Route::get('{productionRun}', [ProductionPlannerController::class, 'show'])->name('show');
             Route::put('{productionRun}', [ProductionPlannerController::class, 'update'])->name('update');

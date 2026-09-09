@@ -281,6 +281,50 @@ class ProductionPlannerController extends Controller implements HasMiddleware
     }
 
     /**
+     * Multi-select "Delete" from the All Runs table -- same completed-run
+     * guard as destroy() above (skipped and tallied as a failure, not
+     * aborted, so the rest of the batch still goes through), same
+     * per-item try/catch + tally pattern as IngredientController::
+     * bulkAction().
+     */
+    public function bulkAction(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'action' => ['required', 'string', Rule::in(['delete'])],
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer', 'exists:costing_production_runs,id'],
+        ]);
+
+        $successCount = 0;
+        $failCount = 0;
+
+        foreach ($validated['ids'] as $id) {
+            try {
+                $run = ProductionRun::findOrFail($id);
+                $this->authorize('delete', $run);
+
+                if ($run->completed_at) {
+                    $failCount++;
+
+                    continue;
+                }
+
+                $run->delete();
+                $successCount++;
+            } catch (\Throwable) {
+                $failCount++;
+            }
+        }
+
+        $message = "Deleted {$successCount} production run".($successCount === 1 ? '' : 's').'.';
+        if ($failCount > 0) {
+            $message .= " {$failCount} could not be deleted (completed runs can't be deleted -- undo completion first).";
+        }
+
+        return redirect()->back()->with($failCount === 0 ? 'success' : 'warning', $message);
+    }
+
+    /**
      * Print-friendly view showing only ingredients that need purchasing --
      * replaces the original Purchase Order tab. Stays a real page (unlike
      * show() above) since it's meant to be printed.

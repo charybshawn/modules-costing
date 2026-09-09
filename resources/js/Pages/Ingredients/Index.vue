@@ -33,12 +33,19 @@
       </div>
 
       <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
+        <BulkActionsBar :count="selectedIds.length" singular="ingredient" plural="ingredients" @clear="selectedIds = []">
+          <button type="button" @click="bulkDelete" class="px-3 py-1.5 text-xs font-medium bg-red-600 text-white rounded-md hover:bg-red-700">
+            Delete
+          </button>
+        </BulkActionsBar>
         <DataTable
           :columns="columns"
           :items="ingredients"
           :sort-field="sortField"
           :sort-direction="sortDirection"
           :actions="tableActions"
+          selectable
+          v-model:selected-ids="selectedIds"
           searchable
           search-placeholder="Search ingredients..."
           empty-message="No ingredients yet."
@@ -127,6 +134,7 @@ import { Link, router } from '@inertiajs/vue3'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import DataTable, { type Column, type Action } from '@/Components/Admin/DataTable.vue'
 import AvailablePricesModal, { type PricesIngredient } from '../Shared/AvailablePricesModal.vue'
+import BulkActionsBar from '../Shared/BulkActionsBar.vue'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
 
 defineOptions({ layout: AdminLayout })
@@ -196,6 +204,18 @@ const handleAction = (action: string, item: IngredientRow) => {
       router.delete(route('admin.costing.ingredients.destroy', item.id), { preserveScroll: true })
     }
   }
+}
+
+const selectedIds = ref<number[]>([])
+
+const bulkDelete = () => {
+  if (selectedIds.value.length === 0) return
+  if (!confirm(`Delete ${selectedIds.value.length} ingredient${selectedIds.value.length === 1 ? '' : 's'}? This also removes their price history and inventory records.`)) return
+
+  router.post(route('admin.costing.ingredients.bulk-action'), { action: 'delete', ids: selectedIds.value }, {
+    preserveScroll: true,
+    onSuccess: () => { selectedIds.value = [] },
+  })
 }
 
 // Available Prices modal -- markup/logic lives in the shared component;
