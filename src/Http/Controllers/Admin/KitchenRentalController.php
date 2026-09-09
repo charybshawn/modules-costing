@@ -5,6 +5,7 @@ namespace Cultpantry\Costing\Http\Controllers\Admin;
 use App\Actions\GetSiteSetting;
 use App\Http\Controllers\Controller;
 use Cultpantry\Costing\Actions\ImportKitchenRentalsFromCsv;
+use Cultpantry\Costing\Events\CostingRecordSaved;
 use Cultpantry\Costing\Models\KitchenRental;
 use Cultpantry\Costing\Models\ProductionRun;
 use Cultpantry\Costing\Support\CostingBreadcrumbs;
@@ -97,8 +98,10 @@ class KitchenRentalController extends Controller implements HasMiddleware
             'batch_size' => 20,
             'run_date' => $kitchenRental->starts_at->toDateString(),
         ]);
+        event(CostingRecordSaved::forCreated($run, auth()->id(), ['source' => 'kitchen_rental_create_run']));
 
         $kitchenRental->update(['production_run_id' => $run->id]);
+        event(CostingRecordSaved::forUpdated($kitchenRental, auth()->id(), ['source' => 'kitchen_rental_create_run']));
 
         return response()->json(['production_run_id' => $run->id]);
     }
@@ -119,6 +122,7 @@ class KitchenRentalController extends Controller implements HasMiddleware
         ]);
 
         $kitchenRental->update(['production_run_id' => $validated['production_run_id']]);
+        event(CostingRecordSaved::forUpdated($kitchenRental, auth()->id(), ['source' => 'attach_run']));
 
         return redirect()
             ->route('admin.costing.kitchen-rentals.index')
@@ -130,6 +134,7 @@ class KitchenRentalController extends Controller implements HasMiddleware
         $this->authorize('update', $kitchenRental);
 
         $kitchenRental->update(['production_run_id' => null]);
+        event(CostingRecordSaved::forUpdated($kitchenRental, auth()->id(), ['source' => 'detach_run']));
 
         return redirect()
             ->route('admin.costing.kitchen-rentals.index')
@@ -150,6 +155,7 @@ class KitchenRentalController extends Controller implements HasMiddleware
         ]);
 
         $kitchenRental->update(['status' => $validated['status']]);
+        event(CostingRecordSaved::forUpdated($kitchenRental, auth()->id()));
 
         return redirect()
             ->route('admin.costing.kitchen-rentals.index')

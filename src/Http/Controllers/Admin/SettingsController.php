@@ -7,6 +7,7 @@ use App\Actions\UpdateSiteSetting;
 use App\Http\Controllers\Controller;
 use Cultpantry\Costing\Actions\GetBatchCodePrefix;
 use Cultpantry\Costing\Actions\GetPriceStalenessDays;
+use Cultpantry\Costing\Events\CostingRecordSaved;
 use Cultpantry\Costing\Support\CostingBreadcrumbs;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -47,15 +48,47 @@ class SettingsController extends Controller implements HasMiddleware
         ]);
     }
 
-    public function update(Request $request, UpdateSiteSetting $updateSetting): RedirectResponse
-    {
+    public function update(
+        Request $request,
+        UpdateSiteSetting $updateSetting,
+        GetPriceStalenessDays $getPriceStalenessDays,
+        GetBatchCodePrefix $getBatchCodePrefix,
+    ): RedirectResponse {
         $validated = $request->validate([
             'staleness_days' => ['required', 'integer', 'min:1', 'max:90'],
             'batch_code_prefix' => ['nullable', 'string', 'max:10', 'regex:/^[A-Za-z0-9]+$/'],
         ]);
 
+        $before = [
+            'staleness_days' => $getPriceStalenessDays->handle(),
+            'batch_code_prefix' => $getBatchCodePrefix->handle(),
+        ];
+
         $updateSetting->handle(GetPriceStalenessDays::SETTING_KEY, $validated['staleness_days']);
         $updateSetting->handle(GetBatchCodePrefix::SETTING_KEY, strtoupper($validated['batch_code_prefix'] ?? ''));
+
+        $after = [
+            'staleness_days' => $validated['staleness_days'],
+            'batch_code_prefix' => strtoupper($validated['batch_code_prefix'] ?? '') ?: null,
+        ];
+
+        $changes = [];
+        foreach ($after as $key => $value) {
+            if ($before[$key] !== $value) {
+                $changes[$key] = ['old' => $before[$key], 'new' => $value];
+            }
+        }
+
+        if ($changes !== []) {
+            event(new CostingRecordSaved(
+                modelClass: 'costing.settings',
+                modelId: 0,
+                action: 'updated',
+                label: 'Costing Settings',
+                changes: $changes,
+                actorId: auth()->id(),
+            ));
+        }
 
         return back()->with('success', 'Settings updated.');
     }

@@ -8,6 +8,8 @@ use Cultpantry\Costing\Actions\CalculateIngredientCosting;
 use Cultpantry\Costing\Actions\CalculateMaxProducibleUnits;
 use Cultpantry\Costing\Actions\CalculateRecipeCost;
 use Cultpantry\Costing\Contracts\FinishedGoodRepository;
+use Cultpantry\Costing\Events\CostingRecordDeleted;
+use Cultpantry\Costing\Events\CostingRecordSaved;
 use Cultpantry\Costing\Models\Ingredient;
 use Cultpantry\Costing\Models\Recipe;
 use Cultpantry\Costing\Models\RecipeCostSnapshot;
@@ -199,6 +201,8 @@ class RecipeController extends Controller implements HasMiddleware
         $recipe->mainIngredients()->sync($this->syncData($validated['ingredients']));
         $recipe->byproductIngredients()->sync($this->syncData($validated['byproducts'] ?? []));
 
+        event(CostingRecordSaved::forCreated($recipe, auth()->id()));
+
         return redirect()
             ->route('admin.costing.recipes.index')
             ->with('success', "Recipe '{$recipe->name}' created.");
@@ -271,6 +275,8 @@ class RecipeController extends Controller implements HasMiddleware
         $recipe->mainIngredients()->sync($this->syncData($validated['ingredients']));
         $recipe->byproductIngredients()->sync($this->syncData($validated['byproducts'] ?? []));
 
+        event(CostingRecordSaved::forUpdated($recipe, auth()->id()));
+
         // usePersistedForm's autosave also PUTs here from Edit.vue and
         // needs to stay put rather than navigate away mid-edit -- same
         // "stay" pattern as PriceHistoryController::store()/update().
@@ -301,6 +307,8 @@ class RecipeController extends Controller implements HasMiddleware
 
         $recipe->update($validated);
 
+        event(CostingRecordSaved::forUpdated($recipe, auth()->id()));
+
         // Not a hardcoded route -- redirects back to the Costing dashboard
         // that submitted this, matching the update-price/set-preferred fix.
         return redirect()->back()->with('success', "Costing for '{$recipe->name}' updated.");
@@ -311,7 +319,9 @@ class RecipeController extends Controller implements HasMiddleware
         $this->authorize('delete', $recipe);
 
         $name = $recipe->name;
+        $deletedEvent = CostingRecordDeleted::forModel($recipe, auth()->id());
         $recipe->delete();
+        event($deletedEvent);
 
         return redirect()
             ->route('admin.costing.recipes.index')
@@ -339,13 +349,17 @@ class RecipeController extends Controller implements HasMiddleware
         foreach ($validated['ids'] as $id) {
             try {
                 $recipe = Recipe::findOrFail($id);
+                $context = ['source' => 'bulk_action', 'bulk_action' => $validated['action']];
 
                 if ($validated['action'] === 'delete') {
                     $this->authorize('delete', $recipe);
+                    $deletedEvent = CostingRecordDeleted::forModel($recipe, auth()->id(), $context);
                     $recipe->delete();
+                    event($deletedEvent);
                 } else {
                     $this->authorize('update', $recipe);
                     $recipe->update(['is_active' => $validated['action'] === 'activate']);
+                    event(CostingRecordSaved::forUpdated($recipe, auth()->id(), $context));
                 }
 
                 $successCount++;

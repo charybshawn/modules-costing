@@ -8,6 +8,8 @@ use Cultpantry\Costing\Actions\CalculateProductionPlan;
 use Cultpantry\Costing\Actions\CompleteProductionRun;
 use Cultpantry\Costing\Actions\GenerateBatchCode;
 use Cultpantry\Costing\Actions\UncompleteProductionRun;
+use Cultpantry\Costing\Events\CostingRecordDeleted;
+use Cultpantry\Costing\Events\CostingRecordSaved;
 use Cultpantry\Costing\Models\KitchenRental;
 use Cultpantry\Costing\Models\ProductionRun;
 use Cultpantry\Costing\Models\Recipe;
@@ -94,6 +96,8 @@ class ProductionPlannerController extends Controller implements HasMiddleware
             'batch_size' => $validated['type'] === 'production' ? 20 : 1,
         ]);
 
+        event(CostingRecordSaved::forCreated($run, auth()->id()));
+
         return response()->json(['production_run_id' => $run->id]);
     }
 
@@ -112,8 +116,13 @@ class ProductionPlannerController extends Controller implements HasMiddleware
             'kitchen_rental_id' => ['required', 'exists:costing_kitchen_rentals,id'],
         ]);
 
-        KitchenRental::where('id', $validated['kitchen_rental_id'])
-            ->update(['production_run_id' => $productionRun->id]);
+        // Loaded as a model instance and saved via ->update() (not a query
+        // builder mass-update) specifically so it fires a real, diffable
+        // CostingRecordSaved -- a mass update bypasses Eloquent's change
+        // tracking entirely.
+        $rental = KitchenRental::findOrFail($validated['kitchen_rental_id']);
+        $rental->update(['production_run_id' => $productionRun->id]);
+        event(CostingRecordSaved::forUpdated($rental, auth()->id(), ['source' => 'attach_rental']));
 
         return redirect()->back()->with('success', 'Rental slot attached to this run.');
     }
@@ -122,7 +131,14 @@ class ProductionPlannerController extends Controller implements HasMiddleware
     {
         $this->authorize('update', $productionRun);
 
-        $productionRun->rentals()->update(['production_run_id' => null]);
+        // Same reasoning as attachRental() above -- iterate real instances
+        // rather than a single mass-update query, so each detach is its own
+        // diffable event (there's realistically only ever one, but this
+        // stays correct if that ever changes).
+        foreach ($productionRun->rentals as $rental) {
+            $rental->update(['production_run_id' => null]);
+            event(CostingRecordSaved::forUpdated($rental, auth()->id(), ['source' => 'detach_rental']));
+        }
 
         return redirect()->back()->with('success', 'Rental slot detached from this run.');
     }
@@ -189,6 +205,8 @@ class ProductionPlannerController extends Controller implements HasMiddleware
 
         $productionRun->recipes()->sync($this->syncData($validated['batches']));
 
+        event(CostingRecordSaved::forUpdated($productionRun, auth()->id()));
+
         // Always back, never a page redirect -- this run is only ever
         // edited from ProductionPlanModal.vue, layered over whichever page
         // opened it (Rental Schedule, All Runs, or Inventory's adjustment
@@ -229,6 +247,20 @@ class ProductionPlannerController extends Controller implements HasMiddleware
 
         $shortfalls = $completeProductionRun->handle($productionRun, $actuals, $request->user());
 
+        // CompleteProductionRun mutates its own separately re-fetched,
+        // locked copy of the row internally, not this instance -- refresh()
+        // to pick up the real completed_at before logging it, and build the
+        // event with an explicit diff (forUpdated()'s getChanges()-based
+        // diff would see nothing, since refresh() syncs this instance's
+        // "original" state rather than tracking a change on it).
+        $productionRun->refresh();
+        event(CostingRecordSaved::forCustomUpdate(
+            $productionRun,
+            ['completed_at' => ['old' => null, 'new' => $productionRun->completed_at?->toIso8601String()]],
+            auth()->id(),
+            ['source' => 'complete', 'actuals' => $actuals, 'shortfalls' => $shortfalls],
+        ));
+
         $message = 'Production run completed. Inventory has been updated.';
         if ($shortfalls !== []) {
             $message .= ' Ran short on: '.implode(', ', $shortfalls).'.';
@@ -249,7 +281,17 @@ class ProductionPlannerController extends Controller implements HasMiddleware
 
         abort_unless($productionRun->completed_at, 422, 'This run has not been completed.');
 
+        $completedAtBefore = $productionRun->completed_at?->toIso8601String();
         $warnings = $uncompleteProductionRun->handle($productionRun);
+
+        // Same reasoning as complete() above.
+        $productionRun->refresh();
+        event(CostingRecordSaved::forCustomUpdate(
+            $productionRun,
+            ['completed_at' => ['old' => $completedAtBefore, 'new' => null]],
+            auth()->id(),
+            ['source' => 'uncomplete', 'warnings' => $warnings],
+        ));
 
         $message = 'Production run completion undone. Inventory has been restored.';
         if ($warnings !== []) {
@@ -273,7 +315,9 @@ class ProductionPlannerController extends Controller implements HasMiddleware
         abort_if($productionRun->completed_at, 422, 'A completed run cannot be deleted -- undo its completion first.');
 
         $name = $productionRun->name ?? $productionRun->run_date->format('Y-m-d');
+        $deletedEvent = CostingRecordDeleted::forModel($productionRun, auth()->id());
         $productionRun->delete();
+        event($deletedEvent);
 
         return redirect()
             ->route('admin.costing.production-planner.runs')
@@ -309,7 +353,9 @@ class ProductionPlannerController extends Controller implements HasMiddleware
                     continue;
                 }
 
+                $deletedEvent = CostingRecordDeleted::forModel($run, auth()->id(), ['source' => 'bulk_action']);
                 $run->delete();
+                event($deletedEvent);
                 $successCount++;
             } catch (\Throwable) {
                 $failCount++;

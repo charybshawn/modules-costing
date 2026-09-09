@@ -7,6 +7,8 @@ use App\Http\Controllers\Controller;
 use Cultpantry\Costing\Actions\CalculateIngredientCosting;
 use Cultpantry\Costing\Actions\GetIngredientPriceOptions;
 use Cultpantry\Costing\Actions\GetPriceStalenessDays;
+use Cultpantry\Costing\Events\CostingRecordDeleted;
+use Cultpantry\Costing\Events\CostingRecordSaved;
 use Cultpantry\Costing\Models\Ingredient;
 use Cultpantry\Costing\Models\PackageSize;
 use Cultpantry\Costing\Models\PriceHistoryEntry;
@@ -102,6 +104,8 @@ class IngredientController extends Controller implements HasMiddleware
 
         $ingredient = Ingredient::create($validated);
 
+        event(CostingRecordSaved::forCreated($ingredient, auth()->id()));
+
         return redirect()
             ->route('admin.costing.ingredients.index')
             ->with('success', "Ingredient '{$ingredient->name}' created.");
@@ -136,6 +140,8 @@ class IngredientController extends Controller implements HasMiddleware
         $validated = $this->validated($request, $ingredient->id);
 
         $ingredient->update($validated);
+
+        event(CostingRecordSaved::forUpdated($ingredient, auth()->id()));
 
         // Normally lands on the index -- this is the explicit Save button's
         // primary action. But usePersistedForm's autosave also PUTs here in
@@ -309,7 +315,9 @@ class IngredientController extends Controller implements HasMiddleware
         $this->authorize('delete', $ingredient);
 
         $name = $ingredient->name;
+        $deletedEvent = CostingRecordDeleted::forModel($ingredient, auth()->id());
         $ingredient->delete();
+        event($deletedEvent);
 
         return redirect()
             ->route('admin.costing.ingredients.index')
@@ -338,7 +346,9 @@ class IngredientController extends Controller implements HasMiddleware
             try {
                 $ingredient = Ingredient::findOrFail($id);
                 $this->authorize('delete', $ingredient);
+                $deletedEvent = CostingRecordDeleted::forModel($ingredient, auth()->id(), ['source' => 'bulk_action']);
                 $ingredient->delete();
+                event($deletedEvent);
                 $successCount++;
             } catch (\Throwable) {
                 $failCount++;

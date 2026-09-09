@@ -20,7 +20,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * ("GFS -- Kraft") even after the row it pointed to is gone.
  *
  * @property int $id
- * @property int $ingredient_id
+ * @property int|null $ingredient_id
  * @property int|null $package_size_id
  * @property string $source_provider
  * @property string|null $source_brand

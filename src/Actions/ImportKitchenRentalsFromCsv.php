@@ -3,6 +3,7 @@
 namespace Cultpantry\Costing\Actions;
 
 use Carbon\Carbon;
+use Cultpantry\Costing\Events\CostingRecordSaved;
 use Cultpantry\Costing\Models\KitchenRental;
 use Illuminate\Http\UploadedFile;
 
@@ -120,6 +121,13 @@ class ImportKitchenRentalsFromCsv
                     'ends_at' => $endsAt ?? $startsAt,
                     'booking_length' => is_numeric($spaceRow['Booking Length'] ?? null) ? (float) $spaceRow['Booking Length'] : null,
                 ],
+            );
+
+            $actorId = auth()->id();
+            event(
+                $rental->wasRecentlyCreated
+                    ? CostingRecordSaved::forCreated($rental, $actorId, ['source' => 'csv_import'])
+                    : CostingRecordSaved::forUpdated($rental, $actorId, ['source' => 'csv_import'])
             );
 
             $rental->wasRecentlyCreated ? $created++ : $updated++;

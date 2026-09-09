@@ -5,6 +5,8 @@ namespace Cultpantry\Costing\Http\Controllers\Admin;
 use App\Actions\GetSiteSetting;
 use App\Http\Controllers\Controller;
 use Cultpantry\Costing\Actions\GetPriceStalenessDays;
+use Cultpantry\Costing\Events\CostingRecordDeleted;
+use Cultpantry\Costing\Events\CostingRecordSaved;
 use Cultpantry\Costing\Models\Ingredient;
 use Cultpantry\Costing\Models\PackageSize;
 use Cultpantry\Costing\Models\PriceHistoryEntry;
@@ -125,7 +127,9 @@ class PriceHistoryController extends Controller implements HasMiddleware
 
         $validated = $this->validated($request);
 
-        PriceHistoryEntry::create($this->withSourceSnapshot($validated));
+        $entry = PriceHistoryEntry::create($this->withSourceSnapshot($validated));
+
+        event(CostingRecordSaved::forCreated($entry, auth()->id()));
 
         // Normally lands on the index -- this is the full Log a Price page's
         // primary submit action. But AvailablePricesModal also posts here
@@ -172,6 +176,8 @@ class PriceHistoryController extends Controller implements HasMiddleware
         $validated = $this->validated($request);
 
         $priceHistoryEntry->update($this->withSourceSnapshot($validated));
+
+        event(CostingRecordSaved::forUpdated($priceHistoryEntry, auth()->id()));
 
         // See store()'s "stay" handling above -- usePersistedForm's
         // autosave also PUTs here from Edit.vue and needs to stay put.
@@ -224,11 +230,13 @@ class PriceHistoryController extends Controller implements HasMiddleware
         // entry was originally logged under. An orphaned entry (source
         // since deleted, package_size_id null) has no source to read, so
         // it keeps its existing snapshot including qty.
-        PriceHistoryEntry::create(
+        $newEntry = PriceHistoryEntry::create(
             $priceHistoryEntry->package_size_id !== null
                 ? $this->withSourceSnapshot($attributes, refreshQty: true)
                 : $attributes
         );
+
+        event(CostingRecordSaved::forCreated($newEntry, auth()->id(), ['source' => 'update_price']));
 
         // Not a hardcoded route -- this action is reused from both the
         // Price History page and the Ingredients "Available Prices" modal,
@@ -240,7 +248,9 @@ class PriceHistoryController extends Controller implements HasMiddleware
     {
         $this->authorize('delete', $priceHistoryEntry);
 
+        $deletedEvent = CostingRecordDeleted::forModel($priceHistoryEntry, auth()->id());
         $priceHistoryEntry->delete();
+        event($deletedEvent);
 
         return redirect()
             ->route('admin.costing.price-history.index')
@@ -266,7 +276,9 @@ class PriceHistoryController extends Controller implements HasMiddleware
             try {
                 $entry = PriceHistoryEntry::findOrFail($id);
                 $this->authorize('delete', $entry);
+                $deletedEvent = CostingRecordDeleted::forModel($entry, auth()->id(), ['source' => 'bulk_action']);
                 $entry->delete();
+                event($deletedEvent);
                 $successCount++;
             } catch (\Throwable) {
                 $failCount++;
