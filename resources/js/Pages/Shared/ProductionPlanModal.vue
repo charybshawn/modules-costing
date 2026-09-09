@@ -5,10 +5,9 @@
         <div>
           <h2 class="text-lg font-medium text-gray-900 dark:text-white flex items-center gap-3">
             {{ productionRun?.name ?? 'Production Plan' }}
-            <!-- Read-only -- the run date is dictated by its rental slot
-                 (set once at creation from KitchenRentalController::
-                 createRun()), not something to re-edit here. -->
-            <span v-if="productionRun" class="text-sm font-normal text-gray-500 dark:text-gray-400">{{ productionRun.run_date }}</span>
+            <span v-if="productionRun" :class="['inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium', typeBadgeClass(productionRun.type)]">
+              {{ typeLabel(productionRun.type) }}
+            </span>
             <span v-if="isCompleted" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
               Completed {{ productionRun?.completed_at }}
             </span>
@@ -18,8 +17,11 @@
             <template v-if="isCompleted">
               This run's inventory has already been deducted. Batch counts can no longer be edited.
             </template>
-            <template v-else>
+            <template v-else-if="showBatches">
               Enter batches per flavour. The shopping list below updates automatically against current Inventory and Ingredient pricing.
+            </template>
+            <template v-else>
+              No batch counts for this session type -- just a date and notes.
             </template>
           </p>
         </div>
@@ -40,14 +42,47 @@
               <input v-model="form.name" type="text" :disabled="isCompleted" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:opacity-60" placeholder="e.g. Weekly batch" />
             </div>
             <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Date *</label>
+              <input v-model="form.run_date" type="date" required :disabled="isCompleted" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:opacity-60" />
+            </div>
+            <div v-if="showBatchSize">
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Batch Size *</label>
               <input v-model.number="form.batch_size" type="number" min="1" required :disabled="isCompleted" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:opacity-60" />
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Units one batch yields, for every flavour in this run.</p>
             </div>
+            <div :class="showBatchSize ? '' : 'md:col-span-2'">
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Notes</label>
+              <textarea v-model="form.notes" rows="2" :disabled="isCompleted" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:opacity-60" :placeholder="notesPlaceholder" />
+            </div>
+          </div>
+
+          <!-- Rental attachment -- optional and secondary, never the same
+               visual weight as the run's own name/date. Only meaningful for
+               a real production run; prep/R&D sessions don't book kitchen
+               space the same way. -->
+          <div v-if="productionRun.type === 'production'" class="text-sm">
+            <div v-if="productionRun.rental" class="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+              <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+              <span>Booked: {{ productionRun.rental.booking_title }} ({{ productionRun.rental.starts_at }})</span>
+              <button v-if="!isCompleted" type="button" @click="detachRental" :disabled="rentalBusy" class="text-red-600 dark:text-red-400 hover:underline text-xs">Detach</button>
+            </div>
+            <template v-else-if="!isCompleted">
+              <button v-if="!showRentalPicker" type="button" @click="openRentalPicker" class="text-indigo-600 dark:text-indigo-400 hover:underline text-xs">
+                + Attach Rental Slot
+              </button>
+              <div v-else class="flex items-center gap-2 mt-1">
+                <select v-model="selectedRentalId" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm text-xs">
+                  <option :value="null" disabled>Select a rental slot...</option>
+                  <option v-for="rental in unattachedRentals" :key="rental.id" :value="rental.id">{{ rental.booking_title }} ({{ rental.starts_at }})</option>
+                </select>
+                <button type="button" @click="attachRental" :disabled="!selectedRentalId || rentalBusy" class="text-indigo-600 dark:text-indigo-400 hover:underline text-xs disabled:opacity-50">Attach</button>
+                <button type="button" @click="showRentalPicker = false" class="text-gray-500 dark:text-gray-400 hover:underline text-xs">Cancel</button>
+              </div>
+            </template>
           </div>
 
           <template v-if="!confirmingComplete">
-            <div v-if="!isCompleted" class="border border-gray-200 dark:border-gray-700 rounded-md divide-y divide-gray-200 dark:divide-gray-700">
+            <div v-if="!isCompleted && showBatches" class="border border-gray-200 dark:border-gray-700 rounded-md divide-y divide-gray-200 dark:divide-gray-700">
               <div v-for="row in form.batches" :key="row.recipe_id" class="flex items-center justify-between px-4 py-2 gap-4">
                 <span class="text-sm text-gray-700 dark:text-gray-300 flex-1">{{ recipeName(row.recipe_id) }}</span>
                 <span class="text-xs text-gray-500 dark:text-gray-400 w-24 text-right">{{ rowUnits(row) }} units</span>
@@ -61,8 +96,11 @@
 
             <!-- Completed: planned vs. actual, not an editable batches
                  table -- the plan is fixed history at this point, and what
-                 matters now is how actual production compared to it. -->
-            <div v-else class="overflow-x-auto -mx-6">
+                 matters now is how actual production compared to it. Not
+                 shown at all for a prep/R&D run that's still in progress
+                 (showBatches false) -- there's no batches concept to
+                 summarize either way. -->
+            <div v-else-if="isCompleted" class="overflow-x-auto -mx-6">
               <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead class="bg-gray-50 dark:bg-gray-900">
                   <tr>
@@ -136,8 +174,10 @@
         </div>
 
         <!-- Shopping list -- null (not rendered) for a completed run;
-             purchasing decisions are moot for something already made. -->
-        <div v-if="plan" class="mt-6 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+             purchasing decisions are moot for something already made. Also
+             skipped for a prep run -- no recipes/batches means nothing to
+             shop for. -->
+        <div v-if="plan && showBatches" class="mt-6 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
           <div class="p-4 pb-0 flex items-center justify-between">
             <h3 class="text-base font-medium text-gray-900 dark:text-white">Shopping List</h3>
             <Link
@@ -222,15 +262,23 @@ interface RunBatch {
   actual_units: number | null
 }
 
+interface RentalRef {
+  id: number
+  booking_title: string
+  starts_at: string
+}
+
 interface ProductionRunData {
   id: number
   name: string | null
+  type: string
   batch_size: number
   run_date: string
   notes: string | null
   completed_at: string | null
   total_units: number
   batches: RunBatch[]
+  rental: RentalRef | null
 }
 
 interface Props {
@@ -257,6 +305,72 @@ const undoing = ref(false)
 
 const isCompleted = computed(() => productionRun.value?.completed_at != null)
 
+// 'prep' has no batches concept at all; 'development' keeps the recipe list
+// (tagged with batches: 0 to mean "worked on this") but not the batch-size
+// field, since batch_size only ever multiplies against real batch counts.
+const showBatches = computed(() => productionRun.value?.type !== 'prep')
+const showBatchSize = computed(() => productionRun.value?.type === 'production')
+
+const runTypes = [
+  { value: 'production', label: 'Production' },
+  { value: 'prep', label: 'Ingredient Prep' },
+  { value: 'development', label: 'R&D' },
+]
+const typeLabel = (type: string) => runTypes.find((t) => t.value === type)?.label ?? type
+const typeBadgeClass = (type: string): string => {
+  if (type === 'prep') return 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+  if (type === 'development') return 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
+  return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300'
+}
+const notesPlaceholder = computed(() => {
+  if (productionRun.value?.type === 'prep') return 'What was prepped, e.g. caramelized 10lbs of onions'
+  if (productionRun.value?.type === 'development') return 'What was explored, tasting notes, next steps'
+  return ''
+})
+
+const unattachedRentals = ref<RentalRef[]>([])
+const showRentalPicker = ref(false)
+const selectedRentalId = ref<number | null>(null)
+const rentalBusy = ref(false)
+
+const openRentalPicker = async () => {
+  showRentalPicker.value = true
+  const { data } = await axios.get(route('admin.costing.production-planner.unattached-rentals'))
+  unattachedRentals.value = data.rentals
+}
+
+const attachRental = () => {
+  if (!productionRun.value || !selectedRentalId.value) return
+  const runId = productionRun.value.id
+  rentalBusy.value = true
+  router.post(route('admin.costing.production-planner.attach-rental', runId), { kitchen_rental_id: selectedRentalId.value }, {
+    preserveScroll: true,
+    preserveState: true,
+    onSuccess: () => {
+      showRentalPicker.value = false
+      selectedRentalId.value = null
+      fetchRun(runId)
+      emit('updated')
+    },
+    onFinish: () => { rentalBusy.value = false },
+  })
+}
+
+const detachRental = () => {
+  if (!productionRun.value) return
+  const runId = productionRun.value.id
+  rentalBusy.value = true
+  router.post(route('admin.costing.production-planner.detach-rental', runId), {}, {
+    preserveScroll: true,
+    preserveState: true,
+    onSuccess: () => {
+      fetchRun(runId)
+      emit('updated')
+    },
+    onFinish: () => { rentalBusy.value = false },
+  })
+}
+
 interface FormBatch {
   recipe_id: number
   batches: number
@@ -277,7 +391,11 @@ const resetFormFromRun = () => {
   form.name = productionRun.value.name ?? ''
   form.batch_size = productionRun.value.batch_size
   form.notes = productionRun.value.notes ?? ''
-  form.batches = recipes.value.map((recipe) => ({ recipe_id: recipe.id, batches: existing.get(recipe.id) ?? 0 }))
+  // A prep run has no batches concept at all -- skip populating pivot rows
+  // for every active recipe just because the picker list exists.
+  form.batches = showBatches.value
+    ? recipes.value.map((recipe) => ({ recipe_id: recipe.id, batches: existing.get(recipe.id) ?? 0 }))
+    : []
 }
 
 const fetchRun = async (id: number) => {
@@ -319,6 +437,8 @@ watch(
   (id) => {
     confirmingComplete.value = null
     errors.value = {}
+    showRentalPicker.value = false
+    selectedRentalId.value = null
     if (id !== null) {
       fetchRun(id)
     } else {

@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use Cultpantry\Costing\Actions\CalculateProductionPlan;
 use Cultpantry\Costing\Actions\CompleteProductionRun;
 use Cultpantry\Costing\Actions\UncompleteProductionRun;
+use Cultpantry\Costing\Models\KitchenRental;
 use Cultpantry\Costing\Models\ProductionRun;
 use Cultpantry\Costing\Models\Recipe;
 use Cultpantry\Costing\Support\CostingBreadcrumbs;
@@ -15,6 +16,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -48,11 +50,90 @@ class ProductionPlannerController extends Controller implements HasMiddleware
             'runs' => $runs->map(fn (ProductionRun $run) => [
                 'id' => $run->id,
                 'name' => $run->name,
+                'type' => $run->type,
                 'run_date' => $run->run_date->format('Y-m-d'),
                 'total_units' => $run->totalUnits(),
                 'completed_at' => optional($run->completed_at)->format('Y-m-d H:i'),
             ]),
             'breadcrumbs' => CostingBreadcrumbs::trail(['label' => 'All Runs']),
+        ]);
+    }
+
+    /**
+     * Creates a standalone run with no Kitchen Rental involved -- the
+     * counterpart to KitchenRentalController::createRun(), which remains
+     * the "book a slot, get a run" convenience path. This is the entry
+     * point for a run that doesn't need a rental slot at all (a permanent
+     * kitchen space) or one being scheduled ahead of any booking.
+     */
+    public function store(Request $request): JsonResponse
+    {
+        $this->authorize('create', ProductionRun::class);
+
+        $validated = $request->validate([
+            'type' => ['required', Rule::in(ProductionRun::TYPES)],
+            'name' => ['nullable', 'string', 'max:255'],
+            'run_date' => ['required', 'date'],
+        ]);
+
+        $run = ProductionRun::create([
+            'type' => $validated['type'],
+            'name' => $validated['name'] ?? null,
+            'run_date' => $validated['run_date'],
+            // Batch size is inert for a prep/development run -- it's only
+            // ever multiplied against recipe batch counts, and those types
+            // don't carry batches (see ProductionPlanModal.vue). 20 mirrors
+            // KitchenRentalController::createRun()'s existing default.
+            'batch_size' => $validated['type'] === 'production' ? 20 : 1,
+        ]);
+
+        return response()->json(['production_run_id' => $run->id]);
+    }
+
+    /**
+     * Links an existing, unattached Kitchen Rental slot to this run --
+     * counterpart to KitchenRentalController::attachRun(), which links from
+     * the rental's side. This is the run-initiated direction: attaching a
+     * rental slot is now something a run optionally does, not the only way
+     * a run comes into existence.
+     */
+    public function attachRental(Request $request, ProductionRun $productionRun): RedirectResponse
+    {
+        $this->authorize('update', $productionRun);
+
+        $validated = $request->validate([
+            'kitchen_rental_id' => ['required', 'exists:costing_kitchen_rentals,id'],
+        ]);
+
+        KitchenRental::where('id', $validated['kitchen_rental_id'])
+            ->update(['production_run_id' => $productionRun->id]);
+
+        return redirect()->back()->with('success', 'Rental slot attached to this run.');
+    }
+
+    public function detachRental(ProductionRun $productionRun): RedirectResponse
+    {
+        $this->authorize('update', $productionRun);
+
+        $productionRun->rentals()->update(['production_run_id' => null]);
+
+        return redirect()->back()->with('success', 'Rental slot detached from this run.');
+    }
+
+    /**
+     * Rental slots not yet attached to any run -- feeds the "Attach Rental
+     * Slot" picker in ProductionPlanModal.vue.
+     */
+    public function unattachedRentals(): JsonResponse
+    {
+        $rentals = KitchenRental::whereNull('production_run_id')->orderBy('starts_at')->get();
+
+        return response()->json([
+            'rentals' => $rentals->map(fn (KitchenRental $rental) => [
+                'id' => $rental->id,
+                'booking_title' => $rental->booking_title,
+                'starts_at' => $rental->starts_at->format('Y-m-d H:i'),
+            ]),
         ]);
     }
 
@@ -93,6 +174,7 @@ class ProductionPlannerController extends Controller implements HasMiddleware
 
         $productionRun->update([
             'name' => $validated['name'] ?? null,
+            'type' => $validated['type'] ?? $productionRun->type,
             'batch_size' => $validated['batch_size'],
             'run_date' => $validated['run_date'],
             'notes' => $validated['notes'] ?? null,
@@ -214,11 +296,13 @@ class ProductionPlannerController extends Controller implements HasMiddleware
 
     private function serializeRun(ProductionRun $productionRun): array
     {
-        $productionRun->loadMissing('recipes');
+        $productionRun->loadMissing('recipes', 'rentals');
+        $rental = $productionRun->rentals->first();
 
         return [
             'id' => $productionRun->id,
             'name' => $productionRun->name,
+            'type' => $productionRun->type,
             'batch_size' => $productionRun->batch_size,
             'run_date' => $productionRun->run_date->format('Y-m-d'),
             'notes' => $productionRun->notes,
@@ -230,6 +314,11 @@ class ProductionPlannerController extends Controller implements HasMiddleware
                 'batches' => (int) $recipe->pivot->batches,
                 'actual_units' => $recipe->pivot->actual_units !== null ? (int) $recipe->pivot->actual_units : null,
             ]),
+            'rental' => $rental ? [
+                'id' => $rental->id,
+                'booking_title' => $rental->booking_title,
+                'starts_at' => $rental->starts_at->format('Y-m-d H:i'),
+            ] : null,
         ];
     }
 
@@ -237,6 +326,7 @@ class ProductionPlannerController extends Controller implements HasMiddleware
     {
         return $request->validate([
             'name' => ['nullable', 'string', 'max:255'],
+            'type' => ['sometimes', Rule::in(ProductionRun::TYPES)],
             'batch_size' => ['required', 'integer', 'min:1'],
             'run_date' => ['required', 'date'],
             'notes' => ['nullable', 'string'],

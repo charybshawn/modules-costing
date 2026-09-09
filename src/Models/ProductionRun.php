@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  *
  * @property int $id
  * @property string|null $name
+ * @property string $type
  * @property int $batch_size
  * @property \Illuminate\Support\Carbon $run_date
  * @property string|null $notes
@@ -25,8 +26,20 @@ class ProductionRun extends Model
 {
     protected $table = 'costing_production_runs';
 
+    /**
+     * 'production' is a normal batch run (the only type that existed before
+     * this field was added, and the only one that carries a meaningful
+     * batch_size/recipes-with-batches). 'prep' is an in-house prepared-
+     * ingredient session (e.g. caramelizing onions) -- no conversion math,
+     * the resulting ingredient is just a normal Ingredient elsewhere. 'development'
+     * is R&D/flavour testing -- recipes can be tagged via the pivot with
+     * batches: 0 to mean "worked on this," without affecting totalUnits().
+     */
+    const TYPES = ['production', 'prep', 'development'];
+
     protected $fillable = [
         'name',
+        'type',
         'batch_size',
         'run_date',
         'notes',
