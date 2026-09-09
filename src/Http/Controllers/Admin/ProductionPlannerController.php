@@ -85,7 +85,7 @@ class ProductionPlannerController extends Controller implements HasMiddleware
             // A blank name gets a generated batch code rather than staying
             // null -- every run should be identifiable at a glance in the
             // All Runs list, not just the ones someone bothered to name.
-            'name' => $validated['name'] ?: $generateBatchCode->handle($runDate),
+            'name' => ($validated['name'] ?? null) ?: $generateBatchCode->handle($runDate),
             'run_date' => $validated['run_date'],
             // Batch size is inert for a prep/development run -- it's only
             // ever multiplied against recipe batch counts, and those types
