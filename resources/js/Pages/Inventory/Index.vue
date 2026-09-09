@@ -62,7 +62,14 @@
           </template>
 
           <template #cell-on_hand="{ item }">
-            <span class="text-sm font-medium text-gray-900 dark:text-white">{{ formatQuantity(item.on_hand, item.unit_type) }}</span>
+            <span class="inline-flex items-center gap-1.5">
+              <span class="text-sm font-medium text-gray-900 dark:text-white">{{ formatQuantity(item.on_hand, item.unit_type) }}</span>
+              <span
+                v-if="isLowStock(item)"
+                class="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400 flex-shrink-0"
+                :title="`At or below the reorder threshold (${formatQuantity(item.low_stock_threshold!, item.unit_type)}) -- needs reordering`"
+              ></span>
+            </span>
           </template>
         </DataTable>
       </div>
@@ -307,6 +314,7 @@ interface InventoryRow {
   category: string | null
   unit_type: 'g' | 'unit'
   on_hand: number
+  low_stock_threshold: number | null
   source_count: number
   sources: IngredientSource[]
   preferred_source_id: number | null
@@ -317,6 +325,12 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+
+// Matches CheckIngredientLowStock's own comparison exactly (which is what
+// actually emails admins) -- null threshold never flags, otherwise it's a
+// plain on_hand <= threshold check, same semantics either place.
+const isLowStock = (item: InventoryRow): boolean =>
+  item.low_stock_threshold !== null && item.on_hand <= item.low_stock_threshold
 
 const columns: Column[] = [
   { key: 'name', label: 'Ingredient', sortable: true },

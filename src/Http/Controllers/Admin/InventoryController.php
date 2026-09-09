@@ -51,6 +51,7 @@ class InventoryController extends Controller implements HasMiddleware
                     'category' => $ingredient->category,
                     'unit_type' => $ingredient->unit_type,
                     'on_hand' => (float) $ingredient->packageSizes->sum('quantity_on_hand'),
+                    'low_stock_threshold' => $ingredient->low_stock_threshold !== null ? (float) $ingredient->low_stock_threshold : null,
                     'source_count' => $ingredient->packageSizes->count(),
                     // Every real source, so the bulk modal can let the user
                     // pick which one a stock update actually applies to --
