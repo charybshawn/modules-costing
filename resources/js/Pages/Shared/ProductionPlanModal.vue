@@ -36,15 +36,12 @@
         <FormErrorSummary :errors="errors" class="mt-4" />
 
         <div class="mt-6 space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Date *</label>
+            <input v-model="form.run_date" type="date" required :disabled="isCompleted" class="mt-1 block w-full sm:w-64 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:opacity-60" />
+          </div>
+
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Run Name</label>
-              <input v-model="form.name" type="text" :disabled="isCompleted" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:opacity-60" placeholder="e.g. Weekly batch" />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Date *</label>
-              <input v-model="form.run_date" type="date" required :disabled="isCompleted" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:opacity-60" />
-            </div>
             <div v-if="showBatchSize">
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Batch Size *</label>
               <input v-model.number="form.batch_size" type="number" min="1" required :disabled="isCompleted" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:opacity-60" />
@@ -330,9 +327,13 @@ interface FormBatch {
   batches: number
 }
 
+// 'name' is intentionally not part of this form -- it's set once at
+// creation from the batch code and has no editable field here (see
+// ProductionPlannerController::update(), which never writes it), so it
+// can't be inadvertently changed. It still displays read-only in the
+// header above.
 const form = reactive({
   run_date: '',
-  name: '',
   batch_size: 20,
   notes: '',
   batches: [] as FormBatch[],
@@ -342,7 +343,6 @@ const resetFormFromRun = () => {
   if (!productionRun.value) return
   const existing = new Map(productionRun.value.batches.map((row) => [row.recipe_id, row.batches]))
   form.run_date = productionRun.value.run_date
-  form.name = productionRun.value.name ?? ''
   form.batch_size = productionRun.value.batch_size
   form.notes = productionRun.value.notes ?? ''
   // A prep run has no batches concept at all -- skip populating pivot rows

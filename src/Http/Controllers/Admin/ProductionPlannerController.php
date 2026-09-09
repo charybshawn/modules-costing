@@ -176,8 +176,11 @@ class ProductionPlannerController extends Controller implements HasMiddleware
 
         $validated = $this->validated($request);
 
+        // 'name' is deliberately never written here -- it's set once at
+        // creation (see store()'s GenerateBatchCode default) and has no
+        // editable field in ProductionPlanModal.vue, so a batch code can't
+        // be inadvertently changed after the fact.
         $productionRun->update([
-            'name' => $validated['name'] ?? null,
             'type' => $validated['type'] ?? $productionRun->type,
             'batch_size' => $validated['batch_size'],
             'run_date' => $validated['run_date'],
@@ -329,7 +332,6 @@ class ProductionPlannerController extends Controller implements HasMiddleware
     private function validated(Request $request): array
     {
         return $request->validate([
-            'name' => ['nullable', 'string', 'max:255'],
             'type' => ['sometimes', Rule::in(ProductionRun::TYPES)],
             'batch_size' => ['required', 'integer', 'min:1'],
             'run_date' => ['required', 'date'],
