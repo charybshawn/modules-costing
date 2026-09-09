@@ -34,6 +34,23 @@
             </p>
           </div>
 
+          <div class="pt-6 border-t border-gray-200 dark:border-gray-700">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Batch code prefix</label>
+            <input
+              v-model="form.batch_code_prefix"
+              type="text"
+              maxlength="10"
+              placeholder="e.g. CP"
+              class="mt-1 block w-32 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 uppercase"
+            />
+            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+              Letters/numbers only. A new production run's default name is generated from this as
+              <span class="font-mono">{{ batchCodeExample }}</span> -- your facility/brand code, the run date, and a
+              same-day sequence number -- so every batch gets a distinct, traceable code without typing one by hand.
+              Leave blank to generate just <span class="font-mono">YYMMDD-01</span>. Always editable afterward.
+            </p>
+          </div>
+
           <div class="flex items-center justify-end pt-6 border-t border-gray-200 dark:border-gray-700">
             <button
               type="submit"
@@ -51,6 +68,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useForm } from '@inertiajs/vue3'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
@@ -60,13 +78,17 @@ defineOptions({ layout: AdminLayout })
 
 interface Props {
   staleness_days: number
+  batch_code_prefix: string | null
 }
 
 const props = defineProps<Props>()
 
 const form = useForm({
   staleness_days: props.staleness_days,
+  batch_code_prefix: props.batch_code_prefix ?? '',
 })
+
+const batchCodeExample = computed(() => `${(form.batch_code_prefix || 'CP').toUpperCase()}-260910-01`)
 
 const submit = () => {
   form.put(route('admin.costing.settings.update'), { preserveScroll: true })

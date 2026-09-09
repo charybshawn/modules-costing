@@ -6,6 +6,7 @@ use App\Actions\GetSiteSetting;
 use App\Http\Controllers\Controller;
 use Cultpantry\Costing\Actions\CalculateProductionPlan;
 use Cultpantry\Costing\Actions\CompleteProductionRun;
+use Cultpantry\Costing\Actions\GenerateBatchCode;
 use Cultpantry\Costing\Actions\UncompleteProductionRun;
 use Cultpantry\Costing\Models\KitchenRental;
 use Cultpantry\Costing\Models\ProductionRun;
@@ -16,6 +17,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -66,7 +68,7 @@ class ProductionPlannerController extends Controller implements HasMiddleware
      * point for a run that doesn't need a rental slot at all (a permanent
      * kitchen space) or one being scheduled ahead of any booking.
      */
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, GenerateBatchCode $generateBatchCode): JsonResponse
     {
         $this->authorize('create', ProductionRun::class);
 
@@ -76,9 +78,14 @@ class ProductionPlannerController extends Controller implements HasMiddleware
             'run_date' => ['required', 'date'],
         ]);
 
+        $runDate = Carbon::parse($validated['run_date']);
+
         $run = ProductionRun::create([
             'type' => $validated['type'],
-            'name' => $validated['name'] ?? null,
+            // A blank name gets a generated batch code rather than staying
+            // null -- every run should be identifiable at a glance in the
+            // All Runs list, not just the ones someone bothered to name.
+            'name' => $validated['name'] ?: $generateBatchCode->handle($runDate),
             'run_date' => $validated['run_date'],
             // Batch size is inert for a prep/development run -- it's only
             // ever multiplied against recipe batch counts, and those types

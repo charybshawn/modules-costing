@@ -5,6 +5,7 @@ namespace Cultpantry\Costing\Http\Controllers\Admin;
 use App\Actions\GetSiteSetting;
 use App\Actions\UpdateSiteSetting;
 use App\Http\Controllers\Controller;
+use Cultpantry\Costing\Actions\GetBatchCodePrefix;
 use Cultpantry\Costing\Actions\GetPriceStalenessDays;
 use Cultpantry\Costing\Support\CostingBreadcrumbs;
 use Illuminate\Http\RedirectResponse;
@@ -37,10 +38,11 @@ class SettingsController extends Controller implements HasMiddleware
         ];
     }
 
-    public function index(GetPriceStalenessDays $getPriceStalenessDays): Response
+    public function index(GetPriceStalenessDays $getPriceStalenessDays, GetBatchCodePrefix $getBatchCodePrefix): Response
     {
         return Inertia::render('Vendor/costing/Settings/Index', [
             'staleness_days' => $getPriceStalenessDays->handle(),
+            'batch_code_prefix' => $getBatchCodePrefix->handle(),
             'breadcrumbs' => CostingBreadcrumbs::trail(['label' => 'Settings']),
         ]);
     }
@@ -49,9 +51,11 @@ class SettingsController extends Controller implements HasMiddleware
     {
         $validated = $request->validate([
             'staleness_days' => ['required', 'integer', 'min:1', 'max:90'],
+            'batch_code_prefix' => ['nullable', 'string', 'max:10', 'regex:/^[A-Za-z0-9]+$/'],
         ]);
 
         $updateSetting->handle(GetPriceStalenessDays::SETTING_KEY, $validated['staleness_days']);
+        $updateSetting->handle(GetBatchCodePrefix::SETTING_KEY, strtoupper($validated['batch_code_prefix'] ?? ''));
 
         return back()->with('success', 'Settings updated.');
     }
