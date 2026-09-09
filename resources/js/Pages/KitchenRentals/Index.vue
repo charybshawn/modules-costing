@@ -9,42 +9,29 @@
             Kitchen bookings imported from a FoodCorridor CSV export. Turn any slot into a production plan.
           </p>
         </div>
-        <Link :href="route('admin.costing.production-planner.runs')" class="mt-4 md:mt-0 inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-          View All Runs
-        </Link>
+        <div class="mt-4 md:mt-0 flex flex-wrap gap-2">
+          <input ref="fileInput" type="file" accept=".csv,text/csv" class="hidden" @change="handleFileChange" />
+          <button
+            type="button"
+            :disabled="importForm.processing"
+            title="Re-importing an updated export safely updates existing slots instead of duplicating them."
+            class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50"
+            @click="fileInput?.click()"
+          >
+            <span v-if="importForm.processing">Importing...</span>
+            <span v-else>Import Schedule (CSV)</span>
+          </button>
+          <Link :href="route('admin.costing.production-planner.runs')" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+            View All Runs
+          </Link>
+        </div>
       </div>
 
       <div v-if="$page.props.flash?.success" class="rounded-md bg-green-50 dark:bg-green-900/20 p-4">
         <p class="text-sm font-medium text-green-800 dark:text-green-200">{{ $page.props.flash.success }}</p>
       </div>
 
-      <!-- Import -->
-      <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-6">
-        <h2 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Import CSV</h2>
-        <form @submit.prevent="submitImport" class="space-y-4">
-          <FormErrorSummary :errors="importForm.errors" />
-          <div class="flex flex-col sm:flex-row sm:items-end gap-4">
-            <div class="flex-1">
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">FoodCorridor bookings export (.csv)</label>
-              <input
-                type="file"
-                accept=".csv,text/csv"
-                @change="handleFileChange"
-                class="mt-1 block w-full text-sm text-gray-700 dark:text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 dark:file:bg-indigo-900/40 dark:file:text-indigo-300 hover:file:bg-indigo-100 dark:hover:file:bg-indigo-900/70"
-              />
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Re-importing an updated export safely updates existing slots instead of duplicating them.</p>
-            </div>
-            <button
-              type="submit"
-              :disabled="importForm.processing || !importForm.file"
-              class="bg-indigo-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-            >
-              <span v-if="importForm.processing">Importing...</span>
-              <span v-else>Import</span>
-            </button>
-          </div>
-        </form>
-      </div>
+      <FormErrorSummary v-if="Object.keys(importForm.errors).length" :errors="importForm.errors" />
 
       <!-- Slots -->
       <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
@@ -279,15 +266,25 @@ const columns: Column[] = [
 // a reload anyway.
 const importForm = useForm<{ file: File | null }>({ file: null })
 
+// Understated by design: a single button opens the native file picker
+// (via this hidden input) and the chosen file uploads immediately -- no
+// separate visible form/submit step, so the rental table stays the
+// forefront of the page instead of a big "Import CSV" card above it.
+const fileInput = ref<HTMLInputElement | null>(null)
+
 const handleFileChange = (event: Event) => {
   const target = event.target as HTMLInputElement
-  importForm.file = target.files?.[0] ?? null
-}
+  const file = target.files?.[0] ?? null
+  if (!file) return
 
-const submitImport = () => {
+  importForm.file = file
   importForm.post(route('admin.costing.kitchen-rentals.import'), {
     forceFormData: true,
     onSuccess: () => { importForm.reset() },
+    // Cleared either way -- picking the same file again wouldn't otherwise
+    // fire a new 'change' event, since its value never changed from the
+    // input's own perspective.
+    onFinish: () => { if (fileInput.value) fileInput.value.value = '' },
   })
 }
 
