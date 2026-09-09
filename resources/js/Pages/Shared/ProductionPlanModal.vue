@@ -57,26 +57,41 @@
           </div>
 
           <!-- Rental attachment -- optional and secondary, never the same
-               visual weight as the run's own name/date. Only meaningful for
-               a real production run; prep/R&D sessions don't book kitchen
-               space the same way. -->
-          <div v-if="productionRun.type === 'production'" class="text-sm">
-            <div v-if="productionRun.rental" class="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-              <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-              <span>Booked: {{ productionRun.rental.booking_title }} ({{ productionRun.rental.starts_at }})</span>
-              <button v-if="!isCompleted" type="button" @click="detachRental" :disabled="rentalBusy" class="text-red-600 dark:text-red-400 hover:underline text-xs">Detach</button>
+               visual weight as the run's own name/date, but still its own
+               bordered section rather than floating text so it reads as a
+               deliberate part of the form. Only meaningful for a real
+               production run; prep/R&D sessions don't book kitchen space
+               the same way. -->
+          <div v-if="productionRun.type === 'production'" class="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30 px-4 py-3">
+            <div v-if="productionRun.rental" class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                <svg class="w-4 h-4 flex-shrink-0 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                <span>Booked: <span class="font-medium text-gray-900 dark:text-white">{{ productionRun.rental.booking_title }}</span> ({{ productionRun.rental.starts_at }})</span>
+              </div>
+              <button v-if="!isCompleted" type="button" @click="detachRental" :disabled="rentalBusy" class="flex-shrink-0 py-1 px-3 border border-gray-300 dark:border-gray-600 rounded-md text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-600 disabled:opacity-50">
+                Detach
+              </button>
             </div>
             <template v-else-if="!isCompleted">
-              <button v-if="!showRentalPicker" type="button" @click="openRentalPicker" class="text-indigo-600 dark:text-indigo-400 hover:underline text-xs">
-                + Attach Rental Slot
+              <button v-if="!showRentalPicker" type="button" @click="openRentalPicker" class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400">
+                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                No rental slot attached -- Attach one
               </button>
-              <div v-else class="flex items-center gap-2 mt-1">
-                <select v-model="selectedRentalId" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm text-xs">
-                  <option :value="null" disabled>Select a rental slot...</option>
-                  <option v-for="rental in unattachedRentals" :key="rental.id" :value="rental.id">{{ rental.booking_title }} ({{ rental.starts_at }})</option>
-                </select>
-                <button type="button" @click="attachRental" :disabled="!selectedRentalId || rentalBusy" class="text-indigo-600 dark:text-indigo-400 hover:underline text-xs disabled:opacity-50">Attach</button>
-                <button type="button" @click="showRentalPicker = false" class="text-gray-500 dark:text-gray-400 hover:underline text-xs">Cancel</button>
+              <div v-else>
+                <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Rental Slot</label>
+                <div class="flex flex-wrap items-center gap-2">
+                  <select v-model="selectedRentalId" class="flex-1 min-w-[12rem] rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+                    <option :value="null" disabled>Select a rental slot...</option>
+                    <option v-for="rental in unattachedRentals" :key="rental.id" :value="rental.id">{{ rental.booking_title }} ({{ rental.starts_at }})</option>
+                  </select>
+                  <button type="button" @click="attachRental" :disabled="!selectedRentalId || rentalBusy" class="py-1.5 px-4 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50">
+                    Attach
+                  </button>
+                  <button type="button" @click="showRentalPicker = false" class="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
+                    Cancel
+                  </button>
+                </div>
+                <p v-if="!loadingRentals && unattachedRentals.length === 0" class="mt-1.5 text-xs text-gray-400 dark:text-gray-500">No unbooked rental slots available.</p>
               </div>
             </template>
           </div>
@@ -329,14 +344,20 @@ const notesPlaceholder = computed(() => {
 })
 
 const unattachedRentals = ref<RentalRef[]>([])
+const loadingRentals = ref(false)
 const showRentalPicker = ref(false)
 const selectedRentalId = ref<number | null>(null)
 const rentalBusy = ref(false)
 
 const openRentalPicker = async () => {
   showRentalPicker.value = true
-  const { data } = await axios.get(route('admin.costing.production-planner.unattached-rentals'))
-  unattachedRentals.value = data.rentals
+  loadingRentals.value = true
+  try {
+    const { data } = await axios.get(route('admin.costing.production-planner.unattached-rentals'))
+    unattachedRentals.value = data.rentals
+  } finally {
+    loadingRentals.value = false
+  }
 }
 
 const attachRental = () => {
