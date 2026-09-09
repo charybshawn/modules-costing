@@ -48,13 +48,6 @@
           </p>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Low Stock Threshold</label>
-            <input v-model.number="form.low_stock_threshold" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="e.g. 500" />
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Notify admins when on-hand stock drops to or below this amount (same unit as above). Leave blank to disable alerts for this ingredient.</p>
-            <p v-if="form.errors.low_stock_threshold" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.low_stock_threshold }}</p>
-          </div>
-
-          <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Byproduct</label>
             <input v-model="form.byproduct_name" type="text" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="e.g. Juice, Brine -- leave blank if none" />
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">If this ingredient comes with a usable byproduct (e.g. pickle juice), name it here to make it selectable as its own line in Recipes. Free -- not costed or tracked in inventory.</p>
@@ -97,7 +90,6 @@ interface FormData {
   category: string
   unit_type: 'g' | 'unit'
   waste_percent: number
-  low_stock_threshold: number | null
   byproduct_name: string
   notes: string
 }
@@ -107,7 +99,6 @@ const form = usePersistedForm<FormData>({
   category: '',
   unit_type: 'g',
   waste_percent: 100,
-  low_stock_threshold: null,
   byproduct_name: '',
   notes: '',
 }, { key: 'costing-ingredient-create' })

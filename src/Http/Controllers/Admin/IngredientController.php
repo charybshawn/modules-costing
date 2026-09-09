@@ -68,7 +68,6 @@ class IngredientController extends Controller implements HasMiddleware
                     'unit_type' => $ingredient->unit_type,
                     'waste_percent' => (float) $ingredient->waste_percent,
                     'notes' => $ingredient->notes,
-                    'low_stock_threshold' => $ingredient->low_stock_threshold !== null ? (float) $ingredient->low_stock_threshold : null,
                     'byproduct_name' => $ingredient->byproduct_name,
                     'source_count' => $ingredient->packageSizes->count(),
                 ],
@@ -120,7 +119,6 @@ class IngredientController extends Controller implements HasMiddleware
                 'unit_type' => $ingredient->unit_type,
                 'waste_percent' => (float) $ingredient->waste_percent,
                 'notes' => $ingredient->notes,
-                'low_stock_threshold' => $ingredient->low_stock_threshold !== null ? (float) $ingredient->low_stock_threshold : null,
                 'byproduct_name' => $ingredient->byproduct_name,
             ],
             'categories' => $this->knownCategories(),
@@ -329,7 +327,6 @@ class IngredientController extends Controller implements HasMiddleware
             'unit_type' => ['required', Rule::in(['g', 'unit'])],
             'waste_percent' => ['required', 'numeric', 'min:1', 'max:100'],
             'notes' => ['nullable', 'string'],
-            'low_stock_threshold' => ['nullable', 'numeric', 'min:0'],
             'byproduct_name' => ['nullable', 'string', 'max:100'],
         ]);
     }

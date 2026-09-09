@@ -5,6 +5,7 @@ namespace Cultpantry\Costing\Http\Controllers\Admin;
 use App\Actions\GetSiteSetting;
 use App\Http\Controllers\Controller;
 use Cultpantry\Costing\Actions\CalculateIngredientCosting;
+use Cultpantry\Costing\Actions\CalculateMaxProducibleUnits;
 use Cultpantry\Costing\Actions\CalculateRecipeCost;
 use Cultpantry\Costing\Contracts\FinishedGoodRepository;
 use Cultpantry\Costing\Models\Ingredient;
@@ -36,13 +37,23 @@ class RecipeController extends Controller implements HasMiddleware
         ];
     }
 
-    public function index(): Response
+    public function index(CalculateMaxProducibleUnits $calculateMaxProducibleUnits): Response
     {
         $this->authorize('viewAny', Recipe::class);
 
         $recipes = Recipe::withCount('ingredients')
+            ->with('mainIngredients.inventory')
             ->orderBy('name')
-            ->get(['id', 'name', 'notes']);
+            ->get(['id', 'name', 'notes', 'min_stock_threshold', 'is_active'])
+            ->map(fn (Recipe $recipe) => [
+                'id' => $recipe->id,
+                'name' => $recipe->name,
+                'notes' => $recipe->notes,
+                'ingredients_count' => $recipe->ingredients_count,
+                'min_stock_threshold' => $recipe->min_stock_threshold,
+                'is_active' => $recipe->is_active,
+                'max_producible_units' => $calculateMaxProducibleUnits->handle($recipe),
+            ]);
 
         return Inertia::render('Vendor/costing/Recipes/Index', [
             'recipes' => $recipes,
@@ -181,6 +192,8 @@ class RecipeController extends Controller implements HasMiddleware
             'name' => $validated['name'],
             'notes' => $validated['notes'] ?? null,
             'product_id' => $validated['product_id'] ?? null,
+            'min_stock_threshold' => $validated['min_stock_threshold'] ?? null,
+            'is_active' => $validated['is_active'] ?? true,
         ]);
 
         $recipe->mainIngredients()->sync($this->syncData($validated['ingredients']));
@@ -212,6 +225,8 @@ class RecipeController extends Controller implements HasMiddleware
                 'name' => $recipe->name,
                 'notes' => $recipe->notes,
                 'product_id' => $recipe->product_id,
+                'min_stock_threshold' => $recipe->min_stock_threshold,
+                'is_active' => $recipe->is_active,
                 'ingredients' => $recipe->mainIngredients->map(fn (Ingredient $ingredient) => [
                     'ingredient_id' => $ingredient->id,
                     'quantity_per_jar' => (float) $ingredient->pivot->quantity_per_jar,
@@ -249,6 +264,8 @@ class RecipeController extends Controller implements HasMiddleware
             'name' => $validated['name'],
             'notes' => $validated['notes'] ?? null,
             'product_id' => $validated['product_id'] ?? null,
+            'min_stock_threshold' => $validated['min_stock_threshold'] ?? null,
+            'is_active' => $validated['is_active'] ?? true,
         ]);
 
         $recipe->mainIngredients()->sync($this->syncData($validated['ingredients']));
@@ -357,6 +374,8 @@ class RecipeController extends Controller implements HasMiddleware
                     $fail('The selected finished product is invalid.');
                 }
             }],
+            'min_stock_threshold' => ['nullable', 'integer', 'min:0'],
+            'is_active' => ['boolean'],
             'ingredients' => ['array'],
             'ingredients.*.ingredient_id' => ['required', 'exists:costing_ingredients,id'],
             'ingredients.*.quantity_per_jar' => ['required', 'numeric', 'min:0'],

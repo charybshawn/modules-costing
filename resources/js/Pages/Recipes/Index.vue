@@ -44,8 +44,29 @@
           item-key="id"
           @action="handleAction"
         >
+          <template #cell-name="{ item }">
+            <span class="text-sm font-medium text-gray-900 dark:text-white">{{ item.name }}</span>
+            <span
+              v-if="!item.is_active"
+              class="ml-1.5 inline-flex items-center rounded-full bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400"
+            >
+              Inactive
+            </span>
+          </template>
+
           <template #cell-ingredients_count="{ item }">
             <span class="text-sm text-gray-900 dark:text-white">{{ item.ingredients_count }} ingredient(s)</span>
+          </template>
+
+          <template #cell-max_producible_units="{ item }">
+            <span class="inline-flex items-center gap-1.5">
+              <span class="text-sm text-gray-900 dark:text-white">{{ item.max_producible_units }} jar{{ item.max_producible_units !== 1 ? 's' : '' }}</span>
+              <span
+                v-if="isBelowThreshold(item)"
+                class="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400 flex-shrink-0"
+                :title="`Current ingredient stock can only produce ${item.max_producible_units} jar(s) -- below the minimum of ${item.min_stock_threshold} -- needs reordering`"
+              ></span>
+            </span>
           </template>
         </DataTable>
       </div>
@@ -66,6 +87,9 @@ interface Recipe {
   name: string
   notes: string | null
   ingredients_count: number
+  min_stock_threshold: number | null
+  is_active: boolean
+  max_producible_units: number
 }
 
 interface Props {
@@ -74,9 +98,15 @@ interface Props {
 
 defineProps<Props>()
 
+// Only flagged when a threshold is actually set -- matches the same
+// "null disables it" convention the old Ingredient::low_stock_threshold used.
+const isBelowThreshold = (item: Recipe): boolean =>
+  item.min_stock_threshold !== null && item.max_producible_units < item.min_stock_threshold
+
 const columns: Column[] = [
   { key: 'name', label: 'Flavour', sortable: true },
   { key: 'ingredients_count', label: 'Ingredients' },
+  { key: 'max_producible_units', label: 'Can Produce', hideable: true },
   { key: 'notes', label: 'Notes', hideable: true },
 ]
 

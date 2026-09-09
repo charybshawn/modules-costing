@@ -4,7 +4,6 @@ namespace Cultpantry\Costing\Http\Controllers\Admin;
 
 use App\Actions\GetSiteSetting;
 use App\Http\Controllers\Controller;
-use Cultpantry\Costing\Actions\CheckIngredientLowStock;
 use Cultpantry\Costing\Actions\RecordInventoryAdjustment;
 use Cultpantry\Costing\Models\Ingredient;
 use Cultpantry\Costing\Models\InventoryAdjustment;
@@ -51,7 +50,6 @@ class InventoryController extends Controller implements HasMiddleware
                     'category' => $ingredient->category,
                     'unit_type' => $ingredient->unit_type,
                     'on_hand' => (float) $ingredient->packageSizes->sum('quantity_on_hand'),
-                    'low_stock_threshold' => $ingredient->low_stock_threshold !== null ? (float) $ingredient->low_stock_threshold : null,
                     'source_count' => $ingredient->packageSizes->count(),
                     // Every real source, so the bulk modal can let the user
                     // pick which one a stock update actually applies to --
@@ -186,7 +184,6 @@ class InventoryController extends Controller implements HasMiddleware
         Request $request,
         Ingredient $ingredient,
         PackageSize $packageSize,
-        CheckIngredientLowStock $checkIngredientLowStock,
         RecordInventoryAdjustment $recordInventoryAdjustment,
     ): RedirectResponse {
         $ingredient->loadMissing('inventory');
@@ -200,7 +197,6 @@ class InventoryController extends Controller implements HasMiddleware
             'notes' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $ingredientOldOnHand = (float) $ingredient->inventory->on_hand;
         $sourceOldOnHand = (float) $packageSize->quantity_on_hand;
         $quantity = (float) $validated['packages'] * (float) $packageSize->package_size;
 
@@ -223,13 +219,6 @@ class InventoryController extends Controller implements HasMiddleware
             notes: $validated['notes'] ?? null,
             userId: $request->user()?->id,
         );
-
-        $ingredientNewOnHand = $ingredientOldOnHand + ($sourceNewOnHand - $sourceOldOnHand);
-
-        // Manual stock corrections can cross the threshold too, not just
-        // the auto-deduct-on-complete path -- "notify whenever an
-        // inventory item is low" isn't scoped to one trigger.
-        $checkIngredientLowStock->handle($ingredient, $ingredientOldOnHand, $ingredientNewOnHand);
 
         // back(), not a hardcoded index redirect -- StockAdjustModal calls
         // this with preserveState so the modal survives the round-trip and
@@ -285,7 +274,6 @@ class InventoryController extends Controller implements HasMiddleware
      */
     public function bulkUpdate(
         Request $request,
-        CheckIngredientLowStock $checkIngredientLowStock,
         RecordInventoryAdjustment $recordInventoryAdjustment,
     ): RedirectResponse {
         $this->authorize('bulkUpdate', InventoryItem::class);
@@ -326,9 +314,9 @@ class InventoryController extends Controller implements HasMiddleware
         $skipped = [];
         $clamped = [];
 
-        DB::transaction(function () use ($validated, $reason, $checkIngredientLowStock, $recordInventoryAdjustment, $request, &$skipped, &$clamped) {
+        DB::transaction(function () use ($validated, $reason, $recordInventoryAdjustment, $request, &$skipped, &$clamped) {
             foreach ($validated['items'] as $item) {
-                $ingredient = Ingredient::with('inventory', 'packageSizes')->find($item['ingredient_id']);
+                $ingredient = Ingredient::with('packageSizes')->find($item['ingredient_id']);
 
                 $packageSize = $item['package_size_id'] !== null
                     ? $ingredient->packageSizes->firstWhere('id', $item['package_size_id'])
@@ -343,7 +331,6 @@ class InventoryController extends Controller implements HasMiddleware
                 // for a single source; here it's just applied per bulk row.
                 $quantity = (float) $item['packages'] * (float) $packageSize->package_size;
 
-                $ingredientOldOnHand = (float) $ingredient->inventory->on_hand;
                 $sourceOldOnHand = (float) $packageSize->quantity_on_hand;
 
                 if ($validated['mode'] === 'adjust') {
@@ -377,10 +364,6 @@ class InventoryController extends Controller implements HasMiddleware
                     notes: $validated['notes'] ?? null,
                     userId: $request->user()?->id,
                 );
-
-                $ingredientNewOnHand = $ingredientOldOnHand + ($sourceNewOnHand - $sourceOldOnHand);
-
-                $checkIngredientLowStock->handle($ingredient, $ingredientOldOnHand, $ingredientNewOnHand);
             }
         });
 

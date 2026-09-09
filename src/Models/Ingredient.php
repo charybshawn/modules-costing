@@ -16,7 +16,6 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property string|null $preferred_source
  * @property string|null $preferred_brand
  * @property string|null $notes
- * @property float|null $low_stock_threshold
  * @property string|null $byproduct_name
  */
 class Ingredient extends Model
@@ -31,13 +30,11 @@ class Ingredient extends Model
         'preferred_source',
         'preferred_brand',
         'notes',
-        'low_stock_threshold',
         'byproduct_name',
     ];
 
     protected $casts = [
         'waste_percent' => 'decimal:2',
-        'low_stock_threshold' => 'decimal:2',
     ];
 
     protected static function booted(): void

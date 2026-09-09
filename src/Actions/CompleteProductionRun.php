@@ -28,7 +28,6 @@ class CompleteProductionRun
 {
     public function __construct(
         private readonly CalculateProductionPlan $calculateProductionPlan,
-        private readonly CheckIngredientLowStock $checkIngredientLowStock,
         private readonly CreateRecipeCostSnapshot $createRecipeCostSnapshot,
         private readonly RecordInventoryAdjustment $recordInventoryAdjustment,
     ) {}
@@ -84,8 +83,6 @@ class CompleteProductionRun
                 continue;
             }
 
-            $oldOnHand = (float) $ingredient->packageSizes->sum('quantity_on_hand');
-
             // Preferred source drained first (same strict provider+brand
             // pair match CalculateIngredientCosting uses for pricing --
             // see GetIngredientPriceOptions::isPreferred() for why this is
@@ -136,16 +133,9 @@ class CompleteProductionRun
                 $remaining -= $consumed;
             }
 
-            // Floors at 0 automatically -- $remaining only stays > 0 here if
-            // every source ran out before covering $required, same "don't
-            // go negative" floor the old single-column decrement had.
-            $newOnHand = $oldOnHand - ($required - $remaining);
-
             if ($remaining > 0) {
                 $shortfalls[] = "{$ingredient->name} (short by ".rtrim(rtrim(number_format($remaining, 2), '0'), '.')." {$ingredient->unit_type})";
             }
-
-            $this->checkIngredientLowStock->handle($ingredient, $oldOnHand, $newOnHand);
         }
 
         /** @var Recipe $recipe */

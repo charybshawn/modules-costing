@@ -4,6 +4,7 @@ namespace Cultpantry\Costing\Models;
 
 use Cultpantry\Costing\Contracts\FinishedGood;
 use Cultpantry\Costing\Contracts\FinishedGoodRepository;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
@@ -25,6 +26,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  *
  * @property int $id
  * @property int|null $product_id
+ * @property int|null $min_stock_threshold
+ * @property bool $is_active
  * @property string $name
  * @property string|null $notes
  * @property float|null $sell_price
@@ -37,6 +40,8 @@ class Recipe extends Model
 
     protected $fillable = [
         'product_id',
+        'min_stock_threshold',
+        'is_active',
         'name',
         'notes',
         'sell_price',
@@ -45,6 +50,7 @@ class Recipe extends Model
     ];
 
     protected $casts = [
+        'is_active' => 'boolean',
         'sell_price' => 'decimal:2',
         'fill_size_g' => 'decimal:2',
         'cost_buffer_percent' => 'decimal:2',
@@ -55,6 +61,17 @@ class Recipe extends Model
         return $this->product_id !== null
             ? app(FinishedGoodRepository::class)->find($this->product_id)
             : null;
+    }
+
+    /**
+     * Recipes a user can still actively choose to produce -- excludes
+     * discontinued flavours from pickers like the Production Planner's
+     * "add recipe to this run" list, mirroring App\Models\Product's own
+     * is_active/scopeActive() convention in the host app.
+     */
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->where('is_active', true);
     }
 
     public function ingredients(): BelongsToMany

@@ -38,6 +38,21 @@
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">When set, completing a production run for this recipe credits the units produced to this product's storefront stock.</p>
                 <p v-if="form.errors.product_id" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.product_id }}</p>
               </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Minimum units to keep in stock</label>
+                <input v-model.number="form.min_stock_threshold" type="number" min="0" step="1" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="e.g. 20" />
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Flagged as needing reordering whenever current ingredient stock can't produce at least this many jars. Leave blank to disable.</p>
+                <p v-if="form.errors.min_stock_threshold" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.min_stock_threshold }}</p>
+              </div>
+
+              <div>
+                <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <input v-model="form.is_active" type="checkbox" class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500 dark:bg-gray-700" />
+                  Active
+                </label>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Inactive recipes are hidden from the Production Planner's recipe picker, but stay visible here.</p>
+              </div>
             </div>
 
             <!-- Ingredients & byproducts -->
@@ -161,6 +176,8 @@ interface Recipe {
   name: string
   notes: string | null
   product_id: number | null
+  min_stock_threshold: number | null
+  is_active: boolean
   ingredients: Array<{ ingredient_id: number; quantity_per_jar: number }>
   byproducts: Array<{ ingredient_id: number; quantity_per_jar: number }>
 }
@@ -180,6 +197,8 @@ interface FormData {
   name: string
   notes: string
   product_id: number | null
+  min_stock_threshold: number | null
+  is_active: boolean
   ingredients: Row[]
   byproducts: Row[]
 }
@@ -190,6 +209,8 @@ const initialData: FormData = {
   name: props.recipe.name,
   notes: props.recipe.notes ?? '',
   product_id: props.recipe.product_id,
+  min_stock_threshold: props.recipe.min_stock_threshold,
+  is_active: props.recipe.is_active,
   ingredients: props.recipe.ingredients.map((row) => ({ ...row })),
   byproducts: props.recipe.byproducts.map((row) => ({ ...row })),
 }

@@ -67,7 +67,7 @@ class ProductionPlannerController extends Controller implements HasMiddleware
     {
         $this->authorize('view', $productionRun);
 
-        $recipes = Recipe::orderBy('name')->get(['id', 'name']);
+        $recipes = Recipe::active()->orderBy('name')->get(['id', 'name']);
 
         return response()->json([
             'recipes' => $recipes,
