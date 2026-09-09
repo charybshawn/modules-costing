@@ -35,12 +35,6 @@
 
       <!-- Slots -->
       <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
-        <div class="flex items-center justify-end gap-2 px-6 pt-4">
-          <label class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-            <input v-model="hidePast" type="checkbox" class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500 dark:bg-gray-700" />
-            Hide Past Rental Dates
-          </label>
-        </div>
         <DataTable
           :columns="columns"
           :items="rows"
@@ -55,6 +49,35 @@
           @action="handleAction"
           @sort="handleSort"
         >
+          <template #toolbar-extra>
+            <span
+              v-if="hidePast"
+              class="inline-flex items-center gap-1 rounded-full border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 pl-3 pr-1.5 py-1 text-sm text-gray-700 dark:text-gray-200"
+            >
+              Hiding past dates
+              <button
+                type="button"
+                @click="hidePast = false"
+                class="p-0.5 rounded-full text-gray-400 dark:text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </span>
+            <button
+              v-else
+              type="button"
+              @click="hidePast = true"
+              class="inline-flex items-center gap-1 rounded-full border border-dashed border-gray-300 dark:border-gray-600 px-2.5 py-1 text-sm text-gray-500 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-700 dark:hover:text-gray-200"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
+              Hide Past Dates
+            </button>
+          </template>
+
           <template #cell-starts_at="{ item }">
             <div class="text-sm text-gray-900 dark:text-white">{{ slotDate(item) }}</div>
             <div class="text-xs text-gray-500 dark:text-gray-400">{{ slotTimeRange(item) }}</div>
