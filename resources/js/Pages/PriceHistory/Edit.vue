@@ -40,23 +40,23 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div>
                     <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Provider</label>
-                    <input v-model="newSourceProvider" type="text" placeholder="e.g. GFS" autofocus class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+                    <input v-model="newSourceProvider" type="text" placeholder="e.g. GFS" autofocus class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
                   </div>
                   <div>
                     <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Brand</label>
-                    <input v-model="newSourceBrand" type="text" placeholder="Optional" class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+                    <input v-model="newSourceBrand" type="text" placeholder="Optional" class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
                   </div>
                 </div>
                 <div class="flex flex-wrap items-end gap-2">
                   <div>
                     <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Unit Size</label>
-                    <input v-model.number="newSourceSize" type="number" inputmode="decimal" min="0.01" step="0.01" title="The size of ONE individual package -- e.g. 1 lid. Never the case total, even if sold by the case." class="w-full sm:w-40 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+                    <input v-model.number="newSourceSize" type="number" inputmode="decimal" min="0.01" step="0.01" title="The size of ONE individual package -- e.g. 1 lid. Never the case total, even if sold by the case." class="w-full sm:w-40 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
                   </div>
                   <div>
                     <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Total Units</label>
-                    <input v-model.number="newSourceUnitsPerCase" type="number" inputmode="decimal" min="1" step="1" title="How many individual packages come in one case -- purchasing info only, doesn't change how stock is counted. Leave at 1 if not sold by the case." class="w-full sm:w-28 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+                    <input v-model.number="newSourceUnitsPerCase" type="number" inputmode="decimal" min="1" step="1" title="How many individual packages come in one case -- purchasing info only, doesn't change how stock is counted. Leave at 1 if not sold by the case." class="w-full sm:w-28 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
                   </div>
-                  <button type="button" @click="saveNewSource" :disabled="addSourceSaving || !newSourceProvider || !newSourceSize" class="py-1.5 px-4 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40">
+                  <button type="button" @click="saveNewSource" :disabled="addSourceSaving || !newSourceProvider || !newSourceSize" class="tap-target-touch py-1.5 px-4 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40">
                     <span v-if="addSourceSaving">Saving...</span>
                     <span v-else>Add</span>
                   </button>
@@ -84,7 +84,7 @@
               </label>
               <div v-if="isCase" class="mt-1 flex items-center gap-2">
                 <span class="text-xs text-gray-500 dark:text-gray-400">Items per case</span>
-                <input v-model.number="eachesPerCase" type="number" inputmode="numeric" min="1" step="1" class="w-20 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-xs" />
+                <input v-model.number="eachesPerCase" type="number" inputmode="numeric" min="1" step="1" class="w-20 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-base sm:text-xs" />
               </div>
 
               <p v-if="form.qty !== null" class="mt-1 text-xs text-gray-500 dark:text-gray-400">= {{ form.qty }} g total logged</p>
@@ -123,8 +123,8 @@
           </div>
 
           <div class="flex items-center justify-between pt-6 border-t border-gray-200 dark:border-gray-700">
-            <button type="button" @click="destroy" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Delete Entry</button>
-            <Link :href="route('admin.costing.price-history.index')" class="bg-gray-200 dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600">Cancel</Link>
+            <button type="button" @click="destroy" class="tap-target-touch px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Delete Entry</button>
+            <Link :href="route('admin.costing.price-history.index')" class="tap-target-touch bg-gray-200 dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600">Cancel</Link>
           </div>
         </form>
       </div>

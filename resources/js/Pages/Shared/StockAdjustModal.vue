@@ -40,16 +40,20 @@
                   step="0.01"
                   autofocus
                   :disabled="recountSaving"
-                  class="w-24 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                  class="w-24 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm"
                   @keyup.enter="saveRecount(source)"
                   @keyup.esc="cancelRecount"
                 />
-                <button type="button" @click="saveRecount(source)" :disabled="recountSaving" class="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 disabled:opacity-40" title="Save">
+                <IconButton type="button" @click="saveRecount(source)" :disabled="recountSaving" class="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 disabled:opacity-40"
+            label="Save"
+          >
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
-                </button>
-                <button type="button" @click="cancelRecount" :disabled="recountSaving" class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-40" title="Cancel">
+                </IconButton>
+                <IconButton type="button" @click="cancelRecount" :disabled="recountSaving" class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-40"
+            label="Cancel"
+          >
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
+                </IconButton>
               </div>
               <p v-if="recountKey === source.id && recountError" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ recountError }}</p>
             </div>
@@ -96,14 +100,14 @@
               v-model="quickAdjustNotes"
               type="text"
               placeholder="Detail (optional) -- e.g. GFS shipment, found spoiled"
-              class="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+              class="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm"
             />
             <p v-if="quickAdjustError" class="text-xs text-red-600 dark:text-red-400">{{ quickAdjustError }}</p>
             <div class="flex justify-end gap-2 pt-1">
-              <button type="button" @click="cancelQuickAdjust" :disabled="quickAdjustSaving" class="py-1.5 px-3 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40">
+              <button type="button" @click="cancelQuickAdjust" :disabled="quickAdjustSaving" class="tap-target-touch py-1.5 px-3 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40">
                 Cancel
               </button>
-              <button
+              <button class="tap-target-touch"
                 type="button"
                 @click="saveQuickAdjust(source)"
                 :disabled="quickAdjustSaving || quickAdjustPackages <= 0"
@@ -125,23 +129,23 @@
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div>
               <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Provider</label>
-              <input v-model="newSourceProvider" type="text" placeholder="e.g. GFS" autofocus class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+              <input v-model="newSourceProvider" type="text" placeholder="e.g. GFS" autofocus class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
             </div>
             <div>
               <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Brand</label>
-              <input v-model="newSourceBrand" type="text" placeholder="Optional" class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+              <input v-model="newSourceBrand" type="text" placeholder="Optional" class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
             </div>
           </div>
           <div class="flex flex-wrap items-end gap-2">
             <div>
               <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Unit Size ({{ baseUnitLabel }})</label>
-              <input v-model.number="newSourceSize" type="number" inputmode="decimal" min="0.01" step="0.01" title="The size of ONE individual package -- e.g. 1 lid. Never the case total, even if sold by the case." class="w-full sm:w-48 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+              <input v-model.number="newSourceSize" type="number" inputmode="decimal" min="0.01" step="0.01" title="The size of ONE individual package -- e.g. 1 lid. Never the case total, even if sold by the case." class="w-full sm:w-48 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
             </div>
             <div>
               <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Total Units</label>
-              <input v-model.number="newSourceUnitsPerCase" type="number" inputmode="decimal" min="1" step="1" title="How many individual packages come in one case -- purchasing info only, doesn't change how stock is counted. Leave at 1 if not sold by the case." class="w-full sm:w-28 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+              <input v-model.number="newSourceUnitsPerCase" type="number" inputmode="decimal" min="1" step="1" title="How many individual packages come in one case -- purchasing info only, doesn't change how stock is counted. Leave at 1 if not sold by the case." class="w-full sm:w-28 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
             </div>
-            <button type="button" @click="saveNewSource" :disabled="addSourceSaving || !newSourceProvider || !newSourceSize" class="py-1.5 px-4 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40">
+            <button type="button" @click="saveNewSource" :disabled="addSourceSaving || !newSourceProvider || !newSourceSize" class="tap-target-touch py-1.5 px-4 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40">
               <span v-if="addSourceSaving">Saving...</span>
               <span v-else>Add</span>
             </button>
@@ -152,7 +156,7 @@
       </div>
 
       <div class="mt-6 flex items-center justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
-        <button type="button" @click="$emit('close')" class="bg-gray-200 dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">
+        <button type="button" @click="$emit('close')" class="tap-target-touch bg-gray-200 dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">
           Close
         </button>
       </div>
@@ -166,6 +170,7 @@ import axios from 'axios'
 import { router } from '@inertiajs/vue3'
 import Modal from '@/Components/Modal.vue'
 import { formatQuantity } from './formatWeight'
+import IconButton from '@/Components/IconButton.vue'
 
 export interface StockIngredient {
   id: number

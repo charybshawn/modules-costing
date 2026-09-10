@@ -9,7 +9,7 @@
             A snapshot is recorded automatically every time a production run is completed -- this is what those look like over time.
           </p>
         </div>
-        <Link :href="route('admin.costing.recipes.costing')" class="mt-4 md:mt-0 inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+        <Link :href="route('admin.costing.recipes.costing')" class="tap-target-touch mt-4 md:mt-0 inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
           Costing
         </Link>
       </div>
@@ -18,21 +18,21 @@
         <div class="flex flex-wrap gap-4 mb-6">
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Recipe</label>
-            <select v-model.number="selectedRecipeId" class="mt-1 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+            <select v-model.number="selectedRecipeId" class="mt-1 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm">
               <option v-for="recipe in recipes" :key="recipe.id" :value="recipe.id">{{ recipe.name }}</option>
             </select>
           </div>
 
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Metric</label>
-            <select v-model="selectedMetric" class="mt-1 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+            <select v-model="selectedMetric" class="mt-1 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm">
               <option v-for="option in metricOptions" :key="option.key" :value="option.key">{{ option.label }}</option>
             </select>
           </div>
 
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Granularity</label>
-            <select v-model="selectedGranularity" class="mt-1 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+            <select v-model="selectedGranularity" class="mt-1 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm">
               <option value="daily">Daily</option>
               <option value="weekly">Weekly</option>
               <option value="monthly">Monthly</option>

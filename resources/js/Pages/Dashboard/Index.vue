@@ -13,7 +13,7 @@
           v-for="card in cards"
           :key="card.label"
           :href="card.href"
-          class="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-md transition-all"
+          class="tap-target-touch group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-md transition-all"
         >
           <div class="flex items-start">
             <div :class="['flex-shrink-0 w-14 h-14 rounded-lg flex items-center justify-center transition-colors', card.tileClass]">

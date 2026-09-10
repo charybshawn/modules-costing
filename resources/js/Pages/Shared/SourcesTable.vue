@@ -12,7 +12,7 @@
               v-if="item.package_size_id !== null"
               type="button"
               @click="startSourceEdit(item)"
-              class="text-sm -mx-2 px-2 py-1 rounded-md border border-transparent hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
+              class="tap-target-touch text-sm -mx-2 px-2 py-1 rounded-md border border-transparent hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
               title="Click to rename this source" aria-label="Click to rename this source"
             >
               <span class="text-gray-900 dark:text-white">{{ item.provider }}<span v-if="item.brand"> — {{ item.brand }}</span></span>
@@ -41,7 +41,7 @@
               autofocus
               :disabled="sourceEditSaving"
               placeholder="Provider"
-              class="w-24 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+              class="w-24 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm"
               @keyup.enter="saveSourceEdit(item)"
               @keyup.esc="cancelSourceEdit"
             />
@@ -50,20 +50,24 @@
               type="text"
               :disabled="sourceEditSaving"
               placeholder="Brand"
-              class="w-24 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+              class="w-24 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm"
               @keyup.enter="saveSourceEdit(item)"
               @keyup.esc="cancelSourceEdit"
             />
-            <button type="button" @click="saveSourceEdit(item)" :disabled="sourceEditSaving" class="inline-flex items-center justify-center p-2 tap-target text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 disabled:opacity-40" title="Save" aria-label="Save">
+            <IconButton type="button" @click="saveSourceEdit(item)" :disabled="sourceEditSaving" class="inline-flex items-center justify-center tap-target text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 disabled:opacity-40"
+            label="Save"
+          >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
               </svg>
-            </button>
-            <button type="button" @click="cancelSourceEdit" :disabled="sourceEditSaving" class="inline-flex items-center justify-center p-2 tap-target text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-40" title="Cancel" aria-label="Cancel">
+            </IconButton>
+            <IconButton type="button" @click="cancelSourceEdit" :disabled="sourceEditSaving" class="inline-flex items-center justify-center tap-target text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-40"
+            label="Cancel"
+          >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
-            </button>
+            </IconButton>
           </div>
           <p v-if="sourceEditKey === optionKey(item) && sourceEditError" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ sourceEditError }}</p>
         </template>
@@ -73,7 +77,7 @@
             v-if="packageSizeEditKey !== optionKey(item)"
             type="button"
             @click="startPackageSizeEdit(item)"
-            class="text-sm -mx-2 px-2 py-1.5 rounded-md border border-transparent hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
+            class="tap-target-touch text-sm -mx-2 px-2 py-1.5 rounded-md border border-transparent hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
           >
             <span v-if="item.package_size !== null" class="text-gray-700 dark:text-gray-300">
               {{ formatQuantity(item.package_size, props.ingredient.unit_type) }}<span v-if="item.units_per_case > 1" class="text-gray-500 dark:text-gray-400">, case of {{ item.units_per_case }}</span>
@@ -91,7 +95,7 @@
                 autofocus
                 :disabled="packageSizeEditSaving"
                 title="Size of ONE individual package -- e.g. 1 lid. Never the case total, even if sold by the case." aria-label="Size of ONE individual package -- e.g. 1 lid. Never the case total, even if sold by the case."
-                class="w-20 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                class="w-20 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm"
                 @keyup.enter="savePackageSizeEdit(item)"
                 @keyup.esc="cancelPackageSizeEdit"
               />
@@ -105,21 +109,25 @@
                 step="1"
                 :disabled="packageSizeEditSaving"
                 title="How many individual packages come in one case -- purchasing info only, doesn't change how stock is counted. Leave at 1 if not sold by the case." aria-label="How many individual packages come in one case -- purchasing info only, doesn't change how stock is counted. Leave at 1 if not sold by the case."
-                class="w-16 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                class="w-16 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm"
                 @keyup.enter="savePackageSizeEdit(item)"
                 @keyup.esc="cancelPackageSizeEdit"
               />
             </div>
-            <button type="button" @click="savePackageSizeEdit(item)" :disabled="packageSizeEditSaving" class="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 disabled:opacity-40 pb-1.5" title="Save" aria-label="Save">
+            <IconButton type="button" @click="savePackageSizeEdit(item)" :disabled="packageSizeEditSaving" class="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 disabled:opacity-40 pb-1.5"
+            label="Save"
+          >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
               </svg>
-            </button>
-            <button type="button" @click="cancelPackageSizeEdit" :disabled="packageSizeEditSaving" class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-40 pb-1.5" title="Cancel" aria-label="Cancel">
+            </IconButton>
+            <IconButton type="button" @click="cancelPackageSizeEdit" :disabled="packageSizeEditSaving" class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-40 pb-1.5"
+            label="Cancel"
+          >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
-            </button>
+            </IconButton>
           </div>
           <p v-if="packageSizeEditKey === optionKey(item) && packageSizeEditError" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ packageSizeEditError }}</p>
         </template>
@@ -129,7 +137,7 @@
             v-if="inlineEditKey !== optionKey(item)"
             type="button"
             @click="startInlineEdit(item)"
-            class="text-sm -mx-2 px-2 py-1.5 rounded-md border border-transparent hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
+            class="tap-target-touch text-sm -mx-2 px-2 py-1.5 rounded-md border border-transparent hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
           >
             <span v-if="item.price_per_unit !== null" class="text-gray-900 dark:text-white">
               ${{ Number(item.price_per_unit).toFixed(2) }}{{ props.ingredient.unit_type === 'unit' ? '/unit' : '/kg' }}
@@ -145,20 +153,24 @@
               step="0.01"
               autofocus
               :disabled="inlineEditSaving"
-              class="w-20 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+              class="w-20 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm"
               @keyup.enter="saveInlineEdit(item)"
               @keyup.esc="cancelInlineEdit"
             />
-            <button type="button" @click="saveInlineEdit(item)" :disabled="inlineEditSaving" class="inline-flex items-center justify-center p-2 tap-target text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 disabled:opacity-40" title="Save" aria-label="Save">
+            <IconButton type="button" @click="saveInlineEdit(item)" :disabled="inlineEditSaving" class="inline-flex items-center justify-center tap-target text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 disabled:opacity-40"
+            label="Save"
+          >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
               </svg>
-            </button>
-            <button type="button" @click="cancelInlineEdit" :disabled="inlineEditSaving" class="inline-flex items-center justify-center p-2 tap-target text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-40" title="Cancel" aria-label="Cancel">
+            </IconButton>
+            <IconButton type="button" @click="cancelInlineEdit" :disabled="inlineEditSaving" class="inline-flex items-center justify-center tap-target text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-40"
+            label="Cancel"
+          >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
-            </button>
+            </IconButton>
           </div>
           <div
             v-if="inlineEditKey === optionKey(item) && item.price_history_entry_id === null && item.units_per_case > 1"
@@ -200,27 +212,27 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div>
             <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Provider</label>
-            <input v-model="newSourceProvider" type="text" placeholder="e.g. GFS" autofocus :disabled="newSourceSaving" class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+            <input v-model="newSourceProvider" type="text" placeholder="e.g. GFS" autofocus :disabled="newSourceSaving" class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Brand</label>
-            <input v-model="newSourceBrand" type="text" placeholder="Optional" :disabled="newSourceSaving" class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+            <input v-model="newSourceBrand" type="text" placeholder="Optional" :disabled="newSourceSaving" class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
           </div>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div>
             <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Unit Size</label>
-            <input v-model.number="newSourceSize" type="number" inputmode="decimal" min="0.01" step="0.01" :placeholder="props.ingredient.unit_type === 'unit' ? 'units' : 'g'" title="The size of ONE individual package -- e.g. 1 lid. Never the case total, even if sold by the case." aria-label="The size of ONE individual package -- e.g. 1 lid. Never the case total, even if sold by the case." :disabled="newSourceSaving" class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+            <input v-model.number="newSourceSize" type="number" inputmode="decimal" min="0.01" step="0.01" :placeholder="props.ingredient.unit_type === 'unit' ? 'units' : 'g'" title="The size of ONE individual package -- e.g. 1 lid. Never the case total, even if sold by the case." aria-label="The size of ONE individual package -- e.g. 1 lid. Never the case total, even if sold by the case." :disabled="newSourceSaving" class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Total Units</label>
-            <input v-model.number="newSourceUnitsPerCase" type="number" inputmode="decimal" min="1" step="1" title="How many individual packages come in one case -- purchasing info only, doesn't change how stock is counted. Leave at 1 if not sold by the case." aria-label="How many individual packages come in one case -- purchasing info only, doesn't change how stock is counted. Leave at 1 if not sold by the case." :disabled="newSourceSaving" class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+            <input v-model.number="newSourceUnitsPerCase" type="number" inputmode="decimal" min="1" step="1" title="How many individual packages come in one case -- purchasing info only, doesn't change how stock is counted. Leave at 1 if not sold by the case." aria-label="How many individual packages come in one case -- purchasing info only, doesn't change how stock is counted. Leave at 1 if not sold by the case." :disabled="newSourceSaving" class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
           </div>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div>
             <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Price</label>
-            <input v-model.number="newSourcePrice" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00" :disabled="newSourceSaving" class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+            <input v-model.number="newSourcePrice" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00" :disabled="newSourceSaving" class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
           </div>
         </div>
         <div v-if="newSourceUnitsPerCase > 1" class="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
@@ -238,7 +250,7 @@
             type="button"
             @click="saveNewSource"
             :disabled="newSourceSaving || !newSourceProvider || !newSourceSize || newSourcePrice === null"
-            class="py-1.5 px-4 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40"
+            class="tap-target-touch py-1.5 px-4 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40"
           >
             <span v-if="newSourceSaving">Saving...</span>
             <span v-else>Add</span>
@@ -263,6 +275,7 @@ import axios from 'axios'
 import { Link, router } from '@inertiajs/vue3'
 import DataTable, { type Column } from '@/Components/Admin/DataTable.vue'
 import { formatQuantity } from './formatWeight'
+import IconButton from '@/Components/IconButton.vue'
 
 export interface SourcesIngredient {
   id: number

@@ -54,8 +54,8 @@
           </div>
 
           <div class="flex items-center justify-between pt-6 border-t border-gray-200 dark:border-gray-700">
-            <button type="button" @click="destroy" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Delete Ingredient</button>
-            <Link :href="route('admin.costing.ingredients.index')" class="bg-gray-200 dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600">Cancel</Link>
+            <button type="button" @click="destroy" class="tap-target-touch px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Delete Ingredient</button>
+            <Link :href="route('admin.costing.ingredients.index')" class="tap-target-touch bg-gray-200 dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600">Cancel</Link>
           </div>
         </form>
       </div>

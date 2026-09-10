@@ -8,13 +8,13 @@
           <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Past and current production runs, newest first.</p>
         </div>
         <div class="mt-4 md:mt-0 flex flex-wrap gap-2">
-          <Link :href="route('admin.costing.kitchen-rentals.index')" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+          <Link :href="route('admin.costing.kitchen-rentals.index')" class="tap-target-touch inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
             Rental Schedule
           </Link>
           <button
             type="button"
             @click="showCreateModal = true"
-            class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+            class="tap-target-touch inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
           >
             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -30,7 +30,7 @@
 
       <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
         <BulkActionsBar :count="selectedIds.length" singular="run" plural="runs" @clear="selectedIds = []">
-          <button type="button" @click="bulkDelete" class="px-3 py-1.5 text-xs font-medium bg-red-600 text-white rounded-md hover:bg-red-700">
+          <button type="button" @click="bulkDelete" class="tap-target-touch px-3 py-1.5 text-xs font-medium bg-red-600 text-white rounded-md hover:bg-red-700">
             Delete
           </button>
         </BulkActionsBar>

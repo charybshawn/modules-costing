@@ -4,21 +4,21 @@
       v-model="query"
       type="text"
       :placeholder="placeholder ?? 'Not linked to a storefront product'"
-      class="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+      class="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm"
       @focus="onFocus"
       @input="onInput"
     />
-    <button
+    <IconButton
       v-if="modelValue !== null"
       type="button"
-      title="Unlink"
       class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400"
       @click="clear"
-    >
+            label="Unlink"
+          >
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
       </svg>
-    </button>
+    </IconButton>
 
     <div
       v-if="open"
@@ -30,7 +30,7 @@
         v-for="option in results"
         :key="option.id"
         type="button"
-        class="block w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-600"
+        class="tap-target-touch block w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-600"
         @click="select(option)"
       >
         <span class="block text-sm text-gray-700 dark:text-gray-200">{{ option.label }}</span>
@@ -43,6 +43,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import axios from 'axios'
+import IconButton from '@/Components/IconButton.vue'
 
 export interface FinishedGoodOption {
   id: number

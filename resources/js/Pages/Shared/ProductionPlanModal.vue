@@ -25,9 +25,11 @@
             </template>
           </p>
         </div>
-        <button type="button" @click="$emit('close')" class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
+        <IconButton type="button" @click="$emit('close')" class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+            label="Close"
+          >
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-        </button>
+        </IconButton>
       </div>
 
       <div v-if="loading" class="mt-6 text-sm text-gray-500 dark:text-gray-400">Loading...</div>
@@ -65,7 +67,7 @@
                 <svg class="w-4 h-4 flex-shrink-0 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                 <span>Booked: <span class="font-medium text-gray-900 dark:text-white">{{ productionRun.rental.booking_title }}</span> ({{ productionRun.rental.starts_at }})</span>
               </div>
-              <button v-if="!isCompleted" type="button" @click="detachRental" :disabled="rentalBusy" class="flex-shrink-0 py-1 px-3 border border-gray-300 dark:border-gray-600 rounded-md text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-600 disabled:opacity-50">
+              <button v-if="!isCompleted" type="button" @click="detachRental" :disabled="rentalBusy" class="tap-target-touch flex-shrink-0 py-1 px-3 border border-gray-300 dark:border-gray-600 rounded-md text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-600 disabled:opacity-50">
                 Detach
               </button>
             </div>
@@ -77,11 +79,11 @@
               <div v-else>
                 <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Rental Slot</label>
                 <div class="flex flex-wrap items-center gap-2">
-                  <select v-model="selectedRentalId" class="flex-1 min-w-[12rem] rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+                  <select v-model="selectedRentalId" class="flex-1 min-w-[12rem] rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm">
                     <option :value="null" disabled>Select a rental slot...</option>
                     <option v-for="rental in unattachedRentals" :key="rental.id" :value="rental.id">{{ rental.booking_title }} ({{ rental.starts_at }})</option>
                   </select>
-                  <button type="button" @click="attachRental" :disabled="!selectedRentalId || rentalBusy" class="py-1.5 px-4 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50">
+                  <button type="button" @click="attachRental" :disabled="!selectedRentalId || rentalBusy" class="tap-target-touch py-1.5 px-4 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50">
                     Attach
                   </button>
                   <button type="button" @click="showRentalPicker = false" class="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
@@ -147,12 +149,12 @@
                 type="button"
                 @click="undoCompletion"
                 :disabled="undoing"
-                class="bg-red-50 dark:bg-red-900/20 py-2 px-4 border border-red-300 dark:border-red-700 rounded-md shadow-sm text-sm font-medium text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/40 disabled:opacity-50"
+                class="tap-target-touch bg-red-50 dark:bg-red-900/20 py-2 px-4 border border-red-300 dark:border-red-700 rounded-md shadow-sm text-sm font-medium text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/40 disabled:opacity-50"
               >
                 <span v-if="undoing">Undoing...</span>
                 <span v-else>Undo Completion (Reverse Inventory)</span>
               </button>
-              <button v-else type="button" @click="saveChanges" :disabled="saving" class="bg-white dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50">
+              <button v-else type="button" @click="saveChanges" :disabled="saving" class="tap-target-touch bg-white dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50">
                 <span v-if="saving">Saving...</span>
                 <span v-else>Save Changes</span>
               </button>
@@ -174,10 +176,10 @@
               </div>
             </div>
             <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
-              <button type="button" @click="confirmingComplete = null" :disabled="completing" class="bg-gray-200 dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50">
+              <button type="button" @click="confirmingComplete = null" :disabled="completing" class="tap-target-touch bg-gray-200 dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50">
                 Cancel
               </button>
-              <button type="button" @click="completeRun" :disabled="completing" class="bg-green-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50">
+              <button type="button" @click="completeRun" :disabled="completing" class="tap-target-touch bg-green-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50">
                 <span v-if="completing">Completing...</span>
                 <span v-else>Confirm Completion</span>
               </button>
@@ -195,6 +197,7 @@ import axios from 'axios'
 import { router } from '@inertiajs/vue3'
 import Modal from '@/Components/Modal.vue'
 import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
+import IconButton from '@/Components/IconButton.vue'
 
 interface Recipe {
   id: number

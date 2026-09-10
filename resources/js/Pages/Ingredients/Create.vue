@@ -59,8 +59,8 @@
           </div>
 
           <div class="flex items-center justify-end pt-6 border-t border-gray-200 dark:border-gray-700">
-            <Link :href="route('admin.costing.ingredients.index')" class="bg-gray-200 dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600">Cancel</Link>
-            <button type="submit" :disabled="form.processing" class="ml-3 bg-indigo-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
+            <Link :href="route('admin.costing.ingredients.index')" class="tap-target-touch bg-gray-200 dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600">Cancel</Link>
+            <button type="submit" :disabled="form.processing" class="tap-target-touch ml-3 bg-indigo-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
               <span v-if="form.processing">Creating...</span>
               <span v-else>Create Ingredient</span>
             </button>

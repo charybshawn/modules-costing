@@ -8,16 +8,16 @@
           <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Flavours and their ingredient weights per jar.</p>
         </div>
         <div class="mt-4 md:mt-0 flex flex-wrap gap-2">
-          <Link :href="route('admin.costing.recipes.grid')" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+          <Link :href="route('admin.costing.recipes.grid')" class="tap-target-touch inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
             Grid View
           </Link>
-          <Link :href="route('admin.costing.production-planner.runs')" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+          <Link :href="route('admin.costing.production-planner.runs')" class="tap-target-touch inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
             Production Runs
           </Link>
-          <Link :href="route('admin.costing.recipes.costing')" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+          <Link :href="route('admin.costing.recipes.costing')" class="tap-target-touch inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
             Costing
           </Link>
-          <Link :href="route('admin.costing.recipes.create')" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
+          <Link :href="route('admin.costing.recipes.create')" class="tap-target-touch inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
             </svg>
@@ -32,13 +32,13 @@
 
       <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
         <BulkActionsBar :count="selectedIds.length" singular="recipe" plural="recipes" @clear="selectedIds = []">
-          <button type="button" @click="bulkAction('activate')" class="px-3 py-1.5 text-xs font-medium bg-green-600 text-white rounded-md hover:bg-green-700">
+          <button type="button" @click="bulkAction('activate')" class="tap-target-touch px-3 py-1.5 text-xs font-medium bg-green-600 text-white rounded-md hover:bg-green-700">
             Activate
           </button>
-          <button type="button" @click="bulkAction('deactivate')" class="px-3 py-1.5 text-xs font-medium bg-yellow-600 text-white rounded-md hover:bg-yellow-700">
+          <button type="button" @click="bulkAction('deactivate')" class="tap-target-touch px-3 py-1.5 text-xs font-medium bg-yellow-600 text-white rounded-md hover:bg-yellow-700">
             Deactivate
           </button>
-          <button type="button" @click="bulkAction('delete')" class="px-3 py-1.5 text-xs font-medium bg-red-600 text-white rounded-md hover:bg-red-700">
+          <button type="button" @click="bulkAction('delete')" class="tap-target-touch px-3 py-1.5 text-xs font-medium bg-red-600 text-white rounded-md hover:bg-red-700">
             Delete
           </button>
         </BulkActionsBar>

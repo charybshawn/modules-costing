@@ -4,7 +4,7 @@
       <CostingModuleNav class="print:hidden" />
       <div class="flex items-center justify-between mb-6 print:hidden">
         <Link :href="route('admin.costing.production-planner.runs')" class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">&larr; Back to All Runs</Link>
-        <button @click="print" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
+        <button @click="print" class="tap-target-touch inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
           Print
         </button>
       </div>

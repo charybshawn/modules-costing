@@ -61,15 +61,17 @@
                 <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">Ingredients (per jar)</h3>
                 <div v-if="form.ingredients.length" class="border border-gray-200 dark:border-gray-700 rounded-md divide-y divide-gray-200 dark:divide-gray-700">
                   <div v-for="(row, index) in form.ingredients" :key="index" class="flex flex-wrap items-center gap-3 px-4 py-2">
-                    <select v-model.number="row.ingredient_id" required class="flex-1 min-w-[10rem] rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+                    <select v-model.number="row.ingredient_id" required class="flex-1 min-w-[10rem] rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm">
                       <option :value="null" disabled>Select an ingredient&hellip;</option>
                       <option v-for="opt in availableIngredients(form.ingredients, row.ingredient_id)" :key="opt.id" :value="opt.id">{{ opt.name }}</option>
                     </select>
                     <input v-model.number="row.quantity_per_jar" type="number" inputmode="decimal" min="0" step="0.01" required class="w-28 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
                     <span class="text-xs text-gray-500 dark:text-gray-400 w-10">{{ ingredientUnit(row.ingredient_id) }}</span>
-                    <button type="button" @click="form.ingredients.splice(index, 1)" class="text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400">
+                    <IconButton type="button" @click="form.ingredients.splice(index, 1)" class="text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400"
+            label="Remove ingredient"
+          >
                       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
+                    </IconButton>
                   </div>
                 </div>
                 <button type="button" @click="addRow(form.ingredients)" :disabled="form.ingredients.length >= props.ingredients.length" class="mt-3 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 disabled:opacity-40">
@@ -82,15 +84,17 @@
                 <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">Free, always assumed sufficient -- not costed or tracked in inventory, just documents the recipe.</p>
                 <div v-if="form.byproducts.length" class="border border-gray-200 dark:border-gray-700 rounded-md divide-y divide-gray-200 dark:divide-gray-700">
                   <div v-for="(row, index) in form.byproducts" :key="index" class="flex flex-wrap items-center gap-3 px-4 py-2">
-                    <select v-model.number="row.ingredient_id" required class="flex-1 min-w-[10rem] rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+                    <select v-model.number="row.ingredient_id" required class="flex-1 min-w-[10rem] rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm">
                       <option :value="null" disabled>Select a byproduct&hellip;</option>
                       <option v-for="opt in availableIngredients(form.byproducts, row.ingredient_id, byproductIngredients)" :key="opt.id" :value="opt.id">{{ opt.name }} — {{ opt.byproduct_name }}</option>
                     </select>
                     <input v-model.number="row.quantity_per_jar" type="number" inputmode="decimal" min="0" step="0.01" required class="w-28 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
                     <span class="text-xs text-gray-500 dark:text-gray-400 w-10">{{ ingredientUnit(row.ingredient_id) }}</span>
-                    <button type="button" @click="form.byproducts.splice(index, 1)" class="text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400">
+                    <IconButton type="button" @click="form.byproducts.splice(index, 1)" class="text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400"
+            label="Remove byproduct"
+          >
                       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
+                    </IconButton>
                   </div>
                 </div>
                 <button type="button" @click="addRow(form.byproducts, byproductIngredients)" :disabled="byproductIngredients.length === 0 || form.byproducts.length >= byproductIngredients.length" class="mt-3 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 disabled:opacity-40">
@@ -136,8 +140,8 @@
           </div>
 
           <div class="flex items-center justify-between pt-6 border-t border-gray-200 dark:border-gray-700">
-            <button type="button" @click="destroy" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Delete Recipe</button>
-            <Link :href="route('admin.costing.recipes.index')" class="bg-gray-200 dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600">Cancel</Link>
+            <button type="button" @click="destroy" class="tap-target-touch px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Delete Recipe</button>
+            <Link :href="route('admin.costing.recipes.index')" class="tap-target-touch bg-gray-200 dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600">Cancel</Link>
           </div>
         </form>
       </div>
@@ -156,6 +160,7 @@ import FinishedGoodPicker, { type FinishedGoodOption } from '../Shared/FinishedG
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
 import SaveIndicator from '@/Components/Admin/SaveIndicator.vue'
+import IconButton from '@/Components/IconButton.vue'
 
 defineOptions({ layout: AdminLayout })
 

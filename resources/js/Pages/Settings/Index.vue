@@ -55,7 +55,7 @@
             <button
               type="submit"
               :disabled="form.processing"
-              class="bg-indigo-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+              class="tap-target-touch bg-indigo-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
             >
               <span v-if="form.processing">Saving...</span>
               <span v-else>Save</span>

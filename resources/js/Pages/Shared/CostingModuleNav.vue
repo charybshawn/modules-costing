@@ -1,7 +1,7 @@
 <template>
   <nav class="mb-6 border-b border-gray-200 dark:border-gray-700">
     <div class="flex gap-6 overflow-x-auto">
-      <Link
+      <Link class="tap-target-touch"
         v-for="tab in tabs"
         :key="tab.href"
         :href="tab.href"

@@ -9,7 +9,7 @@
       <SourcesTable :ingredient="props.ingredient" />
 
       <div class="mt-6 flex items-center justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
-        <button type="button" @click="$emit('close')" class="bg-gray-200 dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600">
+        <button type="button" @click="$emit('close')" class="tap-target-touch bg-gray-200 dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600">
           Close
         </button>
       </div>

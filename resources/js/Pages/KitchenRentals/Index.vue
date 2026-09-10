@@ -15,13 +15,13 @@
             type="button"
             :disabled="importForm.processing"
             title="Re-importing an updated export safely updates existing slots instead of duplicating them."
-            class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50"
+            class="tap-target-touch inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50"
             @click="fileInput?.click()"
           >
             <span v-if="importForm.processing">Importing...</span>
             <span v-else>Import Schedule (CSV)</span>
           </button>
-          <Link :href="route('admin.costing.production-planner.runs')" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+          <Link :href="route('admin.costing.production-planner.runs')" class="tap-target-touch inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
             View All Runs
           </Link>
         </div>
@@ -55,21 +55,22 @@
               class="inline-flex items-center gap-1 rounded-full border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 pl-3 pr-1.5 py-1 text-sm text-gray-700 dark:text-gray-200"
             >
               Hiding past dates
-              <button
+              <IconButton
                 type="button"
                 @click="hidePast = false"
-                class="p-0.5 rounded-full text-gray-400 dark:text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-600 dark:hover:text-gray-300"
-              >
+                class="tap-target-touch rounded-full text-gray-400 dark:text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-600 dark:hover:text-gray-300"
+            label="Show past rentals"
+          >
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
-              </button>
+              </IconButton>
             </span>
             <button
               v-else
               type="button"
               @click="hidePast = true"
-              class="inline-flex items-center gap-1 rounded-full border border-dashed border-gray-300 dark:border-gray-600 px-2.5 py-1 text-sm text-gray-500 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-700 dark:hover:text-gray-200"
+              class="tap-target-touch inline-flex items-center gap-1 rounded-full border border-dashed border-gray-300 dark:border-gray-600 px-2.5 py-1 text-sm text-gray-500 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-700 dark:hover:text-gray-200"
             >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -100,7 +101,7 @@
             <select
               :value="item.status ?? ''"
               @change="updateStatus(item, ($event.target as HTMLSelectElement).value)"
-              :class="[statusColor(item.status), 'appearance-none rounded-full pl-2 pr-1.5 py-1 text-sm font-medium border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400']"
+              :class="[statusColor(item.status), 'appearance-none rounded-full pl-2 pr-1.5 py-1 text-base sm:text-sm font-medium border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400']"
             >
               <option v-if="!item.status" value="" disabled class="bg-white text-gray-900">—</option>
               <option v-for="opt in statusOptionsFor(item)" :key="opt" :value="opt" class="bg-white text-gray-900">{{ opt }}</option>
@@ -131,6 +132,7 @@ import DataTable, { type Column, type Action } from '@/Components/Admin/DataTabl
 import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
 import ProductionPlanModal from '../Shared/ProductionPlanModal.vue'
+import IconButton from '@/Components/IconButton.vue'
 
 defineOptions({ layout: (h, page) => h(AdminLayout, { wide: true }, () => page) })
 

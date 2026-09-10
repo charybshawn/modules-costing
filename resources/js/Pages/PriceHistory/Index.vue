@@ -10,10 +10,10 @@
           </p>
         </div>
         <div class="mt-4 md:mt-0 flex flex-wrap gap-2">
-          <Link :href="route('admin.costing.ingredients.index')" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+          <Link :href="route('admin.costing.ingredients.index')" class="tap-target-touch inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
             Ingredients
           </Link>
-          <Link :href="route('admin.costing.price-history.create')" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
+          <Link :href="route('admin.costing.price-history.create')" class="tap-target-touch inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
             </svg>
@@ -34,21 +34,22 @@
 
         <span v-if="ingredientFilterName" class="inline-flex items-center gap-1 rounded-full border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 pl-3 pr-1.5 py-1 text-sm text-gray-700 dark:text-gray-200">
           Ingredient: <span class="font-medium">{{ ingredientFilterName }}</span>
-          <button
+          <IconButton
             type="button"
             @click="ingredientFilterId = null"
-            class="p-0.5 rounded-full text-gray-400 dark:text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-600 dark:hover:text-gray-300"
+            class="tap-target-touch rounded-full text-gray-400 dark:text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-600 dark:hover:text-gray-300"
+            label="Clear ingredient filter"
           >
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
-          </button>
+          </IconButton>
         </span>
       </div>
 
       <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
         <BulkActionsBar :count="selectedIds.length" singular="entry" plural="entries" @clear="selectedIds = []">
-          <button type="button" @click="bulkDelete" class="px-3 py-1.5 text-xs font-medium bg-red-600 text-white rounded-md hover:bg-red-700">
+          <button type="button" @click="bulkDelete" class="tap-target-touch px-3 py-1.5 text-xs font-medium bg-red-600 text-white rounded-md hover:bg-red-700">
             Delete
           </button>
         </BulkActionsBar>
@@ -117,6 +118,7 @@ import UpdatePriceModal, { type UpdatePriceEntry } from '../Shared/UpdatePriceMo
 import BulkActionsBar from '../Shared/BulkActionsBar.vue'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
 import { formatQuantity } from '../Shared/formatWeight'
+import IconButton from '@/Components/IconButton.vue'
 
 defineOptions({ layout: (h, page) => h(AdminLayout, { wide: true }, () => page) })
 
