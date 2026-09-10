@@ -152,7 +152,7 @@
                 </select>
                 <input
                   v-model.number="row.packages"
-                  type="number" inputmode="decimal"
+                  type="number"
                   inputmode="decimal"
                   :min="bulkForm.mode === 'recount' ? 0 : undefined"
                   step="0.01"
