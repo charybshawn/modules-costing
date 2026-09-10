@@ -38,7 +38,7 @@
 
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Waste % *</label>
-            <input v-model.number="form.waste_percent" type="number" min="1" max="100" step="0.01" required class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+            <input v-model.number="form.waste_percent" type="number" inputmode="decimal" min="1" max="100" step="0.01" required class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">100 = no waste, 95 = 5% trim loss.</p>
             <p v-if="form.errors.waste_percent" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.waste_percent }}</p>
           </div>

@@ -21,7 +21,7 @@
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Price update reminder (days)</label>
             <input
               v-model.number="form.staleness_days"
-              type="number"
+              type="number" inputmode="numeric"
               min="1"
               max="90"
               step="1"

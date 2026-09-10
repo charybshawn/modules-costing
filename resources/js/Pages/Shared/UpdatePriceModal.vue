@@ -16,7 +16,7 @@
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">New Total Price ($) *</label>
         <input
           v-model.number="form.total_price"
-          type="number"
+          type="number" inputmode="decimal"
           min="0"
           step="0.01"
           required

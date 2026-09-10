@@ -1,6 +1,6 @@
 <template>
   <div class="py-6">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div>
       <CostingModuleNav />
       <div class="md:flex md:items-center md:justify-between mb-6">
         <div>
@@ -84,18 +84,18 @@
 
           <div class="mt-4">
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Sell Price ($)</label>
-            <input v-model.number="editForm.sell_price" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+            <input v-model.number="editForm.sell_price" type="number" inputmode="decimal" min="0" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
           </div>
 
           <div class="mt-4">
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Fill Size (g)</label>
-            <input v-model.number="editForm.fill_size_g" type="number" min="0" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+            <input v-model.number="editForm.fill_size_g" type="number" inputmode="decimal" min="0" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Actual measured fill weight per jar, from production. Leave blank to use the theoretical ingredient-weight total instead.</p>
           </div>
 
           <div class="mt-4">
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Cost Buffer (%)</label>
-            <input v-model.number="editForm.cost_buffer_percent" type="number" min="0" max="100" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+            <input v-model.number="editForm.cost_buffer_percent" type="number" inputmode="decimal" min="0" max="100" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Contingency added on top of ingredient cost, e.g. for price drift or over-portioning. Leave blank for none.</p>
           </div>
 
@@ -123,7 +123,7 @@ import Modal from '@/Components/Modal.vue'
 import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
 
-defineOptions({ layout: AdminLayout })
+defineOptions({ layout: (h, page) => h(AdminLayout, { wide: true }, () => page) })
 
 interface RecipeCostRow {
   id: number

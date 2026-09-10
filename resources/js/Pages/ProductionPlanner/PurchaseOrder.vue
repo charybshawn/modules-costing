@@ -61,7 +61,7 @@ import AdminLayout from '@/Layouts/AdminLayout.vue'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
 import { formatQuantity } from '../Shared/formatWeight'
 
-defineOptions({ layout: AdminLayout })
+defineOptions({ layout: (h, page) => h(AdminLayout, { wide: true }, () => page) })
 
 interface PlanRow {
   ingredient_id: number

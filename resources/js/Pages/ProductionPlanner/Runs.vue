@@ -88,7 +88,7 @@ import CostingModuleNav from '../Shared/CostingModuleNav.vue'
 import NewProductionRunModal from '../Shared/NewProductionRunModal.vue'
 import ProductionPlanModal from '../Shared/ProductionPlanModal.vue'
 
-defineOptions({ layout: AdminLayout })
+defineOptions({ layout: (h, page) => h(AdminLayout, { wide: true }, () => page) })
 
 interface ProductionRunRow {
   id: number

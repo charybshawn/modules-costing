@@ -34,7 +34,7 @@
                 <span class="text-xs text-gray-500 dark:text-gray-400">Packages of {{ fmt(source.package_size) }}</span>
                 <input
                   v-model.number="recountPackages"
-                  type="number"
+                  type="number" inputmode="decimal"
                   inputmode="decimal"
                   min="0"
                   step="0.01"
@@ -83,7 +83,7 @@
               <button type="button" @click="quickAdjustPackages = Math.max(0, quickAdjustPackages - 1)" class="w-10 h-10 flex items-center justify-center rounded-full border border-gray-300 dark:border-gray-600 text-lg dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600">−</button>
               <input
                 v-model.number="quickAdjustPackages"
-                type="number"
+                type="number" inputmode="numeric"
                 inputmode="decimal"
                 min="0"
                 step="1"

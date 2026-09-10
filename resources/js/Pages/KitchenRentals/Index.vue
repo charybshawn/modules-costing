@@ -132,7 +132,7 @@ import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
 import ProductionPlanModal from '../Shared/ProductionPlanModal.vue'
 
-defineOptions({ layout: AdminLayout })
+defineOptions({ layout: (h, page) => h(AdminLayout, { wide: true }, () => page) })
 
 interface EquipmentBooking {
   name: string

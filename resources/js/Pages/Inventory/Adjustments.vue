@@ -1,6 +1,6 @@
 <template>
   <div class="py-6">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div>
       <CostingModuleNav />
       <div class="md:flex md:items-center md:justify-between mb-6">
         <div>
@@ -83,7 +83,7 @@ import CostingModuleNav from '../Shared/CostingModuleNav.vue'
 import ProductionPlanModal from '../Shared/ProductionPlanModal.vue'
 import { formatQuantity } from '../Shared/formatWeight'
 
-defineOptions({ layout: AdminLayout })
+defineOptions({ layout: (h, page) => h(AdminLayout, { wide: true }, () => page) })
 
 interface AdjustmentRow {
   id: number

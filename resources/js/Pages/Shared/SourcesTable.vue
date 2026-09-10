@@ -4,7 +4,7 @@
 
     <p v-else-if="priceOptions.length === 0" class="mt-6 text-sm text-gray-500 dark:text-gray-400">No sources logged yet for this ingredient.</p>
 
-    <div v-else class="mt-4 -mx-6 max-h-96 overflow-y-auto">
+    <div v-else class="mt-4 -mx-6 lg:max-h-96 lg:overflow-y-auto">
       <DataTable :columns="columns" :items="priceOptions" item-key="package_size_id" hide-toolbar>
         <template #cell-source="{ item }">
           <template v-if="sourceEditKey !== optionKey(item)">
@@ -13,7 +13,7 @@
               type="button"
               @click="startSourceEdit(item)"
               class="text-sm -mx-2 px-2 py-1 rounded-md border border-transparent hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
-              title="Click to rename this source"
+              title="Click to rename this source" aria-label="Click to rename this source"
             >
               <span class="text-gray-900 dark:text-white">{{ item.provider }}<span v-if="item.brand"> — {{ item.brand }}</span></span>
             </button>
@@ -27,7 +27,7 @@
               @click="deleteSource(item)"
               :disabled="item.quantity_on_hand > 0"
               class="ml-1.5 p-2 -m-2 text-gray-300 dark:text-gray-600 hover:text-red-600 dark:hover:text-red-400 disabled:opacity-40 disabled:hover:text-gray-300 dark:disabled:hover:text-gray-600"
-              :title="item.quantity_on_hand > 0 ? 'Still has stock on hand -- recount it to 0 on Inventory first' : 'Remove this source'"
+              :title="item.quantity_on_hand > 0 ? 'Still has stock on hand -- recount it to 0 on Inventory first' : 'Remove this source'" aria-label="item.quantity_on_hand > 0 ? 'Still has stock on hand -- recount it to 0 on Inventory first' : 'Remove this source'"
             >
               <svg class="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -54,12 +54,12 @@
               @keyup.enter="saveSourceEdit(item)"
               @keyup.esc="cancelSourceEdit"
             />
-            <button type="button" @click="saveSourceEdit(item)" :disabled="sourceEditSaving" class="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 disabled:opacity-40" title="Save">
+            <button type="button" @click="saveSourceEdit(item)" :disabled="sourceEditSaving" class="inline-flex items-center justify-center p-2 tap-target text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 disabled:opacity-40" title="Save" aria-label="Save">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
               </svg>
             </button>
-            <button type="button" @click="cancelSourceEdit" :disabled="sourceEditSaving" class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-40" title="Cancel">
+            <button type="button" @click="cancelSourceEdit" :disabled="sourceEditSaving" class="inline-flex items-center justify-center p-2 tap-target text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-40" title="Cancel" aria-label="Cancel">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -85,12 +85,12 @@
               <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Unit Size</label>
               <input
                 v-model.number="packageSizeEditValue"
-                type="number"
+                type="number" inputmode="decimal"
                 min="0.01"
                 step="0.01"
                 autofocus
                 :disabled="packageSizeEditSaving"
-                title="Size of ONE individual package -- e.g. 1 lid. Never the case total, even if sold by the case."
+                title="Size of ONE individual package -- e.g. 1 lid. Never the case total, even if sold by the case." aria-label="Size of ONE individual package -- e.g. 1 lid. Never the case total, even if sold by the case."
                 class="w-20 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
                 @keyup.enter="savePackageSizeEdit(item)"
                 @keyup.esc="cancelPackageSizeEdit"
@@ -100,22 +100,22 @@
               <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Total Units</label>
               <input
                 v-model.number="packageSizeEditUnitsPerCase"
-                type="number"
+                type="number" inputmode="numeric"
                 min="1"
                 step="1"
                 :disabled="packageSizeEditSaving"
-                title="How many individual packages come in one case -- purchasing info only, doesn't change how stock is counted. Leave at 1 if not sold by the case."
+                title="How many individual packages come in one case -- purchasing info only, doesn't change how stock is counted. Leave at 1 if not sold by the case." aria-label="How many individual packages come in one case -- purchasing info only, doesn't change how stock is counted. Leave at 1 if not sold by the case."
                 class="w-16 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
                 @keyup.enter="savePackageSizeEdit(item)"
                 @keyup.esc="cancelPackageSizeEdit"
               />
             </div>
-            <button type="button" @click="savePackageSizeEdit(item)" :disabled="packageSizeEditSaving" class="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 disabled:opacity-40 pb-1.5" title="Save">
+            <button type="button" @click="savePackageSizeEdit(item)" :disabled="packageSizeEditSaving" class="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 disabled:opacity-40 pb-1.5" title="Save" aria-label="Save">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
               </svg>
             </button>
-            <button type="button" @click="cancelPackageSizeEdit" :disabled="packageSizeEditSaving" class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-40 pb-1.5" title="Cancel">
+            <button type="button" @click="cancelPackageSizeEdit" :disabled="packageSizeEditSaving" class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-40 pb-1.5" title="Cancel" aria-label="Cancel">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -140,7 +140,7 @@
             <span class="text-xs text-gray-500 dark:text-gray-400">$</span>
             <input
               v-model.number="inlineEditPrice"
-              type="number"
+              type="number" inputmode="decimal"
               min="0"
               step="0.01"
               autofocus
@@ -149,12 +149,12 @@
               @keyup.enter="saveInlineEdit(item)"
               @keyup.esc="cancelInlineEdit"
             />
-            <button type="button" @click="saveInlineEdit(item)" :disabled="inlineEditSaving" class="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 disabled:opacity-40" title="Save">
+            <button type="button" @click="saveInlineEdit(item)" :disabled="inlineEditSaving" class="inline-flex items-center justify-center p-2 tap-target text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 disabled:opacity-40" title="Save" aria-label="Save">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
               </svg>
             </button>
-            <button type="button" @click="cancelInlineEdit" :disabled="inlineEditSaving" class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-40" title="Cancel">
+            <button type="button" @click="cancelInlineEdit" :disabled="inlineEditSaving" class="inline-flex items-center justify-center p-2 tap-target text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-40" title="Cancel" aria-label="Cancel">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -186,7 +186,7 @@
           </button>
           <span v-else class="text-sm font-medium text-indigo-700 dark:text-indigo-400">
             Preferred
-            <button type="button" @click="clearPreferred()" class="ml-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" title="Clear">&times;</button>
+            <button type="button" @click="clearPreferred()" class="ml-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" title="Clear" aria-label="Clear">&times;</button>
           </span>
         </template>
       </DataTable>
@@ -210,17 +210,17 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div>
             <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Unit Size</label>
-            <input v-model.number="newSourceSize" type="number" min="0.01" step="0.01" :placeholder="props.ingredient.unit_type === 'unit' ? 'units' : 'g'" title="The size of ONE individual package -- e.g. 1 lid. Never the case total, even if sold by the case." :disabled="newSourceSaving" class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+            <input v-model.number="newSourceSize" type="number" inputmode="decimal" min="0.01" step="0.01" :placeholder="props.ingredient.unit_type === 'unit' ? 'units' : 'g'" title="The size of ONE individual package -- e.g. 1 lid. Never the case total, even if sold by the case." aria-label="The size of ONE individual package -- e.g. 1 lid. Never the case total, even if sold by the case." :disabled="newSourceSaving" class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Total Units</label>
-            <input v-model.number="newSourceUnitsPerCase" type="number" min="1" step="1" title="How many individual packages come in one case -- purchasing info only, doesn't change how stock is counted. Leave at 1 if not sold by the case." :disabled="newSourceSaving" class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+            <input v-model.number="newSourceUnitsPerCase" type="number" inputmode="decimal" min="1" step="1" title="How many individual packages come in one case -- purchasing info only, doesn't change how stock is counted. Leave at 1 if not sold by the case." aria-label="How many individual packages come in one case -- purchasing info only, doesn't change how stock is counted. Leave at 1 if not sold by the case." :disabled="newSourceSaving" class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
           </div>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div>
             <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Price</label>
-            <input v-model.number="newSourcePrice" type="number" min="0" step="0.01" placeholder="0.00" :disabled="newSourceSaving" class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+            <input v-model.number="newSourcePrice" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00" :disabled="newSourceSaving" class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
           </div>
         </div>
         <div v-if="newSourceUnitsPerCase > 1" class="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">

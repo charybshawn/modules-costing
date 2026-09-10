@@ -1,6 +1,6 @@
 <template>
   <div class="py-6">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div>
       <CostingModuleNav />
       <div class="md:flex md:items-center md:justify-between mb-6">
         <div>
@@ -152,7 +152,7 @@
                 </select>
                 <input
                   v-model.number="row.packages"
-                  type="number"
+                  type="number" inputmode="decimal"
                   inputmode="decimal"
                   :min="bulkForm.mode === 'recount' ? 0 : undefined"
                   step="0.01"
@@ -228,7 +228,7 @@
             </div>
             <div class="sm:col-span-2">
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Waste % *</label>
-              <input v-model.number="addItemForm.waste_percent" type="number" min="1" max="100" step="0.01" required class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+              <input v-model.number="addItemForm.waste_percent" type="number" inputmode="decimal" min="1" max="100" step="0.01" required class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">100 = no waste, 95 = 5% trim loss. Adjust later on the Ingredients page if unsure.</p>
             </div>
           </div>
@@ -246,12 +246,12 @@
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Size of 1 Package *</label>
-                <input v-model.number="addItemForm.package_size" type="number" min="0.01" step="0.01" required :placeholder="addItemForm.unit_type === 'unit' ? 'e.g. 1' : 'e.g. 3500'" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+                <input v-model.number="addItemForm.package_size" type="number" inputmode="decimal" min="0.01" step="0.01" required :placeholder="addItemForm.unit_type === 'unit' ? 'e.g. 1' : 'e.g. 3500'" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ addItemForm.unit_type === 'unit' ? 'ONE individual package -- e.g. 1 lid, 1 bag. Never the case total, even if sold by the case (use Units Per Case for that).' : 'Grams in ONE package -- e.g. 3.5kg = 3500. Never the case total.' }}</p>
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Units Per Case</label>
-                <input v-model.number="addItemForm.units_per_case" type="number" min="1" step="1" placeholder="1" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+                <input v-model.number="addItemForm.units_per_case" type="number" inputmode="numeric" min="1" step="1" placeholder="1" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Purchasing info only -- how many of the above come in one case. Doesn't change how stock is counted. Leave at 1 if not sold by the case.</p>
               </div>
               <div class="sm:col-span-2">
@@ -291,7 +291,7 @@ import StockAdjustModal, { type StockIngredient } from '../Shared/StockAdjustMod
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
 import { formatQuantity } from '../Shared/formatWeight'
 
-defineOptions({ layout: AdminLayout })
+defineOptions({ layout: (h, page) => h(AdminLayout, { wide: true }, () => page) })
 
 interface IngredientSource {
   id: number

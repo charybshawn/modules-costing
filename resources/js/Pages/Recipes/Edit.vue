@@ -1,6 +1,6 @@
 <template>
   <div class="py-6">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div>
       <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
         <div class="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
           <div class="flex items-center gap-3">
@@ -41,7 +41,7 @@
 
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Minimum units to keep in stock</label>
-                <input v-model.number="form.min_stock_threshold" type="number" min="0" step="1" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="e.g. 20" />
+                <input v-model.number="form.min_stock_threshold" type="number" inputmode="numeric" min="0" step="1" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="e.g. 20" />
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Flagged as needing reordering whenever current ingredient stock can't produce at least this many jars. Leave blank to disable.</p>
                 <p v-if="form.errors.min_stock_threshold" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.min_stock_threshold }}</p>
               </div>
@@ -65,7 +65,7 @@
                       <option :value="null" disabled>Select an ingredient&hellip;</option>
                       <option v-for="opt in availableIngredients(form.ingredients, row.ingredient_id)" :key="opt.id" :value="opt.id">{{ opt.name }}</option>
                     </select>
-                    <input v-model.number="row.quantity_per_jar" type="number" min="0" step="0.01" required class="w-28 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                    <input v-model.number="row.quantity_per_jar" type="number" inputmode="decimal" min="0" step="0.01" required class="w-28 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
                     <span class="text-xs text-gray-500 dark:text-gray-400 w-10">{{ ingredientUnit(row.ingredient_id) }}</span>
                     <button type="button" @click="form.ingredients.splice(index, 1)" class="text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400">
                       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -86,7 +86,7 @@
                       <option :value="null" disabled>Select a byproduct&hellip;</option>
                       <option v-for="opt in availableIngredients(form.byproducts, row.ingredient_id, byproductIngredients)" :key="opt.id" :value="opt.id">{{ opt.name }} — {{ opt.byproduct_name }}</option>
                     </select>
-                    <input v-model.number="row.quantity_per_jar" type="number" min="0" step="0.01" required class="w-28 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                    <input v-model.number="row.quantity_per_jar" type="number" inputmode="decimal" min="0" step="0.01" required class="w-28 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
                     <span class="text-xs text-gray-500 dark:text-gray-400 w-10">{{ ingredientUnit(row.ingredient_id) }}</span>
                     <button type="button" @click="form.byproducts.splice(index, 1)" class="text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400">
                       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>

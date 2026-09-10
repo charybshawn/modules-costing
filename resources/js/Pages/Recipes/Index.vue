@@ -95,7 +95,7 @@ import DataTable, { type Column, type Action } from '@/Components/Admin/DataTabl
 import BulkActionsBar from '../Shared/BulkActionsBar.vue'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
 
-defineOptions({ layout: AdminLayout })
+defineOptions({ layout: (h, page) => h(AdminLayout, { wide: true }, () => page) })
 
 interface Recipe {
   id: number

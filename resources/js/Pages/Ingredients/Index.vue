@@ -1,6 +1,6 @@
 <template>
   <div class="py-6">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div>
       <CostingModuleNav />
       <div class="md:flex md:items-center md:justify-between mb-6">
         <div>
@@ -137,7 +137,7 @@ import AvailablePricesModal, { type PricesIngredient } from '../Shared/Available
 import BulkActionsBar from '../Shared/BulkActionsBar.vue'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
 
-defineOptions({ layout: AdminLayout })
+defineOptions({ layout: (h, page) => h(AdminLayout, { wide: true }, () => page) })
 
 interface IngredientRow {
   id: number

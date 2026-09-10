@@ -1,6 +1,6 @@
 <template>
   <Modal :show="productionRunId !== null" max-width="2xl" @close="$emit('close')">
-    <div v-if="productionRunId !== null" class="p-6 max-h-[85vh] overflow-y-auto">
+    <div v-if="productionRunId !== null" class="p-4 sm:p-6">
       <div class="flex items-start justify-between gap-4">
         <div>
           <h2 class="text-lg font-medium text-gray-900 dark:text-white flex items-center gap-3">
@@ -44,7 +44,7 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div v-if="showBatchSize">
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Batch Size *</label>
-              <input v-model.number="form.batch_size" type="number" min="1" required :disabled="isCompleted" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:opacity-60" />
+              <input v-model.number="form.batch_size" type="number" inputmode="numeric" min="1" required :disabled="isCompleted" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:opacity-60" />
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Units one batch yields, for every flavour in this run.</p>
             </div>
             <div :class="showBatchSize ? '' : 'md:col-span-2'">
@@ -95,10 +95,10 @@
 
           <template v-if="!confirmingComplete">
             <div v-if="!isCompleted && showBatches" class="border border-gray-200 dark:border-gray-700 rounded-md divide-y divide-gray-200 dark:divide-gray-700">
-              <div v-for="row in form.batches" :key="row.recipe_id" class="flex items-center justify-between px-4 py-2 gap-4">
-                <span class="text-sm text-gray-700 dark:text-gray-300 flex-1">{{ recipeName(row.recipe_id) }}</span>
-                <span class="text-xs text-gray-500 dark:text-gray-400 w-24 text-right">{{ rowUnits(row) }} units</span>
-                <input v-model.number="row.batches" type="number" min="0" class="w-28 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+              <div v-for="row in form.batches" :key="row.recipe_id" class="flex flex-wrap items-center justify-between px-4 py-2 gap-x-3 gap-y-2">
+                <span class="text-sm text-gray-700 dark:text-gray-300 flex-1 min-w-[8rem]">{{ recipeName(row.recipe_id) }}</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400 text-right">{{ rowUnits(row) }} units</span>
+                <input v-model.number="row.batches" type="number" inputmode="numeric" min="0" class="w-24 sm:w-28 tap-target rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
               </div>
               <div class="flex items-center justify-between px-4 py-2 bg-gray-50 dark:bg-gray-700/50">
                 <span class="text-sm font-semibold text-gray-900 dark:text-white">Total Units</span>
@@ -141,7 +141,7 @@
               </table>
             </div>
 
-            <div class="flex justify-end gap-3">
+            <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
               <button
                 v-if="isCompleted"
                 type="button"
@@ -167,13 +167,13 @@
               Confirm actual units produced per flavour -- defaults to the plan. Inventory is always deducted using the planned quantities, not these.
             </p>
             <div class="border border-gray-200 dark:border-gray-700 rounded-md divide-y divide-gray-200 dark:divide-gray-700">
-              <div v-for="row in confirmingComplete" :key="row.recipe_id" class="flex items-center justify-between px-4 py-2 gap-4">
-                <span class="text-sm text-gray-700 dark:text-gray-300 flex-1">{{ row.recipe_name }}</span>
-                <span class="text-xs text-gray-500 dark:text-gray-400 w-28 text-right">planned {{ row.planned_units }}</span>
-                <input v-model.number="row.actual_units" type="number" min="0" class="w-28 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+              <div v-for="row in confirmingComplete" :key="row.recipe_id" class="flex flex-wrap items-center justify-between px-4 py-2 gap-x-3 gap-y-2">
+                <span class="text-sm text-gray-700 dark:text-gray-300 flex-1 min-w-[8rem]">{{ row.recipe_name }}</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400 text-right">planned {{ row.planned_units }}</span>
+                <input v-model.number="row.actual_units" type="number" inputmode="numeric" min="0" class="w-24 sm:w-28 tap-target rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
               </div>
             </div>
-            <div class="flex justify-end gap-3">
+            <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
               <button type="button" @click="confirmingComplete = null" :disabled="completing" class="bg-gray-200 dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50">
                 Cancel
               </button>
