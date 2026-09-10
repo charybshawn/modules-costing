@@ -27,7 +27,7 @@
       </div>
 
       <div class="mb-4 flex flex-wrap items-center gap-4">
-        <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+        <label class="tap-target-touch inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
           <input v-model="needsUpdateOnly" type="checkbox" class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500 dark:bg-gray-700" />
           Needs update only ({{ needsUpdateCount }})
         </label>

@@ -73,7 +73,7 @@
               <button
                 type="button"
                 @click="openPricesModal(item)"
-                class="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline"
+                class="tap-target-touch inline-flex items-center text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline"
               >
                 <span v-if="item.status === 'ok'">${{ Number(item.weekly_price).toFixed(2) }}{{ item.unit_type === 'unit' ? '/unit' : '/kg' }}</span>
                 <span v-else-if="item.stale_price !== null">${{ Number(item.stale_price).toFixed(2) }}{{ item.unit_type === 'unit' ? '/unit' : '/kg' }}</span>
@@ -111,7 +111,7 @@
             <button
               type="button"
               @click="openPricesModal(item)"
-              class="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline"
+              class="tap-target-touch inline-flex items-center text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline"
             >
               {{ item.source_count }} source{{ item.source_count !== 1 ? 's' : '' }}..
             </button>

@@ -7,7 +7,7 @@
             <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Edit Ingredient</h1>
             <SaveIndicator :processing="form.processing" :recently-successful="form.recentlySuccessful" />
           </div>
-          <Link :href="route('admin.costing.ingredients.index')" class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">&larr; Back</Link>
+          <Link :href="route('admin.costing.ingredients.index')" class="tap-target-touch inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">&larr; Back</Link>
         </div>
 
         <form @submit.prevent class="p-6 space-y-6">

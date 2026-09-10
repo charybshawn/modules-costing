@@ -7,7 +7,7 @@
             <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Edit Recipe: {{ recipe.name }}</h1>
             <SaveIndicator :processing="form.processing" :recently-successful="form.recentlySuccessful" />
           </div>
-          <Link :href="route('admin.costing.recipes.index')" class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">&larr; Back</Link>
+          <Link :href="route('admin.costing.recipes.index')" class="tap-target-touch inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">&larr; Back</Link>
         </div>
 
         <form @submit.prevent class="p-6 space-y-6">
@@ -47,7 +47,7 @@
               </div>
 
               <div>
-                <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label class="tap-target-touch flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                   <input v-model="form.is_active" type="checkbox" class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500 dark:bg-gray-700" />
                   Active
                 </label>
@@ -74,7 +74,7 @@
                     </IconButton>
                   </div>
                 </div>
-                <button type="button" @click="addRow(form.ingredients)" :disabled="form.ingredients.length >= props.ingredients.length" class="mt-3 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 disabled:opacity-40">
+                <button type="button" @click="addRow(form.ingredients)" :disabled="form.ingredients.length >= props.ingredients.length" class="tap-target-touch inline-flex items-center mt-3 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 disabled:opacity-40">
                   + Add Ingredient
                 </button>
               </div>
@@ -97,7 +97,7 @@
                     </IconButton>
                   </div>
                 </div>
-                <button type="button" @click="addRow(form.byproducts, byproductIngredients)" :disabled="byproductIngredients.length === 0 || form.byproducts.length >= byproductIngredients.length" class="mt-3 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 disabled:opacity-40">
+                <button type="button" @click="addRow(form.byproducts, byproductIngredients)" :disabled="byproductIngredients.length === 0 || form.byproducts.length >= byproductIngredients.length" class="tap-target-touch inline-flex items-center mt-3 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 disabled:opacity-40">
                   + Add Byproduct
                 </button>
               </div>
@@ -117,7 +117,7 @@
                       <dd class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                         {{ line.quantity }}{{ line.unit }}
                         <span class="mx-1">&middot;</span>
-                        <button type="button" @click="openPricesModal(line.ingredientId)" class="font-medium" :class="priceIndicatorClass(line.ingredientId)">
+                        <button type="button" @click="openPricesModal(line.ingredientId)" class="tap-target-touch inline-flex items-center font-medium" :class="priceIndicatorClass(line.ingredientId)">
                           {{ priceIndicatorLabel(line.ingredientId) }}
                         </button>
                       </dd>

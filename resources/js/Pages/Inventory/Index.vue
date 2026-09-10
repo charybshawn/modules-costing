@@ -48,7 +48,7 @@
           item-key="ingredient_id"
         >
           <template #cell-name="{ item }">
-            <button type="button" @click="openStockModal(item)" class="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline text-left">
+            <button type="button" @click="openStockModal(item)" class="tap-target-touch inline-flex items-center text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline text-left">
               {{ item.name }}
             </button>
           </template>
