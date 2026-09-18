@@ -1,5 +1,6 @@
 <template>
-  <Modal :show="productionRunId !== null" max-width="2xl" @close="$emit('close')">
+  <ResponsiveModal :show="productionRunId !== null" max-width="2xl" @close="$emit('close')">
+    <template #desktop>
     <div v-if="productionRunId !== null" class="p-4 sm:p-6">
       <div class="flex items-start justify-between gap-4">
         <div>
@@ -188,14 +189,202 @@
         </div>
       </template>
     </div>
-  </Modal>
+    </template>
+
+    <template #mobile>
+      <!-- Same states as #desktop (loading / batches-editable / completed
+           summary / confirming-completion), reflowed into scrollable body +
+           pinned footer. The shell's own X (rendered above this slot)
+           covers closing, so the inline close IconButton next to the title
+           on desktop isn't repeated here. The two action-button groups
+           (Save/Undo, and Cancel/Confirm Completion) move into the footer,
+           each still behind its original v-if/v-else so exactly one shows
+           at a time depending on state -- everything else stays in the
+           scrollable body, unchanged from #desktop. -->
+      <div v-if="productionRunId !== null" class="flex-1 flex flex-col min-h-0">
+        <div class="flex-1 overflow-y-auto px-4 -mt-2">
+          <h2 class="text-lg font-semibold text-gray-900 dark:text-white flex flex-wrap items-center gap-2">
+            {{ productionRun?.name ?? 'Production Plan' }}
+            <span v-if="productionRun" :class="['inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium', typeBadgeClass(productionRun.type)]">
+              {{ typeLabel(productionRun.type) }}
+            </span>
+            <span v-if="isCompleted" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
+              Completed {{ productionRun?.completed_at }}
+            </span>
+            <span v-if="saving || completing || undoing" class="text-xs font-normal text-gray-400 dark:text-gray-500">Saving...</span>
+          </h2>
+          <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            <template v-if="isCompleted">
+              This run's inventory has already been deducted. Batch counts can no longer be edited.
+            </template>
+            <template v-else-if="showBatches">
+              Enter batches per flavour. The shopping list below updates automatically against current Inventory and Ingredient pricing.
+            </template>
+            <template v-else>
+              No batch counts for this session type -- just a date and notes.
+            </template>
+          </p>
+
+          <div v-if="loading" class="mt-6 text-sm text-gray-500 dark:text-gray-400">Loading...</div>
+
+          <template v-else-if="productionRun">
+            <FormErrorSummary :errors="errors" class="mt-4" />
+
+            <div class="mt-6 space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Date *</label>
+                <input v-model="form.run_date" type="date" required :disabled="isCompleted" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:opacity-60 text-base" />
+              </div>
+
+              <div class="space-y-4">
+                <div v-if="showBatchSize">
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Batch Size *</label>
+                  <input v-model.number="form.batch_size" type="number" inputmode="numeric" min="1" required :disabled="isCompleted" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:opacity-60 text-base" />
+                  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Units one batch yields, for every flavour in this run.</p>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Notes</label>
+                  <textarea v-model="form.notes" rows="2" :disabled="isCompleted" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:opacity-60 text-base" :placeholder="notesPlaceholder" />
+                </div>
+              </div>
+
+              <div v-if="productionRun.type === 'production'" class="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30 px-4 py-3">
+                <div v-if="productionRun.rental" class="flex items-center justify-between gap-3">
+                  <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                    <svg class="w-4 h-4 flex-shrink-0 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    <span>Booked: <span class="font-medium text-gray-900 dark:text-white">{{ productionRun.rental.booking_title }}</span> ({{ productionRun.rental.starts_at }})</span>
+                  </div>
+                  <button v-if="!isCompleted" type="button" @click="detachRental" :disabled="rentalBusy" class="tap-target-touch flex-shrink-0 py-1 px-3 border border-gray-300 dark:border-gray-600 rounded-md text-xs font-medium text-gray-600 dark:text-gray-300 disabled:opacity-50">
+                    Detach
+                  </button>
+                </div>
+                <template v-else-if="!isCompleted">
+                  <button v-if="!showRentalPicker" type="button" @click="openRentalPicker" class="tap-target-touch flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    No rental slot attached -- Attach one
+                  </button>
+                  <div v-else>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Rental Slot</label>
+                    <div class="flex flex-wrap items-center gap-2">
+                      <select v-model="selectedRentalId" class="flex-1 min-w-[12rem] rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base">
+                        <option :value="null" disabled>Select a rental slot...</option>
+                        <option v-for="rental in unattachedRentals" :key="rental.id" :value="rental.id">{{ rental.booking_title }} ({{ rental.starts_at }})</option>
+                      </select>
+                      <button type="button" @click="attachRental" :disabled="!selectedRentalId || rentalBusy" class="tap-target-touch py-1.5 px-4 rounded-md text-sm font-medium text-white bg-indigo-600 disabled:opacity-50">
+                        Attach
+                      </button>
+                      <button type="button" @click="showRentalPicker = false" class="tap-target-touch text-sm font-medium text-gray-500 dark:text-gray-400">
+                        Cancel
+                      </button>
+                    </div>
+                    <p v-if="!loadingRentals && unattachedRentals.length === 0" class="mt-1.5 text-xs text-gray-400 dark:text-gray-500">No unbooked rental slots available.</p>
+                  </div>
+                </template>
+              </div>
+
+              <template v-if="!confirmingComplete">
+                <div v-if="!isCompleted && showBatches" class="border border-gray-200 dark:border-gray-700 rounded-md divide-y divide-gray-200 dark:divide-gray-700">
+                  <div v-for="row in form.batches" :key="row.recipe_id" class="flex flex-wrap items-center justify-between px-4 py-2 gap-x-3 gap-y-2">
+                    <span class="text-sm text-gray-700 dark:text-gray-300 flex-1 min-w-[8rem]">{{ recipeName(row.recipe_id) }}</span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400 text-right">{{ rowUnits(row) }} units</span>
+                    <input v-model.number="row.batches" type="number" inputmode="numeric" min="0" class="w-24 tap-target rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                  </div>
+                  <div class="flex items-center justify-between px-4 py-2 bg-gray-50 dark:bg-gray-700/50">
+                    <span class="text-sm font-semibold text-gray-900 dark:text-white">Total Units</span>
+                    <span class="text-sm font-semibold text-gray-900 dark:text-white">{{ totalUnits }}</span>
+                  </div>
+                </div>
+
+                <!-- Planned-vs-actual is a genuine wide table (4 numeric
+                     columns) -- kept as a horizontally-scrollable table even
+                     on mobile rather than a card list, since this is a
+                     read-only comparison view, not a record list, and
+                     collapsing it into cards would make the planned/actual/
+                     change comparison harder to scan, not easier. -->
+                <div v-else-if="isCompleted" class="overflow-x-auto -mx-4">
+                  <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead class="bg-gray-50 dark:bg-gray-900">
+                      <tr>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Flavour</th>
+                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Planned</th>
+                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actual</th>
+                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Change</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                      <tr v-for="row in completedRows" :key="row.recipe_id">
+                        <td class="px-4 py-2 text-sm text-gray-900 dark:text-white">{{ row.recipe_name }}</td>
+                        <td class="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 text-right">{{ row.planned }}</td>
+                        <td class="px-3 py-2 text-sm font-medium text-gray-900 dark:text-white text-right">{{ row.actual }}</td>
+                        <td class="px-4 py-2 text-sm font-medium text-right" :class="changeClass(row.change_percent)">{{ formatChange(row.change_percent) }}</td>
+                      </tr>
+                    </tbody>
+                    <tfoot>
+                      <tr class="bg-gray-50 dark:bg-gray-700/50">
+                        <td class="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-white">Total Units</td>
+                        <td class="px-3 py-2 text-sm font-semibold text-gray-900 dark:text-white text-right">{{ totalPlanned }}</td>
+                        <td class="px-3 py-2 text-sm font-semibold text-gray-900 dark:text-white text-right">{{ displayTotalUnits }}</td>
+                        <td class="px-4 py-2 text-sm font-semibold text-right" :class="changeClass(totalChangePercent)">{{ formatChange(totalChangePercent) }}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </template>
+
+              <div v-else class="space-y-4">
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                  Confirm actual units produced per flavour -- defaults to the plan. Inventory is always deducted using the planned quantities, not these.
+                </p>
+                <div class="border border-gray-200 dark:border-gray-700 rounded-md divide-y divide-gray-200 dark:divide-gray-700">
+                  <div v-for="row in confirmingComplete" :key="row.recipe_id" class="flex flex-wrap items-center justify-between px-4 py-2 gap-x-3 gap-y-2">
+                    <span class="text-sm text-gray-700 dark:text-gray-300 flex-1 min-w-[8rem]">{{ row.recipe_name }}</span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400 text-right">planned {{ row.planned_units }}</span>
+                    <input v-model.number="row.actual_units" type="number" inputmode="numeric" min="0" class="w-24 tap-target rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <div v-if="productionRun && !loading" class="shrink-0 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-gray-200 dark:border-gray-700 space-y-3">
+          <template v-if="confirmingComplete">
+            <button type="button" @click="completeRun" :disabled="completing" class="tap-target-touch w-full bg-green-600 py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-semibold text-white disabled:opacity-50">
+              <span v-if="completing">Completing...</span>
+              <span v-else>Confirm Completion</span>
+            </button>
+            <button type="button" @click="confirmingComplete = null" :disabled="completing" class="tap-target-touch w-full bg-white dark:bg-gray-700 py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 disabled:opacity-50">
+              Cancel
+            </button>
+          </template>
+          <template v-else-if="isCompleted">
+            <button
+              type="button"
+              @click="undoCompletion"
+              :disabled="undoing"
+              class="tap-target-touch w-full bg-red-50 dark:bg-red-900/20 py-3 px-4 border border-red-300 dark:border-red-700 rounded-md shadow-sm text-sm font-semibold text-red-700 dark:text-red-300 disabled:opacity-50"
+            >
+              <span v-if="undoing">Undoing...</span>
+              <span v-else>Undo Completion (Reverse Inventory)</span>
+            </button>
+          </template>
+          <template v-else>
+            <button type="button" @click="saveChanges" :disabled="saving" class="tap-target-touch w-full bg-indigo-600 py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-semibold text-white disabled:opacity-50">
+              <span v-if="saving">Saving...</span>
+              <span v-else>Save Changes</span>
+            </button>
+          </template>
+        </div>
+      </div>
+    </template>
+  </ResponsiveModal>
 </template>
 
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import axios from 'axios'
 import { router } from '@inertiajs/vue3'
-import Modal from '@/Components/Modal.vue'
+import ResponsiveModal from '@/Components/ResponsiveModal.vue'
 import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
 import IconButton from '@/Components/IconButton.vue'
 

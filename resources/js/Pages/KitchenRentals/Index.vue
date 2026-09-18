@@ -1,15 +1,17 @@
 <template>
-  <div class="py-6">
+  <div class="pt-6 pb-36 md:pb-6">
     <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
       <CostingModuleNav />
-      <div class="md:flex md:items-center md:justify-between">
+      <AdminMobileHeader title="Rental Schedule" :href="route('admin.costing.production-planner.runs')" />
+
+      <div class="hidden md:flex md:items-center md:justify-between">
         <div>
           <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Rental Schedule</h1>
           <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
             Kitchen bookings imported from a FoodCorridor CSV export. Turn any slot into a production plan.
           </p>
         </div>
-        <div class="mt-4 md:mt-0 flex flex-wrap gap-2">
+        <div class="flex flex-wrap gap-2">
           <input ref="fileInput" type="file" accept=".csv,text/csv" class="hidden" @change="handleFileChange" />
           <button
             type="button"
@@ -25,6 +27,18 @@
             View All Runs
           </Link>
         </div>
+      </div>
+
+      <div class="md:hidden flex flex-wrap gap-2">
+        <button
+          type="button"
+          :disabled="importForm.processing"
+          class="tap-target-touch flex-1 inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 disabled:opacity-50"
+          @click="fileInput?.click()"
+        >
+          <span v-if="importForm.processing">Importing...</span>
+          <span v-else>Import CSV</span>
+        </button>
       </div>
 
       <div v-if="$page.props.flash?.success" class="rounded-md bg-green-50 dark:bg-green-900/20 p-4">
@@ -46,6 +60,8 @@
           empty-message="No rental slots imported yet. Import a FoodCorridor CSV export above to get started."
           table-id="costing-kitchen-rentals"
           item-key="id"
+          :mobile-summary-fields="3"
+          :mobile-hidden-columns="['equipment_names']"
           @action="handleAction"
           @sort="handleSort"
         >
@@ -128,13 +144,14 @@ import { computed, ref } from 'vue'
 import axios from 'axios'
 import { Link, router, useForm } from '@inertiajs/vue3'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
+import AdminMobileHeader from '@/Components/Admin/AdminMobileHeader.vue'
 import DataTable, { type Column, type Action } from '@/Components/Admin/DataTable.vue'
 import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
 import ProductionPlanModal from '../Shared/ProductionPlanModal.vue'
 import IconButton from '@/Components/IconButton.vue'
 
-defineOptions({ layout: (h, page) => h(AdminLayout, { wide: true }, () => page) })
+defineOptions({ layout: (h, page) => h(AdminLayout, { wide: true, hideBreadcrumbOnMobile: true }, () => page) })
 
 interface EquipmentBooking {
   name: string

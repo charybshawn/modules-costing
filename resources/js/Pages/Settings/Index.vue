@@ -1,8 +1,9 @@
 <template>
-  <div class="py-6">
+  <div class="pt-6 pb-36 md:pb-6">
     <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
       <CostingModuleNav />
-      <div class="mb-6">
+      <AdminMobileHeader title="Costing Settings" />
+      <div class="hidden md:block mb-6">
         <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Costing Settings</h1>
         <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
           Configuration for this module only -- these don't affect the site-wide Settings page.
@@ -25,7 +26,7 @@
               min="1"
               max="90"
               step="1"
-              class="mt-1 block w-32 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              class="mt-1 block w-32 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm"
             />
             <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
               A logged price only counts toward an ingredient's current cost, and toward recipe/production costing,
@@ -41,7 +42,7 @@
               type="text"
               maxlength="10"
               placeholder="e.g. CP"
-              class="mt-1 block w-32 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 uppercase"
+              class="mt-1 block w-32 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 uppercase text-base sm:text-sm"
             />
             <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
               Letters/numbers only. A new production run's default name is generated from this as
@@ -71,10 +72,11 @@
 import { computed } from 'vue'
 import { useForm } from '@inertiajs/vue3'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
+import AdminMobileHeader from '@/Components/Admin/AdminMobileHeader.vue'
 import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
 
-defineOptions({ layout: AdminLayout })
+defineOptions({ layout: (h, page) => h(AdminLayout, { hideBreadcrumbOnMobile: true }, () => page) })
 
 interface Props {
   staleness_days: number

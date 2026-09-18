@@ -1,15 +1,17 @@
 <template>
-  <div class="py-6">
+  <div class="pt-6 pb-36 md:pb-6">
     <div>
       <CostingModuleNav />
-      <div class="md:flex md:items-center md:justify-between mb-6">
+      <AdminMobileHeader title="Recipe Costing" :href="route('admin.costing.recipes.index')" />
+
+      <div class="hidden md:flex md:items-center md:justify-between mb-6">
         <div>
           <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Recipe Costing</h1>
           <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
             Food Cost % per flavour -- ingredient cost, an optional contingency buffer, prorated by actual fill size, against your sell price.
           </p>
         </div>
-        <div class="mt-4 md:mt-0 flex flex-wrap gap-2">
+        <div class="flex flex-wrap gap-2">
           <Link :href="route('admin.costing.recipes.cost-history')" class="tap-target-touch inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
             Cost History
           </Link>
@@ -17,6 +19,12 @@
             Recipes
           </Link>
         </div>
+      </div>
+
+      <div class="md:hidden flex flex-wrap gap-2 mb-6">
+        <Link :href="route('admin.costing.recipes.cost-history')" class="tap-target-touch flex-1 inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700">
+          Cost History
+        </Link>
       </div>
 
       <div v-if="$page.props.flash?.success" class="mb-6 rounded-md bg-green-50 dark:bg-green-900/20 p-4">
@@ -33,6 +41,8 @@
           empty-message="No recipes yet."
           table-id="costing-recipe-costing"
           item-key="id"
+          :mobile-summary-fields="4"
+          :mobile-hidden-columns="['cost_buffer_percent', 'buffered_cost', 'fill_size_g']"
           @action="handleAction"
         >
           <template #cell-name="{ item }">
@@ -118,12 +128,13 @@
 import { ref } from 'vue'
 import { Link, useForm } from '@inertiajs/vue3'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
+import AdminMobileHeader from '@/Components/Admin/AdminMobileHeader.vue'
 import DataTable, { type Column, type Action } from '@/Components/Admin/DataTable.vue'
 import Modal from '@/Components/Modal.vue'
 import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
 
-defineOptions({ layout: (h, page) => h(AdminLayout, { wide: true }, () => page) })
+defineOptions({ layout: (h, page) => h(AdminLayout, { wide: true, hideBreadcrumbOnMobile: true }, () => page) })
 
 interface RecipeCostRow {
   id: number

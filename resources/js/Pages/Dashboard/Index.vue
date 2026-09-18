@@ -1,9 +1,10 @@
 <template>
-  <div class="py-6">
+  <div class="pt-6 pb-36 md:pb-6">
     <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
       <CostingModuleNav />
+      <AdminMobileHeader title="Costing & Recipes" />
 
-      <div class="mb-6">
+      <div class="hidden md:block mb-6">
         <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Costing & Recipes</h1>
         <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Pick up wherever you're at in the weekly routine.</p>
       </div>
@@ -37,9 +38,10 @@
 import { computed } from 'vue'
 import { Link } from '@inertiajs/vue3'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
+import AdminMobileHeader from '@/Components/Admin/AdminMobileHeader.vue'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
 
-defineOptions({ layout: (h, page) => h(AdminLayout, { wide: true }, () => page) })
+defineOptions({ layout: (h, page) => h(AdminLayout, { wide: true, hideBreadcrumbOnMobile: true }, () => page) })
 
 interface Props {
   stale_price_count: number

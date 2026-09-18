@@ -1,15 +1,17 @@
 <template>
-  <div class="py-6">
+  <div class="pt-6 pb-36 md:pb-6">
     <div>
       <CostingModuleNav />
-      <div class="md:flex md:items-center md:justify-between mb-6">
+      <AdminMobileHeader title="Adjustment History" :href="route('admin.costing.inventory.index')" />
+
+      <div class="hidden md:flex md:items-center md:justify-between mb-6">
         <div>
           <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Inventory Adjustment History</h1>
           <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
             Every change to stock on hand -- recounts, manual adjustments, and automatic production-run deductions.
           </p>
         </div>
-        <Link :href="route('admin.costing.inventory.index')" class="tap-target-touch mt-4 md:mt-0 inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+        <Link :href="route('admin.costing.inventory.index')" class="tap-target-touch inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
           &larr; Back to Inventory
         </Link>
       </div>
@@ -29,6 +31,9 @@
           empty-message="No inventory adjustments logged yet."
           table-id="costing-inventory-adjustments"
           item-key="id"
+          mobile-row-style="flat"
+          :mobile-summary-fields="4"
+          :mobile-hidden-columns="['change', 'who']"
           @sort="handleSort"
         >
           <template #cell-reason="{ item }">
@@ -78,12 +83,13 @@
 import { computed, ref } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
+import AdminMobileHeader from '@/Components/Admin/AdminMobileHeader.vue'
 import DataTable, { type Column } from '@/Components/Admin/DataTable.vue'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
 import ProductionPlanModal from '../Shared/ProductionPlanModal.vue'
 import { formatQuantity } from '../Shared/formatWeight'
 
-defineOptions({ layout: (h, page) => h(AdminLayout, { wide: true }, () => page) })
+defineOptions({ layout: (h, page) => h(AdminLayout, { wide: true, hideBreadcrumbOnMobile: true }, () => page) })
 
 interface AdjustmentRow {
   id: number

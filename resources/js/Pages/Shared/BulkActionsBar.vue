@@ -1,5 +1,5 @@
 <template>
-  <div v-if="count > 0" class="flex items-center justify-between gap-3 px-6 py-3 bg-indigo-50 dark:bg-indigo-900/20 border-b border-gray-200 dark:border-gray-700">
+  <div v-if="count > 0" class="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3 bg-indigo-50 dark:bg-indigo-900/20 border-b border-gray-200 dark:border-gray-700">
     <span class="text-sm text-indigo-700 dark:text-indigo-300">{{ count }} {{ count === 1 ? singular : plural }} selected</span>
     <div class="flex items-center gap-2">
       <slot />

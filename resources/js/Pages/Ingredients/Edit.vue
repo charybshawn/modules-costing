@@ -1,8 +1,12 @@
 <template>
-  <div class="py-6">
+  <div class="pt-6 pb-36 md:pb-6">
     <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+      <AdminMobileHeader title="Edit Ingredient" :href="route('admin.costing.ingredients.index')" />
+      <div class="md:hidden mb-4 flex justify-center">
+        <SaveIndicator :processing="form.processing" :recently-successful="form.recentlySuccessful" />
+      </div>
       <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
-        <div class="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+        <div class="hidden md:flex p-6 border-b border-gray-200 dark:border-gray-700 justify-between items-center">
           <div class="flex items-center gap-3">
             <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Edit Ingredient</h1>
             <SaveIndicator :processing="form.processing" :recently-successful="form.recentlySuccessful" />
@@ -15,21 +19,21 @@
 
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Name *</label>
-            <input v-model="form.name" type="text" required class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+            <input v-model="form.name" type="text" required class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
             <p v-if="form.errors.name" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.name }}</p>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Category</label>
-              <input v-model="form.category" type="text" list="category-options" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+              <input v-model="form.category" type="text" list="category-options" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
               <datalist id="category-options">
                 <option v-for="c in categories" :key="c" :value="c" />
               </datalist>
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Measured In *</label>
-              <select v-model="form.unit_type" required class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+              <select v-model="form.unit_type" required class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm">
                 <option value="g">Grams (priced per kg)</option>
                 <option value="unit">Units (priced per unit, e.g. packaging)</option>
               </select>
@@ -38,19 +42,19 @@
 
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Waste % *</label>
-            <input v-model.number="form.waste_percent" type="number" inputmode="decimal" min="1" max="100" step="0.01" required class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+            <input v-model.number="form.waste_percent" type="number" inputmode="decimal" min="1" max="100" step="0.01" required class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
             <p v-if="form.errors.waste_percent" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.waste_percent }}</p>
           </div>
 
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Byproduct</label>
-            <input v-model="form.byproduct_name" type="text" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="e.g. Juice, Brine -- leave blank if none" />
+            <input v-model="form.byproduct_name" type="text" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" placeholder="e.g. Juice, Brine -- leave blank if none" />
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">If this ingredient comes with a usable byproduct (e.g. pickle juice), name it here to make it selectable as its own line in Recipes. Free -- not costed or tracked in inventory.</p>
           </div>
 
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Notes</label>
-            <textarea v-model="form.notes" rows="3" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
+            <textarea v-model="form.notes" rows="3" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm"></textarea>
           </div>
 
           <div class="flex items-center justify-between pt-6 border-t border-gray-200 dark:border-gray-700">
@@ -79,11 +83,12 @@
 import { Link, router } from '@inertiajs/vue3'
 import { usePersistedForm } from '@/composables/usePersistedForm'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
+import AdminMobileHeader from '@/Components/Admin/AdminMobileHeader.vue'
 import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
 import SaveIndicator from '@/Components/Admin/SaveIndicator.vue'
 import SourcesTable from '../Shared/SourcesTable.vue'
 
-defineOptions({ layout: AdminLayout })
+defineOptions({ layout: (h, page) => h(AdminLayout, { hideBreadcrumbOnMobile: true }, () => page) })
 
 interface Ingredient {
   id: number

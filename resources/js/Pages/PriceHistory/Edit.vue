@@ -1,8 +1,12 @@
 <template>
-  <div class="py-6">
+  <div class="pt-6 pb-36 md:pb-6">
     <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+      <AdminMobileHeader title="Edit Price Entry" :href="route('admin.costing.price-history.index')" />
+      <div class="md:hidden mb-4 flex justify-center">
+        <SaveIndicator :processing="form.processing" :recently-successful="form.recentlySuccessful" />
+      </div>
       <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
-        <div class="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+        <div class="hidden md:flex p-6 border-b border-gray-200 dark:border-gray-700 justify-between items-center">
           <div class="flex items-center gap-3">
             <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Edit Price Entry</h1>
             <SaveIndicator :processing="form.processing" :recently-successful="form.recentlySuccessful" />
@@ -15,7 +19,7 @@
 
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Ingredient *</label>
-            <select v-model="form.ingredient_id" required class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+            <select v-model="form.ingredient_id" required class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm">
               <option v-for="ingredient in ingredients" :key="ingredient.id" :value="ingredient.id">{{ ingredient.name }}</option>
             </select>
           </div>
@@ -23,12 +27,12 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Date Checked</label>
-              <input v-model="form.purchased_at" type="date" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+              <input v-model="form.purchased_at" type="date" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Source *</label>
               <div v-if="!addingSource">
-                <select v-model="form.package_size_id" required :disabled="!form.ingredient_id" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:opacity-50">
+                <select v-model="form.package_size_id" required :disabled="!form.ingredient_id" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:opacity-50 text-base sm:text-sm">
                   <option value="">{{ form.ingredient_id ? 'Select a source' : 'Select an ingredient first' }}</option>
                   <option v-for="source in sources" :key="source.id" :value="source.id">{{ sourceLabel(source) }}</option>
                 </select>
@@ -71,8 +75,8 @@
             <div v-if="isGramBased">
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Weight{{ isCase ? ' per Each' : '' }}</label>
               <div class="mt-1 flex gap-2">
-                <input v-model.number="weightValue" type="number" inputmode="decimal" min="0" step="0.01" class="flex-1 min-w-0 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="e.g. 2.27" />
-                <select v-model="weightUnit" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                <input v-model.number="weightValue" type="number" inputmode="decimal" min="0" step="0.01" class="flex-1 min-w-0 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" placeholder="e.g. 2.27" />
+                <select v-model="weightUnit" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm">
                   <option value="kg">kg</option>
                   <option value="g">g</option>
                 </select>
@@ -91,14 +95,14 @@
             </div>
             <div v-else>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Qty (units)</label>
-              <input v-model.number="form.qty" type="number" inputmode="numeric" min="0" step="1" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+              <input v-model.number="form.qty" type="number" inputmode="numeric" min="0" step="1" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
             </div>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Total Price ($)</label>
-              <input v-model.number="form.total_price" type="number" inputmode="decimal" min="0" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+              <input v-model.number="form.total_price" type="number" inputmode="decimal" min="0" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
               <div v-if="!isGramBased && selectedSource && selectedSource.units_per_case > 1" class="mt-2 flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
                 <span>Price is for:</span>
                 <label class="flex items-center gap-1">
@@ -113,13 +117,13 @@
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">SKU</label>
-              <input v-model="form.sku" type="text" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+              <input v-model="form.sku" type="text" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
             </div>
           </div>
 
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Notes</label>
-            <input v-model="form.notes" type="text" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+            <input v-model="form.notes" type="text" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
           </div>
 
           <div class="flex items-center justify-between pt-6 border-t border-gray-200 dark:border-gray-700">
@@ -139,10 +143,11 @@ import { usePersistedForm } from '@/composables/usePersistedForm'
 import { useWeightEntry } from '../Shared/useWeightEntry'
 import { useIngredientSources, sourceLabel } from '../Shared/useIngredientSources'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
+import AdminMobileHeader from '@/Components/Admin/AdminMobileHeader.vue'
 import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
 import SaveIndicator from '@/Components/Admin/SaveIndicator.vue'
 
-defineOptions({ layout: AdminLayout })
+defineOptions({ layout: (h, page) => h(AdminLayout, { hideBreadcrumbOnMobile: true }, () => page) })
 
 interface Entry {
   id: number

@@ -5,7 +5,7 @@
     <p v-else-if="priceOptions.length === 0" class="mt-6 text-sm text-gray-500 dark:text-gray-400">No sources logged yet for this ingredient.</p>
 
     <div v-else class="mt-4 -mx-6 lg:max-h-96 lg:overflow-y-auto">
-      <DataTable :columns="columns" :items="priceOptions" item-key="package_size_id" hide-toolbar>
+      <DataTable :columns="columns" :items="priceOptions" item-key="package_size_id" hide-toolbar :mobile-row-style="props.mobileRowStyle">
         <template #cell-source="{ item }">
           <template v-if="sourceEditKey !== optionKey(item)">
             <button
@@ -303,9 +303,15 @@ interface PriceOption {
 
 interface Props {
   ingredient: SourcesIngredient
+  // Every cell here is inline-editable (rename, resize, reprice) rather
+  // than read-only, so 'line' (single-line truncate, no per-row expand)
+  // isn't a safe default -- it's offered for a caller that wants a purely
+  // read-only compact lookup view instead. Default stays 'card' (the
+  // DataTable default) for that reason.
+  mobileRowStyle?: 'card' | 'flat' | 'line'
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), { mobileRowStyle: 'card' })
 
 // Minimalist datatable, no search/filter/column-hide chrome needed -- a
 // single ingredient rarely has more than a handful of sources.

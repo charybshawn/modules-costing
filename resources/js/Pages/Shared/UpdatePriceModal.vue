@@ -1,47 +1,89 @@
 <template>
-  <Modal :show="props.entry !== null" max-width="md" @close="$emit('close')">
-    <form v-if="props.entry" @submit.prevent="submit" class="p-6">
-      <h2 class="text-lg font-medium text-gray-900 dark:text-white">Update Price</h2>
-      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-        Logs a new entry today for {{ props.entry.ingredient_name }} from {{ props.entry.provider }}<span v-if="props.entry.brand"> ({{ props.entry.brand }})</span>, same quantity as before -- just the new price.
-      </p>
+  <ResponsiveModal :show="props.entry !== null" max-width="md" @close="$emit('close')">
+    <template #desktop>
+      <form v-if="props.entry" @submit.prevent="submit" class="p-6">
+        <h2 class="text-lg font-medium text-gray-900 dark:text-white">Update Price</h2>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          Logs a new entry today for {{ props.entry.ingredient_name }} from {{ props.entry.provider }}<span v-if="props.entry.brand"> ({{ props.entry.brand }})</span>, same quantity as before -- just the new price.
+        </p>
 
-      <div v-if="props.entry.qty !== null" class="mt-3 rounded-md bg-gray-50 dark:bg-gray-700/50 px-3 py-2 text-sm text-gray-700 dark:text-gray-300">
-        Weight/quantity: <span class="font-medium">{{ formatQuantity(props.entry.qty ?? 0, props.entry.unit_type ?? 'g') }}</span>
-      </div>
+        <div v-if="props.entry.qty !== null" class="mt-3 rounded-md bg-gray-50 dark:bg-gray-700/50 px-3 py-2 text-sm text-gray-700 dark:text-gray-300">
+          Weight/quantity: <span class="font-medium">{{ formatQuantity(props.entry.qty ?? 0, props.entry.unit_type ?? 'g') }}</span>
+        </div>
 
-      <FormErrorSummary :errors="form.errors" class="mt-4" />
+        <FormErrorSummary :errors="form.errors" class="mt-4" />
 
-      <div class="mt-4">
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">New Total Price ($) *</label>
-        <input
-          v-model.number="form.total_price"
-          type="number" inputmode="decimal"
-          min="0"
-          step="0.01"
-          required
-          autofocus
-          class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-        />
-      </div>
+        <div class="mt-4">
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">New Total Price ($) *</label>
+          <input
+            v-model.number="form.total_price"
+            type="number" inputmode="decimal"
+            min="0"
+            step="0.01"
+            required
+            autofocus
+            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm"
+          />
+        </div>
 
-      <div class="mt-6 flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-        <button type="button" @click="$emit('close')" class="tap-target-touch bg-gray-200 dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">
-          Cancel
-        </button>
-        <button type="submit" :disabled="form.processing" class="tap-target-touch bg-indigo-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
-          <span v-if="form.processing">Saving...</span>
-          <span v-else>Save</span>
-        </button>
-      </div>
-    </form>
-  </Modal>
+        <div class="mt-6 flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <button type="button" @click="$emit('close')" class="tap-target-touch bg-gray-200 dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">
+            Cancel
+          </button>
+          <button type="submit" :disabled="form.processing" class="tap-target-touch bg-indigo-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
+            <span v-if="form.processing">Saving...</span>
+            <span v-else>Save</span>
+          </button>
+        </div>
+      </form>
+    </template>
+
+    <template #mobile>
+      <form v-if="props.entry" @submit.prevent="submit" class="flex-1 flex flex-col min-h-0">
+        <div class="flex-1 overflow-y-auto px-4 -mt-2">
+          <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Update Price</h2>
+          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Logs a new entry today for {{ props.entry.ingredient_name }} from {{ props.entry.provider }}<span v-if="props.entry.brand"> ({{ props.entry.brand }})</span>, same quantity as before -- just the new price.
+          </p>
+
+          <div v-if="props.entry.qty !== null" class="mt-3 rounded-md bg-gray-50 dark:bg-gray-700/50 px-3 py-2 text-sm text-gray-700 dark:text-gray-300">
+            Weight/quantity: <span class="font-medium">{{ formatQuantity(props.entry.qty ?? 0, props.entry.unit_type ?? 'g') }}</span>
+          </div>
+
+          <FormErrorSummary :errors="form.errors" class="mt-4" />
+
+          <div class="mt-4">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">New Total Price ($) *</label>
+            <input
+              v-model.number="form.total_price"
+              type="number" inputmode="decimal"
+              min="0"
+              step="0.01"
+              required
+              autofocus
+              class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base"
+            />
+          </div>
+        </div>
+
+        <div class="shrink-0 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] space-y-3 border-t border-gray-200 dark:border-gray-700">
+          <button type="submit" :disabled="form.processing" class="tap-target-touch w-full bg-indigo-600 py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-semibold text-white disabled:opacity-50">
+            <span v-if="form.processing">Saving...</span>
+            <span v-else>Save</span>
+          </button>
+          <button type="button" @click="$emit('close')" class="tap-target-touch w-full bg-white dark:bg-gray-700 py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </template>
+  </ResponsiveModal>
 </template>
 
 <script setup lang="ts">
 import { watch } from 'vue'
 import { useForm } from '@inertiajs/vue3'
-import Modal from '@/Components/Modal.vue'
+import ResponsiveModal from '@/Components/ResponsiveModal.vue'
 import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
 import { formatQuantity } from './formatWeight'
 

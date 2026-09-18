@@ -1,14 +1,16 @@
 <template>
-  <div class="py-6">
+  <div class="pt-6 pb-36 md:pb-6">
     <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+      <AdminMobileHeader title="Log a Price" :href="route('admin.costing.price-history.index')" />
       <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
-        <div class="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+        <div class="hidden md:flex p-6 border-b border-gray-200 dark:border-gray-700 justify-between items-center">
           <div>
             <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Log a Price</h1>
             <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Log every wholesaler you check, even if you didn't buy.</p>
           </div>
           <Link :href="route('admin.costing.price-history.index')" class="tap-target-touch inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">&larr; Back</Link>
         </div>
+        <p class="md:hidden px-6 pt-6 text-sm text-gray-600 dark:text-gray-400">Log every wholesaler you check, even if you didn't buy.</p>
 
         <form @submit.prevent="submit" class="p-6 space-y-6">
           <FormErrorSummary :errors="form.errors" />
@@ -19,7 +21,7 @@
 
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Ingredient *</label>
-            <select v-model="form.ingredient_id" required class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+            <select v-model="form.ingredient_id" required class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm">
               <option value="">Select ingredient</option>
               <option v-for="ingredient in ingredients" :key="ingredient.id" :value="ingredient.id">{{ ingredient.name }}</option>
             </select>
@@ -29,12 +31,12 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Date Checked</label>
-              <input v-model="form.purchased_at" type="date" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+              <input v-model="form.purchased_at" type="date" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Source *</label>
               <div v-if="!addingSource">
-                <select v-model="form.package_size_id" required :disabled="!form.ingredient_id" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:opacity-50">
+                <select v-model="form.package_size_id" required :disabled="!form.ingredient_id" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:opacity-50 text-base sm:text-sm">
                   <option value="">{{ form.ingredient_id ? 'Select a source' : 'Select an ingredient first' }}</option>
                   <option v-for="source in sources" :key="source.id" :value="source.id">{{ sourceLabel(source) }}</option>
                 </select>
@@ -76,8 +78,8 @@
             <div v-if="isGramBased">
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Weight{{ isCase ? ' per Each' : '' }}</label>
               <div class="mt-1 flex gap-2">
-                <input v-model.number="weightValue" type="number" inputmode="decimal" min="0" step="0.01" class="flex-1 min-w-0 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="e.g. 2.27" />
-                <select v-model="weightUnit" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                <input v-model.number="weightValue" type="number" inputmode="decimal" min="0" step="0.01" class="flex-1 min-w-0 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" placeholder="e.g. 2.27" />
+                <select v-model="weightUnit" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm">
                   <option value="kg">kg</option>
                   <option value="g">g</option>
                 </select>
@@ -96,14 +98,14 @@
             </div>
             <div v-else>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Qty (units)</label>
-              <input v-model.number="form.qty" type="number" inputmode="numeric" min="0" step="1" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="e.g. 24" />
+              <input v-model.number="form.qty" type="number" inputmode="numeric" min="0" step="1" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" placeholder="e.g. 24" />
             </div>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Total Price ($)</label>
-              <input v-model.number="form.total_price" type="number" inputmode="decimal" min="0" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+              <input v-model.number="form.total_price" type="number" inputmode="decimal" min="0" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
               <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">$/kg (or $/unit) is calculated automatically from the weight/qty above and this price.</p>
               <div v-if="!isGramBased && selectedSource && selectedSource.units_per_case > 1" class="mt-2 flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
                 <span>Price is for:</span>
@@ -119,13 +121,13 @@
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">SKU</label>
-              <input v-model="form.sku" type="text" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+              <input v-model="form.sku" type="text" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
             </div>
           </div>
 
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Notes</label>
-            <input v-model="form.notes" type="text" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+            <input v-model="form.notes" type="text" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
           </div>
 
           <div class="flex items-center justify-end pt-6 border-t border-gray-200 dark:border-gray-700">
@@ -148,9 +150,10 @@ import { usePersistedForm } from '@/composables/usePersistedForm'
 import { useWeightEntry } from '../Shared/useWeightEntry'
 import { useIngredientSources, sourceLabel } from '../Shared/useIngredientSources'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
+import AdminMobileHeader from '@/Components/Admin/AdminMobileHeader.vue'
 import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
 
-defineOptions({ layout: AdminLayout })
+defineOptions({ layout: (h, page) => h(AdminLayout, { hideBreadcrumbOnMobile: true }, () => page) })
 
 interface CloneSource {
   ingredient_id: number

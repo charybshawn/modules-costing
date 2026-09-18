@@ -1,5 +1,6 @@
 <template>
-  <Modal :show="props.ingredient !== null" max-width="lg" @close="$emit('close')">
+  <ResponsiveModal :show="props.ingredient !== null" max-width="lg" @close="$emit('close')">
+    <template #desktop>
     <div v-if="props.ingredient" class="p-6">
       <h2 class="text-lg font-medium text-gray-900 dark:text-white">Stock -- {{ props.ingredient.name }}</h2>
       <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -161,14 +162,181 @@
         </button>
       </div>
     </div>
-  </Modal>
+    </template>
+
+    <template #mobile>
+      <!-- No single "primary action" here -- recount/adjust/add-source are
+           all inline, contextual actions on their own rows, not a form to
+           submit. So unlike UpdatePriceModal/NewProductionRunModal, the
+           whole body stays in the scrollable area and only the sole
+           persistent action (Close) gets pinned. -->
+      <div v-if="props.ingredient" class="flex-1 flex flex-col min-h-0">
+        <div class="flex-1 overflow-y-auto px-4 -mt-2">
+          <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Stock -- {{ props.ingredient.name }}</h2>
+          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            On Hand: <span class="font-semibold">{{ fmt(totalOnHand) }}</span>
+          </p>
+
+          <div v-if="loadingSources" class="mt-6 text-sm text-gray-500 dark:text-gray-400">Loading...</div>
+          <p v-else-if="sources.length === 0" class="mt-6 text-sm text-gray-500 dark:text-gray-400">No sources yet -- add one below.</p>
+          <ul v-else class="mt-4 divide-y divide-gray-200 dark:divide-gray-700">
+            <li v-for="source in sources" :key="source.id" class="py-3">
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0 flex-1">
+                  <div class="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-1.5">
+                    {{ source.provider }}<span v-if="source.brand"> — {{ source.brand }}</span>
+                    <button
+                      type="button"
+                      @click="deleteSource(source)"
+                      :disabled="source.quantity_on_hand > 0"
+                      class="tap-target-touch text-gray-300 dark:text-gray-600 hover:text-red-600 dark:hover:text-red-400 disabled:opacity-40 disabled:hover:text-gray-300 dark:disabled:hover:text-gray-600"
+                      :aria-label="source.quantity_on_hand > 0 ? 'Recount to 0 first, then remove' : 'Remove this source'"
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    </button>
+                  </div>
+
+                  <div v-if="recountKey !== source.id" class="text-sm text-gray-500 dark:text-gray-400">
+                    {{ formatPackages(source.packages) }} × {{ fmt(source.package_size) }} = {{ fmt(source.quantity_on_hand) }}
+                    <span v-if="source.units_per_case > 1" class="text-gray-400 dark:text-gray-500">(case of {{ source.units_per_case }})</span>
+                    <button type="button" @click="startRecount(source)" class="tap-target-touch ml-1 font-medium text-indigo-600 dark:text-indigo-400">Recount</button>
+                  </div>
+                  <div v-else class="mt-1 flex items-center gap-1.5">
+                    <span class="text-xs text-gray-500 dark:text-gray-400">Packages of {{ fmt(source.package_size) }}</span>
+                    <input
+                      v-model.number="recountPackages"
+                      type="number"
+                      inputmode="decimal"
+                      min="0"
+                      step="0.01"
+                      autofocus
+                      :disabled="recountSaving"
+                      class="w-24 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base"
+                      @keyup.enter="saveRecount(source)"
+                      @keyup.esc="cancelRecount"
+                    />
+                    <IconButton type="button" @click="saveRecount(source)" :disabled="recountSaving" class="text-green-600 dark:text-green-400 disabled:opacity-40" label="Save">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                    </IconButton>
+                    <IconButton type="button" @click="cancelRecount" :disabled="recountSaving" class="text-gray-400 dark:text-gray-500 disabled:opacity-40" label="Cancel">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </IconButton>
+                  </div>
+                  <p v-if="recountKey === source.id && recountError" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ recountError }}</p>
+                </div>
+
+                <div class="flex-shrink-0 flex items-center gap-2">
+                  <button
+                    type="button"
+                    @click="startQuickAdjust(source, 'subtract')"
+                    class="tap-target-touch w-11 h-11 flex items-center justify-center rounded-full border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-xl font-medium active:bg-gray-100 dark:active:bg-gray-600"
+                    aria-label="Subtract packages"
+                  >
+                    −
+                  </button>
+                  <button
+                    type="button"
+                    @click="startQuickAdjust(source, 'add')"
+                    class="tap-target-touch w-11 h-11 flex items-center justify-center rounded-full border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-xl font-medium active:bg-gray-100 dark:active:bg-gray-600"
+                    aria-label="Add packages"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              <div v-if="quickAdjustKey === source.id" class="mt-3 rounded-md bg-gray-50 dark:bg-gray-700/50 p-3 space-y-2">
+                <p class="text-sm text-gray-700 dark:text-gray-300">
+                  {{ quickAdjustDirection === 'add' ? 'Add' : 'Subtract' }} how many packages of {{ fmt(source.package_size) }}?
+                </p>
+                <div class="flex items-center gap-3">
+                  <button type="button" @click="quickAdjustPackages = Math.max(0, quickAdjustPackages - 1)" class="tap-target-touch w-11 h-11 flex items-center justify-center rounded-full border border-gray-300 dark:border-gray-600 text-lg dark:text-gray-300">−</button>
+                  <input
+                    v-model.number="quickAdjustPackages"
+                    type="number"
+                    inputmode="decimal"
+                    min="0"
+                    step="1"
+                    class="w-16 text-center rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-lg"
+                  />
+                  <button type="button" @click="quickAdjustPackages = quickAdjustPackages + 1" class="tap-target-touch w-11 h-11 flex items-center justify-center rounded-full border border-gray-300 dark:border-gray-600 text-lg dark:text-gray-300">+</button>
+                  <span class="text-sm text-gray-500 dark:text-gray-400">= {{ fmt(quickAdjustPackages * source.package_size) }}</span>
+                </div>
+                <input
+                  v-model="quickAdjustNotes"
+                  type="text"
+                  placeholder="Detail (optional) -- e.g. GFS shipment, found spoiled"
+                  class="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base"
+                />
+                <p v-if="quickAdjustError" class="text-xs text-red-600 dark:text-red-400">{{ quickAdjustError }}</p>
+                <div class="flex justify-end gap-2 pt-1">
+                  <button type="button" @click="cancelQuickAdjust" :disabled="quickAdjustSaving" class="tap-target-touch py-1.5 px-3 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 disabled:opacity-40">
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    @click="saveQuickAdjust(source)"
+                    :disabled="quickAdjustSaving || quickAdjustPackages <= 0"
+                    :class="['tap-target-touch py-1.5 px-4 rounded-md text-sm font-medium text-white disabled:opacity-40', quickAdjustDirection === 'add' ? 'bg-green-600' : 'bg-amber-600']"
+                  >
+                    <span v-if="quickAdjustSaving">Saving...</span>
+                    <span v-else>Confirm {{ quickAdjustDirection === 'add' ? 'received' : 'correction' }}</span>
+                  </button>
+                </div>
+              </div>
+            </li>
+          </ul>
+
+          <div v-if="!loadingSources" class="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4">
+            <button v-if="!addingSource" type="button" @click="startAddSource" class="tap-target-touch text-sm font-medium text-indigo-600 dark:text-indigo-400">
+              + Add a source
+            </button>
+            <div v-else class="space-y-2">
+              <div class="grid grid-cols-1 gap-2">
+                <div>
+                  <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Provider</label>
+                  <input v-model="newSourceProvider" type="text" placeholder="e.g. GFS" autofocus class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base" />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Brand</label>
+                  <input v-model="newSourceBrand" type="text" placeholder="Optional" class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base" />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Unit Size ({{ baseUnitLabel }})</label>
+                  <input v-model.number="newSourceSize" type="number" inputmode="decimal" min="0.01" step="0.01" title="The size of ONE individual package -- e.g. 1 lid. Never the case total, even if sold by the case." class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base" />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Total Units</label>
+                  <input v-model.number="newSourceUnitsPerCase" type="number" inputmode="decimal" min="1" step="1" title="How many individual packages come in one case -- purchasing info only, doesn't change how stock is counted. Leave at 1 if not sold by the case." class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base" />
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <button type="button" @click="saveNewSource" :disabled="addSourceSaving || !newSourceProvider || !newSourceSize" class="tap-target-touch py-1.5 px-4 rounded-md text-sm font-medium text-white bg-indigo-600 disabled:opacity-40">
+                  <span v-if="addSourceSaving">Saving...</span>
+                  <span v-else>Add</span>
+                </button>
+                <button type="button" @click="cancelAddSource" :disabled="addSourceSaving" class="tap-target-touch text-sm font-medium text-gray-500 dark:text-gray-400">Cancel</button>
+              </div>
+              <p v-if="addSourceError" class="text-xs text-red-600 dark:text-red-400">{{ addSourceError }}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="shrink-0 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-gray-200 dark:border-gray-700">
+          <button type="button" @click="$emit('close')" class="tap-target-touch w-full bg-white dark:bg-gray-700 py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200">
+            Close
+          </button>
+        </div>
+      </div>
+    </template>
+  </ResponsiveModal>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import axios from 'axios'
 import { router } from '@inertiajs/vue3'
-import Modal from '@/Components/Modal.vue'
+import ResponsiveModal from '@/Components/ResponsiveModal.vue'
 import { formatQuantity } from './formatWeight'
 import IconButton from '@/Components/IconButton.vue'
 

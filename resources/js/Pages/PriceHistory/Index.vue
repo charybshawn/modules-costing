@@ -1,15 +1,17 @@
 <template>
-  <div class="py-6">
+  <div class="pt-6 pb-36 md:pb-6">
     <div>
       <CostingModuleNav />
-      <div class="md:flex md:items-center md:justify-between mb-6">
+      <AdminMobileHeader title="Price History" />
+
+      <div class="hidden md:flex md:items-center md:justify-between mb-6">
         <div>
           <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Price History</h1>
           <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
             Log every wholesaler you check, even if you don't buy. Only entries from the last {{ props.staleness_days }} days count toward an ingredient's current price.
           </p>
         </div>
-        <div class="mt-4 md:mt-0 flex flex-wrap gap-2">
+        <div class="flex flex-wrap gap-2">
           <Link :href="route('admin.costing.ingredients.index')" class="tap-target-touch inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
             Ingredients
           </Link>
@@ -20,6 +22,18 @@
             Log Price
           </Link>
         </div>
+      </div>
+
+      <div class="md:hidden flex flex-wrap gap-2 mb-6">
+        <Link :href="route('admin.costing.ingredients.index')" class="tap-target-touch flex-1 inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700">
+          Ingredients
+        </Link>
+        <Link :href="route('admin.costing.price-history.create')" class="tap-target-touch flex-1 inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600">
+          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+          Log Price
+        </Link>
       </div>
 
       <div v-if="$page.props.flash?.success" class="mb-6 rounded-md bg-green-50 dark:bg-green-900/20 p-4">
@@ -68,6 +82,8 @@
           :empty-action-href="route('admin.costing.price-history.create')"
           table-id="costing-price-history"
           item-key="id"
+          :mobile-summary-fields="4"
+          :mobile-hidden-columns="['brand', 'total_price']"
           @sort="handleSort"
           @action="handleAction"
         >
@@ -113,6 +129,7 @@
 import { computed, ref } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
+import AdminMobileHeader from '@/Components/Admin/AdminMobileHeader.vue'
 import DataTable, { type Column, type Action } from '@/Components/Admin/DataTable.vue'
 import UpdatePriceModal, { type UpdatePriceEntry } from '../Shared/UpdatePriceModal.vue'
 import BulkActionsBar from '../Shared/BulkActionsBar.vue'
@@ -120,7 +137,7 @@ import CostingModuleNav from '../Shared/CostingModuleNav.vue'
 import { formatQuantity } from '../Shared/formatWeight'
 import IconButton from '@/Components/IconButton.vue'
 
-defineOptions({ layout: (h, page) => h(AdminLayout, { wide: true }, () => page) })
+defineOptions({ layout: (h, page) => h(AdminLayout, { wide: true, hideBreadcrumbOnMobile: true }, () => page) })
 
 interface PriceHistoryRow {
   id: number

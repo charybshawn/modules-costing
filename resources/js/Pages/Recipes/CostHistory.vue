@@ -1,8 +1,9 @@
 <template>
-  <div class="py-6">
+  <div class="pt-6 pb-36 md:pb-6">
     <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
       <CostingModuleNav />
-      <div class="md:flex md:items-center md:justify-between mb-6">
+      <AdminMobileHeader title="Cost History" :href="route('admin.costing.recipes.index')" />
+      <div class="hidden md:flex md:items-center md:justify-between mb-6">
         <div>
           <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Cost History</h1>
           <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
@@ -10,6 +11,12 @@
           </p>
         </div>
         <Link :href="route('admin.costing.recipes.costing')" class="tap-target-touch mt-4 md:mt-0 inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+          Costing
+        </Link>
+      </div>
+
+      <div class="md:hidden mb-6">
+        <Link :href="route('admin.costing.recipes.costing')" class="tap-target-touch flex items-center justify-center w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700">
           Costing
         </Link>
       </div>
@@ -66,6 +73,7 @@ import {
   Legend,
 } from 'chart.js'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
+import AdminMobileHeader from '@/Components/Admin/AdminMobileHeader.vue'
 import { useDarkMode } from '@/composables/useDarkMode'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
 
@@ -73,7 +81,7 @@ const { isDark } = useDarkMode()
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend)
 
-defineOptions({ layout: (h, page) => h(AdminLayout, { wide: true }, () => page) })
+defineOptions({ layout: (h, page) => h(AdminLayout, { wide: true, hideBreadcrumbOnMobile: true }, () => page) })
 
 interface RecipeOption {
   id: number

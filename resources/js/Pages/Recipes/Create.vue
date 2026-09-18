@@ -1,14 +1,16 @@
 <template>
-  <div class="py-6">
+  <div class="pt-6 pb-36 md:pb-6">
     <div>
+      <AdminMobileHeader title="Add Recipe" :href="route('admin.costing.recipes.index')" />
       <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
-        <div class="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+        <div class="hidden md:flex p-6 border-b border-gray-200 dark:border-gray-700 justify-between items-center">
           <div>
             <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Add Recipe</h1>
             <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Add each ingredient this flavour uses, with grams (or units) per jar.</p>
           </div>
           <Link :href="route('admin.costing.recipes.index')" class="tap-target-touch inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">&larr; Back</Link>
         </div>
+        <p class="md:hidden px-6 pt-6 text-sm text-gray-600 dark:text-gray-400">Add each ingredient this flavour uses, with grams (or units) per jar.</p>
 
         <form @submit.prevent="submit" class="p-6 space-y-6">
           <FormErrorSummary :errors="form.errors" />
@@ -18,14 +20,14 @@
             <div class="lg:col-span-1 space-y-6">
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Flavour Name *</label>
-                <input v-model="form.name" type="text" required class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="e.g. Sriracha Maple Bacon" />
+                <input v-model="form.name" type="text" required class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" placeholder="e.g. Sriracha Maple Bacon" />
                 <p v-if="isDuplicateName" class="mt-1 text-sm text-amber-600 dark:text-amber-500">A recipe named "{{ form.name.trim() }}" already exists.</p>
                 <p v-if="form.errors.name" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.name }}</p>
               </div>
 
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Notes</label>
-                <textarea v-model="form.notes" rows="4" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
+                <textarea v-model="form.notes" rows="4" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm"></textarea>
               </div>
 
               <div>
@@ -37,7 +39,7 @@
 
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Minimum units to keep in stock</label>
-                <input v-model.number="form.min_stock_threshold" type="number" inputmode="numeric" min="0" step="1" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="e.g. 20" />
+                <input v-model.number="form.min_stock_threshold" type="number" inputmode="numeric" min="0" step="1" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" placeholder="e.g. 20" />
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Flagged as needing reordering whenever current ingredient stock can't produce at least this many jars. Leave blank to disable.</p>
                 <p v-if="form.errors.min_stock_threshold" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.min_stock_threshold }}</p>
               </div>
@@ -61,7 +63,7 @@
                       <option :value="null" disabled>Select an ingredient&hellip;</option>
                       <option v-for="opt in availableIngredients(form.ingredients, row.ingredient_id)" :key="opt.id" :value="opt.id">{{ opt.name }}</option>
                     </select>
-                    <input v-model.number="row.quantity_per_jar" type="number" inputmode="decimal" min="0" step="0.01" required class="w-28 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                    <input v-model.number="row.quantity_per_jar" type="number" inputmode="decimal" min="0" step="0.01" required class="w-28 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
                     <span class="text-xs text-gray-500 dark:text-gray-400 w-10">{{ ingredientUnit(row.ingredient_id) }}</span>
                     <IconButton type="button" @click="form.ingredients.splice(index, 1)" class="text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400"
             label="Remove ingredient"
@@ -84,7 +86,7 @@
                       <option :value="null" disabled>Select a byproduct&hellip;</option>
                       <option v-for="opt in availableIngredients(form.byproducts, row.ingredient_id, byproductIngredients)" :key="opt.id" :value="opt.id">{{ opt.name }} — {{ opt.byproduct_name }}</option>
                     </select>
-                    <input v-model.number="row.quantity_per_jar" type="number" inputmode="decimal" min="0" step="0.01" required class="w-28 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                    <input v-model.number="row.quantity_per_jar" type="number" inputmode="decimal" min="0" step="0.01" required class="w-28 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
                     <span class="text-xs text-gray-500 dark:text-gray-400 w-10">{{ ingredientUnit(row.ingredient_id) }}</span>
                     <IconButton type="button" @click="form.byproducts.splice(index, 1)" class="text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400"
             label="Remove byproduct"
@@ -118,11 +120,12 @@ import { computed } from 'vue'
 import { Link } from '@inertiajs/vue3'
 import { usePersistedForm } from '@/composables/usePersistedForm'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
+import AdminMobileHeader from '@/Components/Admin/AdminMobileHeader.vue'
 import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
 import FinishedGoodPicker from '../Shared/FinishedGoodPicker.vue'
 import IconButton from '@/Components/IconButton.vue'
 
-defineOptions({ layout: AdminLayout })
+defineOptions({ layout: (h, page) => h(AdminLayout, { hideBreadcrumbOnMobile: true }, () => page) })
 
 interface IngredientOption {
   id: number
