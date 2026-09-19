@@ -1,5 +1,5 @@
 <template>
-  <div class="pt-6 pb-36 md:pb-6">
+  <div class="pt-6 pb-6">
     <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
       <AdminMobileHeader title="Edit Ingredient" :href="route('admin.costing.ingredients.index')" />
       <div class="md:hidden mb-4 flex justify-center">
