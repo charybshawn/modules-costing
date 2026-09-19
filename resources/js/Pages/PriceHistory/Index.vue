@@ -69,7 +69,6 @@
           :items="filteredEntries"
           :sort-field="sortField"
           :sort-direction="sortDirection"
-          :actions="tableActions"
           selectable
           v-model:selected-ids="selectedIds"
           searchable
@@ -83,16 +82,15 @@
           :row-href="(item) => route('admin.costing.price-history.edit', item.id)"
           :initial-filters="initialFilters"
           @sort="handleSort"
-          @action="handleAction"
         >
           <!-- Single-line mobile row: ingredient (truncates) + date only --
                wholesaler/brand and price both dropped from the compact
                view rather than wrapping to a second line; tapping the row
-               opens Edit (rowHref, above), which shows/edits full detail
-               including price. Kebab menu actions (Update Price, Clone,
-               Delete) and the selection checkbox both still work: DataTable
-               excludes clicks on `a, button, input, label` from the row's
-               own click-to-navigate. -->
+               opens Edit (rowHref, above), which now owns every change
+               (source, price, delete). The selection checkbox still works
+               alongside it: DataTable excludes clicks on
+               `a, button, input, label` from the row's own
+               click-to-navigate. -->
           <template #mobile-card="{ item }">
             <div class="flex items-center gap-3 min-w-0">
               <span class="min-w-0 flex-1 truncate text-sm font-medium text-gray-900 dark:text-white">{{ item.ingredient_name }}</span>
@@ -139,8 +137,6 @@
           </template>
         </DataTable>
       </div>
-
-      <UpdatePriceModal :entry="updatingEntry" @close="updatingEntry = null" @updated="updatingEntry = null" />
     </div>
   </div>
 </template>
@@ -150,8 +146,7 @@ import { computed, ref } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import AdminMobileHeader from '@/Components/Admin/AdminMobileHeader.vue'
-import DataTable, { type Column, type Action } from '@/Components/Admin/DataTable.vue'
-import UpdatePriceModal, { type UpdatePriceEntry } from '../Shared/UpdatePriceModal.vue'
+import DataTable, { type Column } from '@/Components/Admin/DataTable.vue'
 import BulkActionsBar from '../Shared/BulkActionsBar.vue'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
 import { formatQuantity } from '../Shared/formatWeight'
@@ -247,25 +242,10 @@ const columns = computed<Column[]>(() => [
   },
 ])
 
-const tableActions: Action[] = [
-  { name: 'update-price', icon: 'adjust', color: 'green', label: 'Update Price' },
-  { name: 'clone', icon: 'duplicate', color: 'gray', label: 'Clone', href: (item) => route('admin.costing.price-history.create', { clone: item.id }) },
-  { name: 'edit', icon: 'edit', color: 'indigo', label: 'Edit', href: (item) => route('admin.costing.price-history.edit', item.id) },
-  { name: 'delete', icon: 'delete', color: 'red', label: 'Delete' },
-]
-
-const updatingEntry = ref<UpdatePriceEntry | null>(null)
-
-const handleAction = (action: string, item: PriceHistoryRow) => {
-  if (action === 'update-price') {
-    updatingEntry.value = { id: item.id, ingredient_name: item.ingredient_name, provider: item.provider, brand: item.brand, qty: item.qty, unit_type: item.unit_type }
-  } else if (action === 'delete') {
-    if (confirm(`Delete this ${item.ingredient_name} price entry?`)) {
-      router.delete(route('admin.costing.price-history.destroy', item.id), { preserveScroll: true })
-    }
-  }
-}
-
+// Per-row actions (Update Price, Clone, Edit, Delete) are gone -- the row
+// itself links to Edit (row-href, above), and that page now owns every
+// change including delete. Bulk delete (BulkActionsBar, below) is a
+// separate selection-driven mechanism and still applies.
 const selectedIds = ref<number[]>([])
 
 const bulkDelete = () => {
