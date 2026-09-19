@@ -48,7 +48,9 @@
       <FormErrorSummary v-if="Object.keys(importForm.errors).length" :errors="importForm.errors" />
 
       <!-- Slots -->
-      <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
+      <!-- No overflow-hidden: it breaks DataTable's sticky toolbar by
+           pinning it inside this box instead of the viewport. -->
+      <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg">
         <DataTable
           :columns="columns"
           :items="rows"

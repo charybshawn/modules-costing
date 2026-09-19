@@ -46,7 +46,9 @@
         <p class="text-sm font-medium text-green-800 dark:text-green-200">{{ $page.props.flash.success }}</p>
       </div>
 
-      <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
+      <!-- No overflow-hidden: it breaks DataTable's sticky toolbar by
+           pinning it inside this box instead of the viewport. -->
+      <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg">
         <BulkActionsBar :count="selectedIds.length" singular="run" plural="runs" @clear="selectedIds = []">
           <button type="button" @click="bulkDelete" class="tap-target-touch px-3 py-1.5 text-xs font-medium bg-red-600 text-white rounded-md hover:bg-red-700">
             Delete

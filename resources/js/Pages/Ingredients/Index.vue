@@ -56,7 +56,12 @@
         <p class="text-sm font-medium text-green-800 dark:text-green-200">{{ $page.props.flash.success }}</p>
       </div>
 
-      <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
+      <!-- No overflow-hidden here: it establishes a containing block for
+           DataTable's sticky toolbar, pinning it at a fixed offset inside
+           this box instead of sticking to the viewport (confirmed live --
+           the toolbar rendered mid-card on mobile). Matches Admin/Products/
+           Index.vue's own wrapper, which omits it for the same reason. -->
+      <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg">
         <BulkActionsBar :count="selectedIds.length" singular="ingredient" plural="ingredients" @clear="selectedIds = []">
           <button type="button" @click="bulkDelete" class="tap-target-touch px-3 py-1.5 text-xs font-medium bg-red-600 text-white rounded-md hover:bg-red-700">
             Delete
