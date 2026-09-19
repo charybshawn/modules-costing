@@ -40,13 +40,8 @@
         <p class="text-sm font-medium text-green-800 dark:text-green-200">{{ $page.props.flash.success }}</p>
       </div>
 
-      <div class="mb-4 flex flex-wrap items-center gap-4">
-        <label class="tap-target-touch inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-          <input v-model="needsUpdateOnly" type="checkbox" class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500 dark:bg-gray-700" />
-          Needs update only ({{ needsUpdateCount }})
-        </label>
-
-        <span v-if="ingredientFilterName" class="inline-flex items-center gap-1 rounded-full border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 pl-3 pr-1.5 py-1 text-sm text-gray-700 dark:text-gray-200">
+      <div v-if="ingredientFilterName" class="mb-4 flex flex-wrap items-center gap-4">
+        <span class="inline-flex items-center gap-1 rounded-full border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 pl-3 pr-1.5 py-1 text-sm text-gray-700 dark:text-gray-200">
           Ingredient: <span class="font-medium">{{ ingredientFilterName }}</span>
           <IconButton
             type="button"
@@ -86,6 +81,7 @@
           item-key="id"
           :mobile-summary-fields="4"
           :mobile-hidden-columns="['brand', 'total_price']"
+          :initial-filters="initialFilters"
           @sort="handleSort"
           @action="handleAction"
         >
@@ -167,9 +163,14 @@ interface Props {
 const props = defineProps<Props>()
 
 // Defaults from ?needs_update=1 so the Dashboard's "Update Prices" card can
-// deep-link straight into the filtered view instead of landing on everything.
-const needsUpdateOnly = ref(new URLSearchParams(window.location.search).get('needs_update') === '1')
+// deep-link straight into the filtered view instead of landing on
+// everything -- hydrates DataTable's own "Update status" filter chip
+// rather than a separate checkbox, so the toolbar owns it like any other
+// filter instead of a standalone control eating its own row of space.
 const needsUpdateCount = computed(() => props.entries.filter((e) => e.needs_update).length)
+const initialFilters = new URLSearchParams(window.location.search).get('needs_update') === '1'
+  ? { needs_update: 'true' }
+  : {}
 
 // Defaults from ?ingredient_id=123 so the Ingredients table's "Price History"
 // row action can deep-link straight into that ingredient's entries.
@@ -193,7 +194,6 @@ const handleSort = (field: string) => {
 
 const filteredEntries = computed(() => {
   let result = props.entries
-  if (needsUpdateOnly.value) result = result.filter((e) => e.needs_update)
   if (ingredientFilterId.value !== null) result = result.filter((e) => e.ingredient_id === ingredientFilterId.value)
   if (sortField.value) {
     const field = sortField.value as keyof PriceHistoryRow
@@ -203,7 +203,11 @@ const filteredEntries = computed(() => {
   return result
 })
 
-const columns: Column[] = [
+// Computed (not a plain const) so the "Needs update" filter option's count
+// stays live as entries load/change -- Column['options'] is read directly
+// off whatever array is passed in, so a static array would freeze it at
+// its initial value.
+const columns = computed<Column[]>(() => [
   { key: 'ingredient_name', label: 'Ingredient', sortable: true },
   { key: 'purchased_at', label: 'Date', sortable: true },
   { key: 'provider', label: 'Wholesaler', sortable: true, filterable: true },
@@ -211,7 +215,15 @@ const columns: Column[] = [
   { key: 'qty', label: 'Qty', hideable: true },
   { key: 'total_price', label: 'Total Price', hideable: true },
   { key: 'price_per_unit', label: '$/kg (or $/unit)' },
-]
+  {
+    // No matching visible column -- staleness is already shown inline as
+    // the amber dot next to each row's date -- so filterOnly: a filter
+    // chip with nothing of its own to display in the table.
+    key: 'needs_update', label: 'Update status', filterOnly: true,
+    filterable: true, filterType: 'select',
+    options: [{ value: 'true', label: `Needs update only (${needsUpdateCount.value})` }],
+  },
+])
 
 const tableActions: Action[] = [
   { name: 'update-price', icon: 'adjust', color: 'green', label: 'Update Price' },
