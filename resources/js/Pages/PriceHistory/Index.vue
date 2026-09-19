@@ -85,11 +85,11 @@
           @sort="handleSort"
           @action="handleAction"
         >
-          <!-- Single-line mobile row: ingredient (truncates) + date + price
-               only -- wholesaler/brand ("source") dropped from the compact
-               view entirely rather than wrapping to a second line; tapping
-               the row opens Edit (rowHref, above), which shows/edits the
-               full source detail. Kebab menu actions (Update Price, Clone,
+          <!-- Single-line mobile row: ingredient (truncates) + date only --
+               wholesaler/brand and price both dropped from the compact
+               view rather than wrapping to a second line; tapping the row
+               opens Edit (rowHref, above), which shows/edits full detail
+               including price. Kebab menu actions (Update Price, Clone,
                Delete) and the selection checkbox both still work: DataTable
                excludes clicks on `a, button, input, label` from the row's
                own click-to-navigate. -->
@@ -103,10 +103,6 @@
                   class="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400"
                   :title="`No price logged in the last ${props.staleness_days} days -- needs update`"
                 ></span>
-              </span>
-              <span class="shrink-0 text-sm font-medium text-gray-900 dark:text-white">
-                <template v-if="item.price_per_unit !== null">${{ Number(item.price_per_unit).toFixed(2) }}</template>
-                <span v-else class="font-normal text-red-500 dark:text-red-400 italic">incomplete</span>
               </span>
             </div>
           </template>
