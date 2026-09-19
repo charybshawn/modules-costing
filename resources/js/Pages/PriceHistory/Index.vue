@@ -79,12 +79,42 @@
           :empty-action-href="route('admin.costing.price-history.create')"
           table-id="costing-price-history"
           item-key="id"
-          :mobile-summary-fields="4"
-          :mobile-hidden-columns="['brand', 'total_price']"
+          mobile-row-style="flat"
           :initial-filters="initialFilters"
           @sort="handleSort"
           @action="handleAction"
         >
+          <!-- Bespoke 2-line mobile row (the generic column-driven renderer
+               can wrap to 3-4 lines here: a 2-line title slot + a
+               flex-wrapped summary row) -- fixed at exactly 2 lines,
+               ingredient+date on top and wholesaler+price below, each side
+               truncating rather than wrapping so neither line can grow past
+               one row regardless of content length. Secondary detail (qty,
+               notes, $/100g) drops from the compact view; still visible on
+               desktop's own table cells and by opening the row. -->
+          <template #mobile-card="{ item }">
+            <div class="min-w-0">
+              <div class="flex items-center justify-between gap-3">
+                <span class="min-w-0 truncate text-sm font-medium text-gray-900 dark:text-white">{{ item.ingredient_name }}</span>
+                <span class="shrink-0 inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
+                  {{ item.purchased_at ?? '—' }}
+                  <span
+                    v-if="item.needs_update"
+                    class="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400"
+                    :title="`No price logged in the last ${props.staleness_days} days -- needs update`"
+                  ></span>
+                </span>
+              </div>
+              <div class="mt-0.5 flex items-center justify-between gap-3 text-sm text-gray-700 dark:text-gray-300">
+                <span class="min-w-0 truncate">{{ item.provider }}<template v-if="item.brand"> · {{ item.brand }}</template></span>
+                <span class="shrink-0 font-medium text-gray-900 dark:text-white">
+                  <template v-if="item.price_per_unit !== null">${{ Number(item.price_per_unit).toFixed(2) }}</template>
+                  <span v-else class="font-normal text-red-500 dark:text-red-400 italic">incomplete</span>
+                </span>
+              </div>
+            </div>
+          </template>
+
           <template #cell-ingredient_name="{ item }">
             <div class="text-sm font-medium text-gray-900 dark:text-white">{{ item.ingredient_name }}</div>
             <div class="text-xs text-gray-500 dark:text-gray-400">{{ item.notes }}</div>
