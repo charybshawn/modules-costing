@@ -34,22 +34,34 @@
         </div>
       </div>
 
-      <div class="md:hidden flex flex-wrap gap-2 mb-6">
-        <Link
-          :href="route('admin.costing.price-history.index')"
-          class="tap-target-touch flex-1 inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700"
-        >
-          Price History
-        </Link>
-        <Link
-          :href="route('admin.costing.ingredients.create')"
-          class="tap-target-touch flex-1 inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600"
-        >
-          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-          </svg>
-          Add Ingredient
-        </Link>
+      <!-- Mobile-only hero block: headline stat + quick-action icon
+           tile(s), matching Admin/Dashboard.vue and Admin/Inventory/
+           Dashboard.vue's own hero shell exactly (same colored card,
+           w-16 h-16 rounded-2xl tile, Archivo Black label). Only one
+           action so far (Add Ingredient) -- Price History dropped from
+           here since it's already one tap away via CostingModuleNav's
+           bottom bar, no longer worth its own button. justify-center
+           rather than -around: with a single tile they render identically,
+           but -around would visibly re-space once a second tile is added,
+           where -center wouldn't need to change. -->
+      <div class="md:hidden mb-6 rounded-lg bg-gray-200 dark:bg-amber-500 px-5 pt-[30px] pb-[20px]">
+        <div class="text-center">
+          <div class="text-sm font-bold text-gray-800">Total Ingredients</div>
+          <div class="mt-1 text-4xl font-extrabold text-emerald-600">{{ props.ingredients.length }}</div>
+        </div>
+        <div class="mt-[30px] flex items-center justify-center">
+          <div class="flex flex-col items-center gap-3">
+            <Link
+              :href="route('admin.costing.ingredients.create')"
+              class="tap-target-touch w-16 h-16 rounded-2xl bg-white dark:bg-gray-900 shadow-md dark:shadow-[0_4px_10px_rgba(0,0,0,0.5)] flex items-center justify-center"
+            >
+              <svg class="w-11 h-11 text-amber-500 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
+            </Link>
+            <span class="text-xs font-['Archivo_Black'] uppercase tracking-wide text-amber-500 dark:text-white leading-tight text-center">Add<br>Ingredient</span>
+          </div>
+        </div>
       </div>
 
       <div v-if="$page.props.flash?.success" class="mb-6 rounded-md bg-green-50 dark:bg-green-900/20 p-4">
