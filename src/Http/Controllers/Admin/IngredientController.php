@@ -12,6 +12,7 @@ use Cultpantry\Costing\Events\CostingRecordSaved;
 use Cultpantry\Costing\Models\Ingredient;
 use Cultpantry\Costing\Models\PackageSize;
 use Cultpantry\Costing\Models\PriceHistoryEntry;
+use Cultpantry\Costing\Models\Recipe;
 use Cultpantry\Costing\Support\CostingBreadcrumbs;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -58,8 +59,11 @@ class IngredientController extends Controller implements HasMiddleware
         // app's Model::preventLazyLoading() outside production. 'inventory'
         // and 'packageSizes' are required too -- CalculateIngredientCosting
         // reads unit_size and per-brand package sizes off them for
-        // purchase_size/purchase_unit.
-        $ingredients = Ingredient::with('priceHistory.ingredient', 'inventory', 'packageSizes')
+        // purchase_size/purchase_unit. 'recipes:id,name' drives the
+        // Recipe filter below -- an ingredient can be in several recipes
+        // (belongsToMany), so it's exposed as recipe_ids rather than a
+        // single scalar column.
+        $ingredients = Ingredient::with('priceHistory.ingredient', 'inventory', 'packageSizes', 'recipes:id,name')
             ->orderBy('name')
             ->get()
             ->map(fn (Ingredient $ingredient) => array_merge(
@@ -72,12 +76,14 @@ class IngredientController extends Controller implements HasMiddleware
                     'notes' => $ingredient->notes,
                     'byproduct_name' => $ingredient->byproduct_name,
                     'source_count' => $ingredient->packageSizes->count(),
+                    'recipe_ids' => $ingredient->recipes->pluck('id')->all(),
                 ],
                 $calculateIngredientCosting->handle($ingredient)
             ));
 
         return Inertia::render('Vendor/costing/Ingredients/Index', [
             'ingredients' => $ingredients,
+            'recipes' => Recipe::orderBy('name')->get(['id', 'name']),
             'staleness_days' => app(GetPriceStalenessDays::class)->handle(),
             'breadcrumbs' => CostingBreadcrumbs::trail(['label' => 'Ingredients']),
         ]);

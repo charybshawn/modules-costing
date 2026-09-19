@@ -68,6 +68,25 @@
         <p class="text-sm font-medium text-green-800 dark:text-green-200">{{ $page.props.flash.success }}</p>
       </div>
 
+      <!-- Filter by recipe -- lives outside DataTable's own Filters
+           dropdown rather than as a filterOnly column there: an
+           ingredient can be in several recipes (belongsToMany), so
+           matching is "does this ingredient's recipe_ids include the
+           selected recipe", not the exact-equality/one-of-several checks
+           DataTable's select/multiselect filter types do internally. -->
+      <div class="mb-4 flex flex-wrap items-center gap-3">
+        <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+          Recipe
+          <select
+            v-model="recipeFilterId"
+            class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm"
+          >
+            <option :value="null">All recipes</option>
+            <option v-for="recipe in props.recipes" :key="recipe.id" :value="recipe.id">{{ recipe.name }}</option>
+          </select>
+        </label>
+      </div>
+
       <!-- No overflow-hidden here: it establishes a containing block for
            DataTable's sticky toolbar, pinning it at a fixed offset inside
            this box instead of sticking to the viewport (confirmed live --
@@ -205,14 +224,23 @@ interface IngredientRow {
   stale_effective_price: number | null
   price_per_100g: number | null
   stale_price_per_100g: number | null
+  recipe_ids: number[]
+}
+
+interface RecipeOption {
+  id: number
+  name: string
 }
 
 interface Props {
   ingredients: IngredientRow[]
+  recipes: RecipeOption[]
   staleness_days: number
 }
 
 const props = defineProps<Props>()
+
+const recipeFilterId = ref<number | null>(null)
 
 const sortField = ref('name')
 const sortDirection = ref<'asc' | 'desc'>('asc')
@@ -229,7 +257,10 @@ const handleSort = (field: string) => {
 const ingredients = computed(() => {
   const field = sortField.value as keyof IngredientRow
   const dir = sortDirection.value === 'asc' ? 1 : -1
-  return [...props.ingredients].sort((a, b) => String(a[field] ?? '').localeCompare(String(b[field] ?? '')) * dir)
+  const result = recipeFilterId.value === null
+    ? props.ingredients
+    : props.ingredients.filter((i) => i.recipe_ids.includes(recipeFilterId.value as number))
+  return [...result].sort((a, b) => String(a[field] ?? '').localeCompare(String(b[field] ?? '')) * dir)
 })
 
 const columns: Column[] = [
