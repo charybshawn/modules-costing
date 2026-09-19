@@ -72,7 +72,6 @@
           :items="ingredients"
           :sort-field="sortField"
           :sort-direction="sortDirection"
-          :actions="tableActions"
           selectable
           v-model:selected-ids="selectedIds"
           searchable
@@ -82,11 +81,30 @@
           :empty-action-href="route('admin.costing.ingredients.create')"
           table-id="costing-ingredients"
           item-key="id"
-          :mobile-summary-fields="2"
-          :mobile-hidden-columns="['purchase_unit', 'price_per_100g']"
+          mobile-row-style="line"
+          :row-href="(item) => route('admin.costing.ingredients.edit', item.id)"
           @sort="handleSort"
-          @action="handleAction"
         >
+          <!-- Single-line mobile row: ingredient (truncates) + category only,
+               plus the stale-price dot -- pricing detail, sources, and every
+               other column drop from the compact view entirely rather than
+               wrapping to a second line; tapping the row opens Edit
+               (row-href, above), which now owns every change including
+               sources (same SourcesTable Edit already embeds). -->
+          <template #mobile-card="{ item }">
+            <div class="flex items-center gap-3 min-w-0">
+              <span class="min-w-0 flex-1 inline-flex items-center gap-1.5 truncate text-sm font-medium text-gray-900 dark:text-white">
+                <span class="truncate">{{ item.name }}</span>
+                <span
+                  v-if="item.status !== 'ok'"
+                  class="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400 flex-shrink-0"
+                  :title="`No price logged in the last ${props.staleness_days} days -- needs update`"
+                ></span>
+              </span>
+              <span class="shrink-0 truncate max-w-[40%] text-sm text-gray-500 dark:text-gray-400">{{ item.category ?? '—' }}</span>
+            </div>
+          </template>
+
           <template #cell-name="{ item }">
             <div class="text-sm font-medium text-gray-900 dark:text-white">{{ item.name }}</div>
           </template>
@@ -101,15 +119,11 @@
 
           <template #cell-weekly_price="{ item }">
             <div class="inline-flex items-center gap-1.5">
-              <button
-                type="button"
-                @click="openPricesModal(item)"
-                class="tap-target-touch inline-flex items-center text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline"
-              >
+              <span class="text-sm font-medium text-gray-900 dark:text-white">
                 <span v-if="item.status === 'ok'">${{ Number(item.weekly_price).toFixed(2) }}{{ item.unit_type === 'unit' ? '/unit' : '/kg' }}</span>
                 <span v-else-if="item.stale_price !== null">${{ Number(item.stale_price).toFixed(2) }}{{ item.unit_type === 'unit' ? '/unit' : '/kg' }}</span>
-                <span v-else class="italic font-normal">no price logged</span>
-              </button>
+                <span v-else class="italic font-normal text-gray-500 dark:text-gray-400">no price logged</span>
+              </span>
               <span
                 v-if="item.status !== 'ok' && item.stale_price !== null"
                 class="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400 flex-shrink-0"
@@ -139,13 +153,9 @@
           </template>
 
           <template #cell-source_count="{ item }">
-            <button
-              type="button"
-              @click="openPricesModal(item)"
-              class="tap-target-touch inline-flex items-center text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline"
-            >
-              {{ item.source_count }} source{{ item.source_count !== 1 ? 's' : '' }}..
-            </button>
+            <span class="text-sm text-gray-500 dark:text-gray-400">
+              {{ item.source_count }} source{{ item.source_count !== 1 ? 's' : '' }}
+            </span>
           </template>
 
           <template #cell-purchase_unit="{ item }">
@@ -153,8 +163,6 @@
           </template>
         </DataTable>
       </div>
-
-      <AvailablePricesModal :ingredient="pricesIngredient" @close="closePricesModal" />
     </div>
   </div>
 </template>
@@ -164,8 +172,7 @@ import { ref, computed } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import AdminMobileHeader from '@/Components/Admin/AdminMobileHeader.vue'
-import DataTable, { type Column, type Action } from '@/Components/Admin/DataTable.vue'
-import AvailablePricesModal, { type PricesIngredient } from '../Shared/AvailablePricesModal.vue'
+import DataTable, { type Column } from '@/Components/Admin/DataTable.vue'
 import BulkActionsBar from '../Shared/BulkActionsBar.vue'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
 
@@ -224,20 +231,10 @@ const columns: Column[] = [
   { key: 'purchase_unit', label: 'Purchase Unit', hideable: true },
 ]
 
-const tableActions: Action[] = [
-  { name: 'price-history', icon: 'history', color: 'blue', label: 'Price History', href: (item) => route('admin.costing.price-history.index', { ingredient_id: item.id }) },
-  { name: 'edit', icon: 'edit', color: 'indigo', label: 'Edit', href: (item) => route('admin.costing.ingredients.edit', item.id) },
-  { name: 'delete', icon: 'delete', color: 'red', label: 'Delete' },
-]
-
-const handleAction = (action: string, item: IngredientRow) => {
-  if (action === 'delete') {
-    if (confirm(`Delete "${item.name}"? This also removes its price history and inventory record.`)) {
-      router.delete(route('admin.costing.ingredients.destroy', item.id), { preserveScroll: true })
-    }
-  }
-}
-
+// Per-row actions (Price History, Edit, Delete) are gone -- the row itself
+// links to Edit (row-href, above), which now owns every change including
+// delete. Bulk delete (BulkActionsBar, below) is a separate
+// selection-driven mechanism and still applies.
 const selectedIds = ref<number[]>([])
 
 const bulkDelete = () => {
@@ -248,17 +245,5 @@ const bulkDelete = () => {
     preserveScroll: true,
     onSuccess: () => { selectedIds.value = [] },
   })
-}
-
-// Available Prices modal -- markup/logic lives in the shared component;
-// this page only owns which ingredient (if any) it's open for.
-const pricesIngredient = ref<PricesIngredient | null>(null)
-
-const openPricesModal = (item: IngredientRow) => {
-  pricesIngredient.value = { id: item.id, name: item.name, unit_type: item.unit_type }
-}
-
-const closePricesModal = () => {
-  pricesIngredient.value = null
 }
 </script>
