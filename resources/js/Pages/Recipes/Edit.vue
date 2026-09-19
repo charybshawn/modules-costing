@@ -1,5 +1,5 @@
 <template>
-  <div class="pt-6 pb-6">
+  <div class="md:pt-6 pb-6">
     <div>
       <AdminMobileHeader :title="`Edit Recipe: ${recipe.name}`" :href="route('admin.costing.recipes.index')" />
       <div class="md:hidden mb-4 flex justify-center">

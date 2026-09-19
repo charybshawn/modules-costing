@@ -1,5 +1,5 @@
 <template>
-  <div class="pt-6 pb-6">
+  <div class="md:pt-6 pb-6">
     <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
       <AdminMobileHeader title="Edit Price Entry" :href="route('admin.costing.price-history.index')" />
       <div class="md:hidden mb-4 flex justify-center">

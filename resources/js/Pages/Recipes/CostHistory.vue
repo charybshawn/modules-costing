@@ -1,5 +1,5 @@
 <template>
-  <div class="pt-6 pb-36 md:pb-6">
+  <div class="pb-36 md:pt-6 md:pb-6">
     <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
       <CostingModuleNav />
       <AdminMobileHeader title="Cost History" :href="route('admin.costing.recipes.index')" />

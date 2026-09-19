@@ -1,5 +1,5 @@
 <template>
-  <div class="pt-6 pb-36 md:pb-6">
+  <div class="pb-36 md:pt-6 md:pb-6">
     <div>
       <CostingModuleNav />
       <AdminMobileHeader title="Adjustment History" :href="route('admin.costing.inventory.index')" />
