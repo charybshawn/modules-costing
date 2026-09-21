@@ -1,7 +1,8 @@
 <template>
   <div class="md:pt-6 pb-6">
-    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div>
       <AdminMobileHeader title="Edit Ingredient" :href="route('admin.costing.ingredients.index')" />
+      <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="md:hidden mb-4 flex justify-center">
         <SaveIndicator :processing="form.processing" :recently-successful="form.recentlySuccessful" />
       </div>
@@ -74,6 +75,7 @@
         <div class="p-6">
           <SourcesTable :ingredient="{ id: props.ingredient.id, name: props.ingredient.name, unit_type: props.ingredient.unit_type }" />
         </div>
+      </div>
       </div>
     </div>
   </div>

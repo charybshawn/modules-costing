@@ -1,8 +1,9 @@
 <template>
   <div class="pb-36 md:pt-6 md:pb-6">
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div>
       <CostingModuleNav />
       <AdminMobileHeader title="Cost History" :href="route('admin.costing.recipes.index')" />
+      <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="hidden md:flex md:items-center md:justify-between mb-6">
         <div>
           <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Cost History</h1>
@@ -54,6 +55,7 @@
         <div v-else class="h-96">
           <Line :data="chartData" :options="chartOptions" />
         </div>
+      </div>
       </div>
     </div>
   </div>

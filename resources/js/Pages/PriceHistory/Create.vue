@@ -1,7 +1,8 @@
 <template>
   <div class="md:pt-6 pb-6">
-    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div>
       <AdminMobileHeader title="Log a Price" :href="route('admin.costing.price-history.index')" />
+      <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
         <div class="hidden md:flex p-6 border-b border-gray-200 dark:border-gray-700 justify-between items-center">
           <div>
@@ -138,6 +139,7 @@
             </button>
           </div>
         </form>
+      </div>
       </div>
     </div>
   </div>

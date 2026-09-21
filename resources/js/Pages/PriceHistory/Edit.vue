@@ -1,7 +1,8 @@
 <template>
   <div class="md:pt-6 pb-6">
-    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div>
       <AdminMobileHeader title="Edit Price Entry" :href="route('admin.costing.price-history.index')" />
+      <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="md:hidden mb-4 flex justify-center">
         <SaveIndicator :processing="form.processing" :recently-successful="form.recentlySuccessful" />
       </div>
@@ -131,6 +132,7 @@
             <Link :href="route('admin.costing.price-history.index')" class="tap-target-touch bg-gray-200 dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600">Cancel</Link>
           </div>
         </form>
+      </div>
       </div>
     </div>
   </div>

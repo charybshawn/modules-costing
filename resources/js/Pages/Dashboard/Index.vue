@@ -1,9 +1,10 @@
 <template>
   <div class="pb-36 md:pt-6 md:pb-6">
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div>
       <CostingModuleNav />
       <AdminMobileHeader title="Costing & Recipes" />
 
+      <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="hidden md:block mb-6">
         <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Costing & Recipes</h1>
         <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Pick up wherever you're at in the weekly routine.</p>
@@ -29,6 +30,7 @@
             </div>
           </div>
         </Link>
+      </div>
       </div>
     </div>
   </div>

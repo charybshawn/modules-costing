@@ -1,8 +1,9 @@
 <template>
   <div class="pb-36 md:pt-6 md:pb-6">
-    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div>
       <CostingModuleNav />
       <AdminMobileHeader title="Costing Settings" />
+      <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="hidden md:block mb-6">
         <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Costing Settings</h1>
         <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
@@ -63,6 +64,7 @@
             </button>
           </div>
         </form>
+      </div>
       </div>
     </div>
   </div>

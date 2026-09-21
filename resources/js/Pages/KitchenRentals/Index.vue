@@ -1,9 +1,10 @@
 <template>
   <div class="pb-36 md:pt-6 md:pb-6">
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+    <div>
       <CostingModuleNav />
       <AdminMobileHeader title="Rental Schedule" :href="route('admin.costing.production-planner.runs')" />
 
+      <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
       <div class="hidden md:flex md:items-center md:justify-between">
         <div>
           <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Rental Schedule</h1>
@@ -134,6 +135,7 @@
             <span v-else class="text-xs text-gray-500 dark:text-gray-400">Unplanned</span>
           </template>
         </DataTable>
+      </div>
       </div>
     </div>
 
