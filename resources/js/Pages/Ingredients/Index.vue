@@ -68,25 +68,6 @@
         <p class="text-sm font-medium text-green-800 dark:text-green-200">{{ $page.props.flash.success }}</p>
       </div>
 
-      <!-- Filter by recipe -- lives outside DataTable's own Filters
-           dropdown rather than as a filterOnly column there: an
-           ingredient can be in several recipes (belongsToMany), so
-           matching is "does this ingredient's recipe_ids include the
-           selected recipe", not the exact-equality/one-of-several checks
-           DataTable's select/multiselect filter types do internally. -->
-      <div class="mb-4 flex flex-wrap items-center gap-3">
-        <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-          Recipe
-          <select
-            v-model="recipeFilterId"
-            class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm"
-          >
-            <option :value="null">All recipes</option>
-            <option v-for="recipe in props.recipes" :key="recipe.id" :value="recipe.id">{{ recipe.name }}</option>
-          </select>
-        </label>
-      </div>
-
       <!-- No overflow-hidden here: it establishes a containing block for
            DataTable's sticky toolbar, pinning it at a fixed offset inside
            this box instead of sticking to the viewport (confirmed live --
@@ -114,8 +95,29 @@
           item-key="id"
           mobile-row-style="line"
           :row-href="(item) => route('admin.costing.ingredients.edit', item.id)"
+          :extra-filter-count="recipeFilterId !== null ? 1 : 0"
           @sort="handleSort"
+          @clear-filters="recipeFilterId = null"
         >
+          <!-- Recipe is DataTable's filters-extra slot rather than a
+               filterOnly column: an ingredient can be in several recipes
+               (belongsToMany), so matching is "does this ingredient's
+               recipe_ids include the selected recipe", not the
+               exact-equality/one-of-several checks DataTable's
+               select/multiselect filter types do internally. -->
+          <template #filters-extra>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Recipe</label>
+              <select
+                v-model="recipeFilterId"
+                class="w-full text-base sm:text-sm rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              >
+                <option :value="null">Any</option>
+                <option v-for="recipe in props.recipes" :key="recipe.id" :value="recipe.id">{{ recipe.name }}</option>
+              </select>
+            </div>
+          </template>
+
           <!-- Single-line mobile row: ingredient (truncates) + category only,
                plus the stale-price dot -- pricing detail, sources, and every
                other column drop from the compact view entirely rather than
