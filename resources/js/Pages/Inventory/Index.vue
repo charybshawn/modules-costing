@@ -35,27 +35,55 @@
         </div>
       </div>
 
-      <div class="md:hidden grid grid-cols-2 gap-2 mb-6">
-        <button
-          type="button"
-          @click="openBulkModal"
-          class="tap-target-touch inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600"
-        >
-          Bulk Update Stock
-        </button>
-        <button
-          type="button"
-          @click="openAddItemModal"
-          class="tap-target-touch inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700"
-        >
-          + Add Item
-        </button>
-        <Link :href="route('admin.costing.inventory.adjustments')" class="tap-target-touch inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700">
-          View History
-        </Link>
-        <Link :href="route('admin.costing.ingredients.index')" class="tap-target-touch inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700">
-          Ingredients
-        </Link>
+      <!-- Mobile-only hero block: headline stat + quick-action icon tiles,
+           matching Ingredients/Index.vue's own hero shell exactly (same
+           colored card, w-16 h-16 rounded-2xl tiles, Archivo Black label).
+           Three tiles rather than Ingredients' one -- Add Item, Bulk Update
+           Stock, and View History all lack a bottom-nav equivalent, unlike
+           "Ingredients" (dropped here, same reasoning Ingredients used to
+           drop its own Price History button: one tap away via
+           CostingModuleNav's bottom bar). justify-around rather than
+           -center: with more than one tile, -center would cluster them
+           together instead of spacing them across the row. -->
+      <div class="md:hidden mb-6 rounded-lg bg-gray-200 dark:bg-amber-500 px-5 pt-[30px] pb-[20px]">
+        <div class="text-center">
+          <div class="text-sm font-bold text-gray-800">Total Items</div>
+          <div class="mt-1 text-4xl font-extrabold text-emerald-600">{{ props.ingredients.length }}</div>
+        </div>
+        <div class="mt-[30px] flex items-center justify-around">
+          <div class="flex flex-col items-center gap-3">
+            <button
+              type="button"
+              @click="openAddItemModal"
+              class="tap-target-touch w-16 h-16 rounded-2xl bg-white dark:bg-gray-900 shadow-md dark:shadow-[0_4px_10px_rgba(0,0,0,0.5)] flex items-center justify-center"
+            >
+              <svg class="w-11 h-11 text-amber-500 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+            <span class="text-xs font-['Archivo_Black'] uppercase tracking-wide text-amber-500 dark:text-white leading-tight text-center">Add<br>Item</span>
+          </div>
+          <div class="flex flex-col items-center gap-3">
+            <button
+              type="button"
+              @click="openBulkModal"
+              class="tap-target-touch w-16 h-16 rounded-2xl bg-white dark:bg-gray-900 shadow-md dark:shadow-[0_4px_10px_rgba(0,0,0,0.5)] flex items-center justify-center"
+            >
+              <svg class="w-11 h-11 text-amber-500 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+              </svg>
+            </button>
+            <span class="text-xs font-['Archivo_Black'] uppercase tracking-wide text-amber-500 dark:text-white leading-tight text-center">Bulk<br>Update</span>
+          </div>
+          <Link :href="route('admin.costing.inventory.adjustments')" class="flex flex-col items-center gap-3">
+            <span class="tap-target-touch w-16 h-16 rounded-2xl bg-white dark:bg-gray-900 shadow-md dark:shadow-[0_4px_10px_rgba(0,0,0,0.5)] flex items-center justify-center">
+              <svg class="w-11 h-11 text-amber-500 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </span>
+            <span class="text-xs font-['Archivo_Black'] uppercase tracking-wide text-amber-500 dark:text-white leading-tight text-center">View<br>History</span>
+          </Link>
+        </div>
       </div>
 
       <div v-if="$page.props.flash?.success" class="mb-6 rounded-md bg-green-50 dark:bg-green-900/20 p-4">
@@ -68,17 +96,53 @@
         <DataTable
           :columns="columns"
           :items="ingredients"
+          :sort-field="sortField"
+          :sort-direction="sortDirection"
           searchable
           search-placeholder="Search inventory..."
           empty-message="No ingredients yet."
           table-id="costing-inventory"
           item-key="ingredient_id"
-          :mobile-summary-fields="3"
+          mobile-row-style="line"
+          row-clickable
+          :extra-filter-count="recipeFilterId !== null ? 1 : 0"
+          @sort="handleSort"
+          @row-click="openStockModal"
+          @clear-filters="recipeFilterId = null"
         >
+          <!-- Recipe is DataTable's filters-extra slot rather than a
+               filterOnly column, same as Ingredients/Index.vue: an
+               ingredient can be in several recipes (belongsToMany), so
+               matching is "does this ingredient's recipe_ids include the
+               selected recipe", not the exact-equality/one-of-several
+               checks DataTable's select/multiselect filter types do
+               internally. -->
+          <template #filters-extra>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Recipe</label>
+              <select
+                v-model="recipeFilterId"
+                class="w-full text-base sm:text-sm rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              >
+                <option :value="null">Any</option>
+                <option v-for="recipe in props.recipes" :key="recipe.id" :value="recipe.id">{{ recipe.name }}</option>
+              </select>
+            </div>
+          </template>
+
+          <!-- Single-line mobile row: item (truncates) + on hand quantity --
+               matches Ingredients/Index.vue's own compact mobile row.
+               Tapping the row opens the Stock modal (row-clickable, above)
+               rather than navigating -- there's no Edit page here. -->
+          <template #mobile-card="{ item }">
+            <div class="flex items-center gap-3 min-w-0">
+              <span class="min-w-0 flex-1 truncate text-sm font-medium text-gray-900 dark:text-white">{{ item.name }}</span>
+              <span class="shrink-0 text-sm text-gray-500 dark:text-gray-400">{{ formatQuantity(item.on_hand, item.unit_type) }}</span>
+            </div>
+          </template>
+
           <template #cell-name="{ item }">
-            <button type="button" @click="openStockModal(item)" class="tap-target-touch inline-flex items-center text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline text-left">
-              {{ item.name }}
-            </button>
+            <div class="text-sm font-medium text-gray-900 dark:text-white">{{ item.name }}</div>
           </template>
 
           <template #cell-category="{ item }">
@@ -210,7 +274,7 @@
           <button
             type="button"
             @click="addRow"
-            :disabled="bulkForm.items.length >= ingredients.length"
+            :disabled="bulkForm.items.length >= props.ingredients.length"
             class="mt-3 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 disabled:opacity-40 disabled:hover:text-indigo-600 dark:disabled:hover:text-indigo-400"
           >
             + Add another ingredient
@@ -341,13 +405,43 @@ interface InventoryRow {
   source_count: number
   sources: IngredientSource[]
   preferred_source_id: number | null
+  recipe_ids: number[]
+}
+
+interface RecipeOption {
+  id: number
+  name: string
 }
 
 interface Props {
   ingredients: InventoryRow[]
+  recipes: RecipeOption[]
 }
 
 const props = defineProps<Props>()
+
+const recipeFilterId = ref<number | null>(null)
+
+const sortField = ref('name')
+const sortDirection = ref<'asc' | 'desc'>('asc')
+
+const handleSort = (field: string) => {
+  if (sortField.value === field) {
+    sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortField.value = field
+    sortDirection.value = 'asc'
+  }
+}
+
+const ingredients = computed(() => {
+  const field = sortField.value as keyof InventoryRow
+  const dir = sortDirection.value === 'asc' ? 1 : -1
+  const result = recipeFilterId.value === null
+    ? props.ingredients
+    : props.ingredients.filter((i) => i.recipe_ids.includes(recipeFilterId.value as number))
+  return [...result].sort((a, b) => String(a[field] ?? '').localeCompare(String(b[field] ?? '')) * dir)
+})
 
 const columns: Column[] = [
   { key: 'name', label: 'Ingredient', sortable: true },

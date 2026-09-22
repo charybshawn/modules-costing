@@ -9,6 +9,7 @@ use Cultpantry\Costing\Models\Ingredient;
 use Cultpantry\Costing\Models\InventoryAdjustment;
 use Cultpantry\Costing\Models\InventoryItem;
 use Cultpantry\Costing\Models\PackageSize;
+use Cultpantry\Costing\Models\Recipe;
 use Cultpantry\Costing\Support\CostingBreadcrumbs;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -40,7 +41,7 @@ class InventoryController extends Controller implements HasMiddleware
     {
         $this->authorize('viewAny', InventoryItem::class);
 
-        $ingredients = Ingredient::with('packageSizes')
+        $ingredients = Ingredient::with('packageSizes', 'recipes:id,name')
             ->orderBy('name')
             ->get()
             ->map(function (Ingredient $ingredient) {
@@ -51,6 +52,11 @@ class InventoryController extends Controller implements HasMiddleware
                     'unit_type' => $ingredient->unit_type,
                     'on_hand' => (float) $ingredient->packageSizes->sum('quantity_on_hand'),
                     'source_count' => $ingredient->packageSizes->count(),
+                    // Drives the Recipe filter, same as Ingredients/Index --
+                    // an ingredient can be in several recipes (belongsToMany),
+                    // so it's exposed as recipe_ids rather than a single
+                    // scalar column.
+                    'recipe_ids' => $ingredient->recipes->pluck('id')->all(),
                     // Every real source, so the bulk modal can let the user
                     // pick which one a stock update actually applies to --
                     // it's no longer forced onto the preferred/first source.
@@ -70,6 +76,7 @@ class InventoryController extends Controller implements HasMiddleware
 
         return Inertia::render('Vendor/costing/Inventory/Index', [
             'ingredients' => $ingredients,
+            'recipes' => Recipe::orderBy('name')->get(['id', 'name']),
             'breadcrumbs' => CostingBreadcrumbs::trail(['label' => 'Inventory']),
         ]);
     }
