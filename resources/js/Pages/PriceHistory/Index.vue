@@ -35,11 +35,6 @@
           Log Price
         </Link>
       </div>
-
-      <div v-if="$page.props.flash?.success" class="mb-6 rounded-md bg-green-50 dark:bg-green-900/20 p-4">
-        <p class="text-sm font-medium text-green-800 dark:text-green-200">{{ $page.props.flash.success }}</p>
-      </div>
-
       <div v-if="ingredientFilterName" class="mb-4 flex flex-wrap items-center gap-4">
         <span class="inline-flex items-center gap-1 rounded-full border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 pl-3 pr-1.5 py-1 text-sm text-gray-700 dark:text-gray-200">
           Ingredient: <span class="font-medium">{{ ingredientFilterName }}</span>

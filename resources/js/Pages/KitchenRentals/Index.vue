@@ -41,11 +41,6 @@
           <span v-else>Import CSV</span>
         </button>
       </div>
-
-      <div v-if="$page.props.flash?.success" class="rounded-md bg-green-50 dark:bg-green-900/20 p-4">
-        <p class="text-sm font-medium text-green-800 dark:text-green-200">{{ $page.props.flash.success }}</p>
-      </div>
-
       <FormErrorSummary v-if="Object.keys(importForm.errors).length" :errors="importForm.errors" />
 
       <!-- Slots -->
@@ -139,7 +134,14 @@
       </div>
     </div>
 
-    <ProductionPlanModal :production-run-id="openRunId" :auto-complete="autoComplete" @close="openRunId = null; autoComplete = false" @updated="router.reload({ only: ['rentals'] })" />
+    <!-- No @updated handler -- every mutation inside the modal (attach/
+         detach rental, update, complete, uncomplete) already POSTs/PUTs
+         through a route that redirect()->back()s to this exact page, which
+         Inertia follows and merges fresh props from, `rentals` included. A
+         second, manual router.reload() here was pure redundancy that raced
+         the first request's own flash-message session aging, firing the
+         success toast a second time. -->
+    <ProductionPlanModal :production-run-id="openRunId" :auto-complete="autoComplete" @close="openRunId = null; autoComplete = false" />
   </div>
 </template>
 

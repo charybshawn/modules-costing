@@ -179,6 +179,45 @@ class InventoryController extends Controller implements HasMiddleware
     }
 
     /**
+     * This ingredient's own adjustment history -- fetched on demand by
+     * StockAdjustModal.vue's expandable History section, same on-open
+     * pattern as sources() above. Same row shape as adjustments()'s
+     * all-ingredients feed, just pre-filtered to one ingredient rather than
+     * the page filtering client-side (a busy ingredient's history is
+     * usually a small slice of the whole table, but the whole table itself
+     * can get large across a real kitchen's history).
+     */
+    public function history(Ingredient $ingredient): JsonResponse
+    {
+        $ingredient->loadMissing('inventory');
+        $this->authorize('view', $ingredient->inventory);
+
+        $adjustments = InventoryAdjustment::with('user', 'productionRun')
+            ->where('ingredient_id', $ingredient->id)
+            ->orderByDesc('created_at')
+            ->limit(50)
+            ->get()
+            ->map(fn (InventoryAdjustment $adjustment) => [
+                'id' => $adjustment->id,
+                'source' => $adjustment->source_brand
+                    ? "{$adjustment->source_provider} — {$adjustment->source_brand}"
+                    : $adjustment->source_provider,
+                'reason' => $adjustment->reason,
+                'delta' => (float) $adjustment->delta,
+                'on_hand_before' => (float) $adjustment->on_hand_before,
+                'on_hand_after' => (float) $adjustment->on_hand_after,
+                'notes' => $adjustment->notes,
+                'user_name' => $adjustment->user?->name,
+                'production_run_name' => $adjustment->productionRun
+                    ? ($adjustment->productionRun->name ?? $adjustment->productionRun->run_date->format('Y-m-d'))
+                    : null,
+                'created_at' => $adjustment->created_at->format('Y-m-d H:i'),
+            ]);
+
+        return response()->json(['adjustments' => $adjustments]);
+    }
+
+    /**
      * Two explicit, mutually exclusive workflows on one source: 'recount'
      * (a physical count of this source, replaces its quantity outright) or
      * 'adjust' (a package count added to or subtracted from what's there --

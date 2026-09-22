@@ -15,11 +15,6 @@
           &larr; Back to Inventory
         </Link>
       </div>
-
-      <div v-if="$page.props.flash?.success" class="mb-6 rounded-md bg-green-50 dark:bg-green-900/20 p-4">
-        <p class="text-sm font-medium text-green-800 dark:text-green-200">{{ $page.props.flash.success }}</p>
-      </div>
-
       <!-- No overflow-hidden: it breaks DataTable's sticky toolbar by
            pinning it inside this box instead of the viewport. -->
       <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg">
@@ -77,13 +72,20 @@
       </div>
     </div>
 
-    <ProductionPlanModal :production-run-id="openRunId" @close="openRunId = null" @updated="router.reload({ only: ['adjustments'] })" />
+    <!-- No @updated handler -- every mutation inside the modal (attach/
+         detach rental, update, complete, uncomplete) already POSTs/PUTs
+         through a route that redirect()->back()s to this exact page, which
+         Inertia follows and merges fresh props from, `adjustments`
+         included. A second, manual router.reload() here was pure
+         redundancy that raced the first request's own flash-message
+         session aging, firing the success toast a second time. -->
+    <ProductionPlanModal :production-run-id="openRunId" @close="openRunId = null" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { Link, router } from '@inertiajs/vue3'
+import { Link } from '@inertiajs/vue3'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import AdminMobileHeader from '@/Components/Admin/AdminMobileHeader.vue'
 import DataTable, { type Column } from '@/Components/Admin/DataTable.vue'

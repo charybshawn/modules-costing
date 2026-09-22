@@ -25,14 +25,87 @@
     </div>
   </nav>
 
-  <AdminQuickLinksBar :links="mobileLinks" scrollable />
+  <!-- Optional per-page drawer content (e.g. Inventory's row-tap stock
+       adjuster): grows directly out of this bar rather than floating as
+       its own separate card, matching the host app's own Admin/Inventory
+       drawer (its persistent tab-row footer doubling as the drawer's
+       handle). bottom is set to navBarHeight -- AdminQuickLinksBar's own
+       height, MEASURED rather than a guessed constant, since it already
+       varies with label line count (1 vs 2 lines) and safe-area-inset --
+       so the drawer's bottom edge always lands exactly flush with the
+       bar's top edge, no gap, no overlap, regardless of device. Only
+       rendered at all when a page actually provides the slot -- pages
+       that don't (everything except Inventory today) get the bar exactly
+       as before. -->
+  <template v-if="$slots.drawer">
+    <!-- z-45: above AdminQuickLinksBar's own z-40, so the backdrop actually
+         dims the bar (reading as inert while the drawer's open) instead of
+         the bar painting over it. The drawer pane itself goes higher
+         still (z-50, the app's usual modal/toast tier). -->
+    <div
+      v-if="drawerOpen"
+      class="md:hidden fixed inset-0 z-[45] bg-black/30"
+      @click="$emit('closeDrawer')"
+    />
+    <div
+      v-if="drawerOpen"
+      class="md:hidden fixed inset-x-0 z-50 max-h-[70dvh] flex flex-col rounded-t-2xl bg-white dark:bg-gray-800 shadow-xl"
+      :style="{ bottom: navBarHeight + 'px' }"
+    >
+      <slot name="drawer" />
+    </div>
+  </template>
+
+  <AdminQuickLinksBar ref="navBarRef" :links="mobileLinks" scrollable />
 </template>
 
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3'
-import { computed } from 'vue'
+import { computed, onMounted, onUnmounted, ref, useTemplateRef } from 'vue'
 import AdminQuickLinksBar, { type QuickLinkItem } from '@/Components/Admin/AdminQuickLinksBar.vue'
 import { adminNavIcons } from '@/utils/adminNavIcons'
+
+interface Props {
+  // Whether a page-provided #drawer slot is currently expanded. Ignored
+  // (and the slot never rendered) when no page passes that slot at all.
+  drawerOpen?: boolean
+}
+
+withDefaults(defineProps<Props>(), { drawerOpen: false })
+
+defineEmits<{ closeDrawer: [] }>()
+
+// AdminQuickLinksBar positions ITSELF fixed/bottom-0 -- that doesn't
+// prevent measuring its own real rendered height (fixed only removes an
+// element from affecting its ancestors' layout, not its own box), it just
+// means a wrapping element around it can't be used for this the normal
+// way (a wrapper containing only a fixed child reports zero height).
+// $el reaches the component's actual root DOM node directly instead.
+//
+// Manual ResizeObserver rather than vueuse's useElementSize: that composable
+// observes as soon as its target ref resolves, but a template ref to a
+// child component is still null at the point CostingModuleNav's own setup()
+// runs (refs populate once the child mounts, which hasn't happened yet) --
+// confirmed live as "Failed to execute 'observe' on 'ResizeObserver':
+// parameter 1 is not of type 'Element'", thrown during initial mount and
+// left CostingModuleNav (and everything nested under it, including the
+// drawer) broken for the rest of the page's life. onMounted below
+// guarantees the child already exists before the first observe() call.
+const navBarComponent = useTemplateRef<InstanceType<typeof AdminQuickLinksBar>>('navBarRef')
+const navBarHeight = ref(0)
+let navBarResizeObserver: ResizeObserver | null = null
+
+onMounted(() => {
+  const el = navBarComponent.value?.$el
+  if (!(el instanceof HTMLElement)) return
+  navBarHeight.value = el.getBoundingClientRect().height
+  navBarResizeObserver = new ResizeObserver(([entry]) => {
+    navBarHeight.value = entry.contentRect.height
+  })
+  navBarResizeObserver.observe(el)
+})
+
+onUnmounted(() => navBarResizeObserver?.disconnect())
 
 // Shared sub-navigation for every top-level page in the Costing module.
 // AdminNav only supports one sidebar entry per module (see

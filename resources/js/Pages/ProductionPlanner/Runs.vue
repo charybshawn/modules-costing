@@ -42,11 +42,6 @@
           New Run
         </button>
       </div>
-
-      <div v-if="$page.props.flash?.success" class="mb-6 rounded-md bg-green-50 dark:bg-green-900/20 p-4">
-        <p class="text-sm font-medium text-green-800 dark:text-green-200">{{ $page.props.flash.success }}</p>
-      </div>
-
       <!-- No overflow-hidden: it breaks DataTable's sticky toolbar by
            pinning it inside this box instead of the viewport. -->
       <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg">
@@ -97,7 +92,14 @@
     </div>
 
     <NewProductionRunModal :show="showCreateModal" @close="showCreateModal = false" @created="onCreated" />
-    <ProductionPlanModal :production-run-id="openRunId" :auto-complete="autoComplete" @close="openRunId = null; autoComplete = false" @updated="router.reload({ only: ['runs'] })" />
+    <!-- No @updated handler -- every mutation inside the modal (attach/
+         detach rental, update, complete, uncomplete) already POSTs/PUTs
+         through a route that redirect()->back()s to this exact page, which
+         Inertia follows and merges fresh props from, `runs` included. A
+         second, manual router.reload() here was pure redundancy that raced
+         the first request's own flash-message session aging, firing the
+         success toast a second time. -->
+    <ProductionPlanModal :production-run-id="openRunId" :auto-complete="autoComplete" @close="openRunId = null; autoComplete = false" />
   </div>
 </template>
 

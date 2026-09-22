@@ -10,11 +10,6 @@
           Configuration for this module only -- these don't affect the site-wide Settings page.
         </p>
       </div>
-
-      <div v-if="$page.props.flash?.success" class="mb-6 rounded-md bg-green-50 dark:bg-green-900/20 p-4">
-        <p class="text-sm font-medium text-green-800 dark:text-green-200">{{ $page.props.flash.success }}</p>
-      </div>
-
       <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
         <form @submit.prevent="submit" class="p-6 space-y-6">
           <FormErrorSummary :errors="form.errors" />

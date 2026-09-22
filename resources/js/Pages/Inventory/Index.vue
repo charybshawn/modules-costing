@@ -1,7 +1,18 @@
 <template>
   <div class="pb-36 md:pt-6 md:pb-6">
     <div>
-      <CostingModuleNav />
+      <!-- Row-tap stock drawer lives inside CostingModuleNav's own bottom
+           bar (its #drawer slot) rather than floating separately -- grows
+           directly out of it as one unit. Only relevant on mobile
+           (stockIngredient still drives StockAdjustModal's desktop dialog
+           below), but harmless to pass unconditionally: the slot content
+           itself is `md:hidden` internally via CostingModuleNav's own
+           wrapper, same as the bar it attaches to. -->
+      <CostingModuleNav :drawer-open="stockIngredient !== null" @close-drawer="closeStockModal">
+        <template #drawer>
+          <InventoryStockDrawer :ingredient="stockIngredient" @close="closeStockModal" />
+        </template>
+      </CostingModuleNav>
       <AdminMobileHeader title="Inventory" />
 
       <div class="hidden md:flex md:items-center md:justify-between mb-6">
@@ -86,10 +97,6 @@
         </div>
       </div>
 
-      <div v-if="$page.props.flash?.success" class="mb-6 rounded-md bg-green-50 dark:bg-green-900/20 p-4">
-        <p class="text-sm font-medium text-green-800 dark:text-green-200">{{ $page.props.flash.success }}</p>
-      </div>
-
       <!-- No overflow-hidden: it breaks DataTable's sticky toolbar by
            pinning it inside this box instead of the viewport. -->
       <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg">
@@ -159,7 +166,20 @@
         </DataTable>
       </div>
 
-      <StockAdjustModal :ingredient="stockIngredient" @close="closeStockModal" @updated="router.reload({ only: ['ingredients'] })" />
+      <!-- Desktop only -- mobile's equivalent is InventoryStockDrawer,
+           mounted up top inside CostingModuleNav's #drawer slot instead
+           (see that usage's own comment). isDesktop gates it (rather than
+           both mounting and relying on CSS to hide one) since a hidden
+           <dialog> still calling showModal() is unreliable.
+
+           No @updated handler needed -- each mutation inside (recount/
+           adjust) already POSTs through a route that redirect()->back()s
+           to this exact page, which Inertia follows and merges fresh
+           props from, `ingredients` included. A second, manual
+           router.reload() here was pure redundancy that raced the first
+           request's own flash-message session aging, firing the success
+           toast a second time. -->
+      <StockAdjustModal v-if="isDesktop" :ingredient="stockIngredient" @close="closeStockModal" />
 
       <!-- Bulk Update Stock modal -->
       <Modal :show="showBulkModal" max-width="2xl" @close="closeBulkModal">
@@ -375,13 +395,15 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { Link, router, useForm } from '@inertiajs/vue3'
+import { useMediaQuery } from '@vueuse/core'
+import { Link, useForm } from '@inertiajs/vue3'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import AdminMobileHeader from '@/Components/Admin/AdminMobileHeader.vue'
 import DataTable, { type Column } from '@/Components/Admin/DataTable.vue'
 import Modal from '@/Components/Modal.vue'
 import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
 import StockAdjustModal, { type StockIngredient } from '../Shared/StockAdjustModal.vue'
+import InventoryStockDrawer from '../Shared/InventoryStockDrawer.vue'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
 import { formatQuantity } from '../Shared/formatWeight'
 import IconButton from '@/Components/IconButton.vue'
@@ -452,7 +474,10 @@ const columns: Column[] = [
 
 // Stock modal -- markup/logic lives in the shared component; this page
 // only owns which ingredient (if any) it's open for, same pattern as
-// Ingredients/Index.vue's AvailablePricesModal.
+// Ingredients/Index.vue's AvailablePricesModal. isDesktop picks which
+// shell renders it (StockAdjustModal's dialog vs InventoryStockDrawer's
+// bottom sheet) -- matches DataTable's own 'md' breakpoint.
+const isDesktop = useMediaQuery('(min-width: 768px)')
 const stockIngredient = ref<StockIngredient | null>(null)
 
 const openStockModal = (item: InventoryRow) => {

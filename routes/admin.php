@@ -52,6 +52,7 @@ Route::prefix('admin')->name('admin.')->middleware(['web', 'auth', 'admin'])->gr
             Route::post('bulk-update', [InventoryController::class, 'bulkUpdate'])->name('bulk-update');
             Route::get('adjustments', [InventoryController::class, 'adjustments'])->name('adjustments');
             Route::get('{ingredient}/sources', [InventoryController::class, 'sources'])->name('sources');
+            Route::get('{ingredient}/history', [InventoryController::class, 'history'])->name('history');
             Route::post('{ingredient}/sources/{packageSize}', [InventoryController::class, 'adjustSource'])->name('sources.adjust');
             Route::delete('{ingredient}/sources/{packageSize}', [InventoryController::class, 'destroySource'])->name('sources.destroy');
         });
