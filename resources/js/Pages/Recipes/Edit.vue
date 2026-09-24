@@ -8,7 +8,7 @@
       @discard="form.clearPersistedData()"
     >
       <template #mobile-header="{ currentStepIndex, goToStep }">
-        <AdminMobileHeader title="Edit Recipe" :on-back="() => shellRef?.guardNavigation(indexUrl)">
+        <AdminMobileHeader title="Edit Recipe" :on-back="() => shellRef?.guardNavigation(showUrl())">
           <template #subtitle>
             <SaveIndicator
               v-if="form.processing || form.recentlySuccessful || saveProblem"
@@ -32,6 +32,11 @@
       </template>
 
       <template #mobile-actions>
+        <IconButton label="View recipe" :class="iconActionClass" @click="shellRef?.guardNavigation(showUrl())">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+        </IconButton>
         <IconButton label="Delete recipe" :class="dangerIconActionClass" @click="destroy">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -40,7 +45,9 @@
       </template>
 
       <template #header>
-        <Link :href="indexUrl" :class="backLinkClass" @click.prevent="shellRef?.guardNavigation(indexUrl)">&larr; Back to Recipes</Link>
+        <Link :href="showUrl()" :class="backLinkClass" @click.prevent="shellRef?.guardNavigation(showUrl())">
+          &larr; Back to Recipe
+        </Link>
         <div class="hidden md:flex flex-wrap items-center justify-between gap-3 mt-2 mb-6">
           <div class="flex items-center gap-3 min-w-0">
             <h1 class="text-2xl font-semibold text-gray-900 dark:text-white truncate">{{ recipe.name }}</h1>
@@ -55,6 +62,7 @@
             <SaveIndicator :processing="form.processing" :recently-successful="form.recentlySuccessful" :error="saveProblem" />
           </div>
           <div class="flex items-center gap-3">
+            <button type="button" :class="secondaryButtonClass" @click="shellRef?.guardNavigation(showUrl())">View Recipe</button>
             <button type="button" :class="dangerOutlineButtonClass" @click="destroy">Delete Recipe</button>
             <button type="button" :class="secondaryButtonClass" @click="closeEditor">Cancel</button>
           </div>
@@ -187,6 +195,7 @@ const sections: FormSection[] = [
 
 const shellRef = ref<InstanceType<typeof ResponsiveFormSections> | null>(null)
 const indexUrl = route('admin.costing.recipes.index')
+const showUrl = () => route('admin.costing.recipes.show', props.recipe.id)
 const updateUrl = () => route('admin.costing.recipes.update', props.recipe.id)
 
 const byproductIngredients = props.ingredients.filter((i) => i.byproduct_name)

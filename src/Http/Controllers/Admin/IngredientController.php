@@ -129,6 +129,45 @@ class IngredientController extends Controller implements HasMiddleware
             ->with('success', "Ingredient '{$ingredient->name}' created.");
     }
 
+    /**
+     * Read-only view -- where the Ingredients list's rows land (edit is
+     * one tap away), per the host's show-page pattern.
+     */
+    public function show(Ingredient $ingredient, CalculateIngredientCosting $calculateIngredientCosting): Response
+    {
+        $this->authorize('view', $ingredient);
+
+        // Same eager loads as index() -- CalculateIngredientCosting reads
+        // priceHistory (with its ingredient, for price_per_unit), inventory
+        // and packageSizes, and lazy loading throws outside production.
+        $ingredient->load('priceHistory.ingredient', 'inventory', 'packageSizes', 'recipes:id,name,is_active');
+
+        return Inertia::render('Vendor/costing/Ingredients/Show', [
+            'ingredient' => array_merge(
+                [
+                    'id' => $ingredient->id,
+                    'name' => $ingredient->name,
+                    'category' => $ingredient->category,
+                    'unit_type' => $ingredient->unit_type,
+                    'waste_percent' => (float) $ingredient->waste_percent,
+                    'notes' => $ingredient->notes,
+                    'byproduct_name' => $ingredient->byproduct_name,
+                    'recipes' => $ingredient->recipes->sortBy('name')->map(fn (Recipe $recipe) => [
+                        'id' => $recipe->id,
+                        'name' => $recipe->name,
+                        'is_active' => $recipe->is_active,
+                    ])->values(),
+                ],
+                $calculateIngredientCosting->handle($ingredient)
+            ),
+            'staleness_days' => app(GetPriceStalenessDays::class)->handle(),
+            'breadcrumbs' => CostingBreadcrumbs::trail(
+                ['label' => 'Ingredients', 'href' => route('admin.costing.ingredients.index')],
+                ['label' => $ingredient->name],
+            ),
+        ]);
+    }
+
     public function edit(Ingredient $ingredient): Response
     {
         $this->authorize('update', $ingredient);

@@ -154,6 +154,41 @@ class PriceHistoryController extends Controller implements HasMiddleware
             ->with('success', 'Price logged.');
     }
 
+    /**
+     * Read-only view -- where the Price History list's rows land (edit is
+     * one tap away), per the host's show-page pattern.
+     */
+    public function show(PriceHistoryEntry $priceHistoryEntry): Response
+    {
+        $this->authorize('view', $priceHistoryEntry);
+
+        $priceHistoryEntry->load('ingredient:id,name,unit_type');
+
+        return Inertia::render('Vendor/costing/PriceHistory/Show', [
+            'entry' => [
+                'id' => $priceHistoryEntry->id,
+                'ingredient_id' => $priceHistoryEntry->ingredient_id,
+                'ingredient_name' => $priceHistoryEntry->ingredient?->name,
+                'unit_type' => $priceHistoryEntry->ingredient?->unit_type,
+                'provider' => $priceHistoryEntry->provider,
+                'brand' => $priceHistoryEntry->brand,
+                'purchased_at' => optional($priceHistoryEntry->purchased_at)->format('Y-m-d'),
+                'logged_at' => $priceHistoryEntry->created_at?->format('Y-m-d g:i A'),
+                'qty' => $priceHistoryEntry->qty ? (float) $priceHistoryEntry->qty : null,
+                'priced_as_case' => $priceHistoryEntry->priced_as_case,
+                'total_price' => $priceHistoryEntry->total_price ? (float) $priceHistoryEntry->total_price : null,
+                'price_per_unit' => $priceHistoryEntry->price_per_unit,
+                'price_per_100g' => $priceHistoryEntry->price_per_100g,
+                'sku' => $priceHistoryEntry->sku,
+                'notes' => $priceHistoryEntry->notes,
+            ],
+            'breadcrumbs' => CostingBreadcrumbs::trail(
+                ['label' => 'Price History', 'href' => route('admin.costing.price-history.index')],
+                ['label' => $priceHistoryEntry->ingredient?->name ?? 'Price Entry'],
+            ),
+        ]);
+    }
+
     public function edit(PriceHistoryEntry $priceHistoryEntry): Response
     {
         $this->authorize('update', $priceHistoryEntry);

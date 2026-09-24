@@ -21,14 +21,21 @@
         </div>
       </div>
 
-      <div class="md:hidden flex flex-wrap gap-2 mb-6">
-        <Link :href="route('admin.costing.recipes.cost-history')" class="tap-target-touch flex-1 inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700">
-          Cost History
-        </Link>
-      </div>
+      <ActionShelf class="md:hidden" overlay="always">
+        <ShelfAction icon="trend" label="Cost history" :href="route('admin.costing.recipes.cost-history')" />
+      </ActionShelf>
+      <StatHero
+        class="md:hidden -mt-4"
+        :headline="{ label: 'Average food cost', value: averageFoodCost === null ? '—' : `${averageFoodCost.toFixed(1)}%`, hint: 'Across recipes with a sell price' }"
+        :stats="[
+          { label: 'At or over 35%', value: overTargetCount, tone: overTargetCount > 0 ? 'danger' : 'default' },
+          { label: 'No sell price', value: props.recipes.length - pricedRecipes.length, tone: props.recipes.length - pricedRecipes.length > 0 ? 'warning' : 'default' },
+        ]"
+      />
+      <hr class="md:hidden border-gray-200 dark:border-gray-700" />
       <!-- No overflow-hidden: it breaks DataTable's sticky toolbar by
            pinning it inside this box instead of the viewport. -->
-      <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg">
+      <div class="bg-white dark:bg-gray-800 md:shadow-sm md:rounded-lg">
         <DataTable
           :columns="columns"
           :items="recipes"
@@ -122,10 +129,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { Link, useForm } from '@inertiajs/vue3'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import AdminMobileHeader from '@/Components/Admin/AdminMobileHeader.vue'
+import ActionShelf from '@/Components/Admin/ActionShelf.vue'
+import ShelfAction from '@/Components/Admin/ShelfAction.vue'
+import StatHero from '@/Components/Admin/StatHero.vue'
 import DataTable, { type Column, type Action } from '@/Components/Admin/DataTable.vue'
 import ResponsiveModal from '@/Components/ResponsiveModal.vue'
 import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
@@ -152,7 +162,14 @@ interface Props {
   recipes: RecipeCostRow[]
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
+
+// Mobile StatHero figures. 35% matches foodCostClass's caution line below.
+const pricedRecipes = computed(() => props.recipes.filter((r) => r.food_cost_percent !== null))
+const averageFoodCost = computed(() => pricedRecipes.value.length
+  ? pricedRecipes.value.reduce((sum, r) => sum + (r.food_cost_percent as number), 0) / pricedRecipes.value.length
+  : null)
+const overTargetCount = computed(() => pricedRecipes.value.filter((r) => (r.food_cost_percent as number) >= 35).length)
 
 const columns: Column[] = [
   { key: 'name', label: 'Flavour', sortable: true },

@@ -4,7 +4,7 @@
       <CostingModuleNav class="print:hidden" />
       <AdminMobileHeader title="Purchase Order" :href="route('admin.costing.production-planner.runs')" class="print:hidden" />
 
-      <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="md:max-w-5xl md:mx-auto md:px-6 lg:px-8">
       <div class="hidden md:flex md:items-center md:justify-between mb-6 print:hidden">
         <Link :href="route('admin.costing.production-planner.runs')" class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">&larr; Back to All Runs</Link>
         <button @click="print" class="tap-target-touch inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
@@ -12,13 +12,11 @@
         </button>
       </div>
 
-      <div class="md:hidden print:hidden mb-6">
-        <button @click="print" class="tap-target-touch w-full inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600">
-          Print
-        </button>
-      </div>
+      <ActionShelf class="md:hidden print:hidden" overlay="always">
+        <ShelfAction icon="download" label="Print" @click="print" />
+      </ActionShelf>
 
-      <div class="bg-white dark:bg-gray-800 print:bg-white shadow-sm rounded-lg p-8 print:shadow-none print:p-0">
+      <div class="bg-white dark:bg-gray-800 print:bg-white md:shadow-sm md:rounded-lg p-4 md:p-8 -mt-4 md:mt-0 print:mt-0 print:shadow-none print:p-0">
         <h1 class="text-2xl font-semibold text-gray-900 dark:text-white print:text-black">Purchase Order</h1>
         <p class="mt-1 text-sm text-gray-600 dark:text-gray-400 print:text-black">
           Production run: {{ productionRun.total_units }} units total{{ productionRun.name ? ` — ${productionRun.name}` : '' }} ({{ productionRun.run_date }})
@@ -94,6 +92,8 @@ import { computed } from 'vue'
 import { Link } from '@inertiajs/vue3'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import AdminMobileHeader from '@/Components/Admin/AdminMobileHeader.vue'
+import ActionShelf from '@/Components/Admin/ActionShelf.vue'
+import ShelfAction from '@/Components/Admin/ShelfAction.vue'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
 import { formatQuantity } from '../Shared/formatWeight'
 

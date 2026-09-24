@@ -219,6 +219,59 @@ class RecipeController extends Controller implements HasMiddleware
             ->with('success', "Recipe '{$recipe->name}' created.");
     }
 
+    /**
+     * Read-only view -- where the Recipes list's rows land (edit is one
+     * tap away), per the host's show-page pattern.
+     */
+    public function show(
+        Recipe $recipe,
+        CalculateIngredientCosting $calculateIngredientCosting,
+        CalculateMaxProducibleUnits $calculateMaxProducibleUnits,
+    ): Response {
+        $this->authorize('view', $recipe);
+
+        // 'mainIngredients.inventory' for CalculateMaxProducibleUnits; the
+        // costing loads below for CalculateIngredientCosting (see edit()).
+        $recipe->load(
+            'mainIngredients.priceHistory.ingredient',
+            'mainIngredients.inventory',
+            'mainIngredients.packageSizes',
+            'byproductIngredients',
+        );
+
+        return Inertia::render('Vendor/costing/Recipes/Show', [
+            'recipe' => [
+                'id' => $recipe->id,
+                'name' => $recipe->name,
+                'notes' => $recipe->notes,
+                'min_stock_threshold' => $recipe->min_stock_threshold,
+                'is_active' => $recipe->is_active,
+                'max_producible_units' => $calculateMaxProducibleUnits->handle($recipe),
+                'ingredients' => $recipe->mainIngredients->sortBy('name')->map(fn (Ingredient $ingredient) => array_merge(
+                    [
+                        'id' => $ingredient->id,
+                        'name' => $ingredient->name,
+                        'unit_type' => $ingredient->unit_type,
+                        'quantity_per_jar' => (float) $ingredient->pivot->quantity_per_jar,
+                    ],
+                    $calculateIngredientCosting->handle($ingredient)
+                ))->values(),
+                'byproducts' => $recipe->byproductIngredients->sortBy('name')->map(fn (Ingredient $ingredient) => [
+                    'id' => $ingredient->id,
+                    'name' => $ingredient->name,
+                    'byproduct_name' => $ingredient->byproduct_name,
+                    'unit_type' => $ingredient->unit_type,
+                    'quantity_per_jar' => (float) $ingredient->pivot->quantity_per_jar,
+                ])->values(),
+            ],
+            'finishedGoodOption' => $this->currentFinishedGoodOption($recipe),
+            'breadcrumbs' => CostingBreadcrumbs::trail(
+                ['label' => 'Recipes', 'href' => route('admin.costing.recipes.index')],
+                ['label' => $recipe->name],
+            ),
+        ]);
+    }
+
     public function edit(Recipe $recipe, CalculateIngredientCosting $calculateIngredientCosting): Response
     {
         $this->authorize('update', $recipe);

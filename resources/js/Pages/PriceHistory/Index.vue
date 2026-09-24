@@ -24,18 +24,16 @@
         </div>
       </div>
 
-      <div class="md:hidden flex flex-wrap gap-2 mb-6">
-        <Link :href="route('admin.costing.ingredients.index')" class="tap-target-touch flex-1 inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700">
-          Ingredients
-        </Link>
-        <Link :href="route('admin.costing.price-history.create')" class="tap-target-touch flex-1 inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600">
-          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-          </svg>
-          Log Price
-        </Link>
-      </div>
-      <div v-if="ingredientFilterName" class="mb-4 flex flex-wrap items-center gap-4">
+      <ActionShelf class="md:hidden" overlay="always">
+        <ShelfAction icon="plus" label="Log a price" :href="route('admin.costing.price-history.create')" />
+      </ActionShelf>
+      <StatHero
+        class="md:hidden -mt-4"
+        :headline="{ label: 'Price entries', value: props.entries.length }"
+        :stats="[{ label: 'Need an update', value: needsUpdateCount, tone: needsUpdateCount > 0 ? 'warning' : 'default' }]"
+      />
+      <hr class="md:hidden border-gray-200 dark:border-gray-700" />
+      <div v-if="ingredientFilterName" class="px-4 py-3 md:px-0 md:pt-0 md:mb-4 flex flex-wrap items-center gap-4">
         <span class="inline-flex items-center gap-1 rounded-full border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 pl-3 pr-1.5 py-1 text-sm text-gray-700 dark:text-gray-200">
           Ingredient: <span class="font-medium">{{ ingredientFilterName }}</span>
           <IconButton
@@ -53,7 +51,7 @@
 
       <!-- No overflow-hidden: it breaks DataTable's sticky toolbar by
            pinning it inside this box instead of the viewport. -->
-      <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg">
+      <div class="bg-white dark:bg-gray-800 md:shadow-sm md:rounded-lg">
         <BulkActionsBar :count="selectedIds.length" singular="entry" plural="entries" @clear="selectedIds = []">
           <button type="button" @click="bulkDelete" class="tap-target-touch px-3 py-1.5 text-xs font-medium bg-red-600 text-white rounded-md hover:bg-red-700">
             Delete
@@ -74,15 +72,15 @@
           table-id="costing-price-history"
           item-key="id"
           mobile-row-style="line"
-          :row-href="(item) => route('admin.costing.price-history.edit', item.id)"
+          :row-href="(item) => route('admin.costing.price-history.show', item.id)"
           :initial-filters="initialFilters"
           @sort="handleSort"
         >
           <!-- Single-line mobile row: ingredient (truncates) + date only --
                wholesaler/brand and price both dropped from the compact
                view rather than wrapping to a second line; tapping the row
-               opens Edit (rowHref, above), which now owns every change
-               (source, price, delete). The selection checkbox still works
+               opens its Show page (rowHref, above), with edit and delete
+               one tap away there. The selection checkbox still works
                alongside it: DataTable excludes clicks on
                `a, button, input, label` from the row's own
                click-to-navigate. -->
@@ -142,6 +140,9 @@ import { Link, router } from '@inertiajs/vue3'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import AdminMobileHeader from '@/Components/Admin/AdminMobileHeader.vue'
+import ActionShelf from '@/Components/Admin/ActionShelf.vue'
+import ShelfAction from '@/Components/Admin/ShelfAction.vue'
+import StatHero from '@/Components/Admin/StatHero.vue'
 import DataTable, { type Column } from '@/Components/Admin/DataTable.vue'
 import BulkActionsBar from '../Shared/BulkActionsBar.vue'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
@@ -240,8 +241,8 @@ const columns = computed<Column[]>(() => [
 ])
 
 // Per-row actions (Update Price, Clone, Edit, Delete) are gone -- the row
-// itself links to Edit (row-href, above), and that page now owns every
-// change including delete. Bulk delete (BulkActionsBar, below) is a
+// itself opens Show (row-href, above), whose actions pill has edit and
+// delete. Bulk delete (BulkActionsBar, below) is a
 // separate selection-driven mechanism and still applies.
 const selectedIds = ref<number[]>([])
 

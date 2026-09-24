@@ -4,7 +4,7 @@
       <CostingModuleNav />
       <AdminMobileHeader title="Rental Schedule" :href="route('admin.costing.production-planner.runs')" />
 
-      <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+      <div class="md:max-w-5xl md:mx-auto md:px-6 lg:px-8 space-y-6">
       <div class="hidden md:flex md:items-center md:justify-between">
         <div>
           <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Rental Schedule</h1>
@@ -30,23 +30,26 @@
         </div>
       </div>
 
-      <div class="md:hidden flex flex-wrap gap-2">
-        <button
-          type="button"
-          :disabled="importForm.processing"
-          class="tap-target-touch flex-1 inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 disabled:opacity-50"
-          @click="fileInput?.click()"
-        >
-          <span v-if="importForm.processing">Importing...</span>
-          <span v-else>Import CSV</span>
-        </button>
+      <ActionShelf class="md:hidden" overlay="always">
+        <ShelfAction icon="download" :label="importForm.processing ? 'Importing schedule…' : 'Import schedule (CSV)'" @click="fileInput?.click()" />
+        <ShelfAction icon="check" label="All production runs" :href="route('admin.costing.production-planner.runs')" />
+      </ActionShelf>
+      <div class="md:hidden -mt-4">
+        <StatHero
+          :headline="{ label: 'Upcoming slots', value: upcomingCount }"
+          :stats="[
+            { label: 'Planned', value: upcomingPlannedCount, tone: 'good' },
+            { label: 'Not planned yet', value: upcomingCount - upcomingPlannedCount, tone: upcomingCount - upcomingPlannedCount > 0 ? 'warning' : 'default' },
+          ]"
+        />
+        <hr class="border-gray-200 dark:border-gray-700" />
       </div>
       <FormErrorSummary v-if="Object.keys(importForm.errors).length" :errors="importForm.errors" />
 
       <!-- Slots -->
       <!-- No overflow-hidden: it breaks DataTable's sticky toolbar by
            pinning it inside this box instead of the viewport. -->
-      <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg">
+      <div class="bg-white dark:bg-gray-800 md:shadow-sm md:rounded-lg">
         <DataTable
           :columns="columns"
           :items="rows"
@@ -152,6 +155,9 @@ import { Link, router, useForm } from '@inertiajs/vue3'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import AdminMobileHeader from '@/Components/Admin/AdminMobileHeader.vue'
+import ActionShelf from '@/Components/Admin/ActionShelf.vue'
+import ShelfAction from '@/Components/Admin/ShelfAction.vue'
+import StatHero from '@/Components/Admin/StatHero.vue'
 import DataTable, { type Column, type Action } from '@/Components/Admin/DataTable.vue'
 import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
@@ -185,6 +191,11 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+
+// Mobile StatHero: bookings still ahead, and how many already have a run.
+const upcoming = computed(() => props.rentals.filter((r) => new Date(r.ends_at) >= new Date()))
+const upcomingCount = computed(() => upcoming.value.length)
+const upcomingPlannedCount = computed(() => upcoming.value.filter((r) => r.production_run_id !== null).length)
 const { confirmDialog } = useConfirmDialog()
 
 // 'plan' and 'equipment_names' aren't real prop fields -- computed here so

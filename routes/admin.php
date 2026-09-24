@@ -25,6 +25,7 @@ Route::prefix('admin')->name('admin.')->middleware(['web', 'auth', 'admin'])->gr
             Route::get('/', [IngredientController::class, 'index'])->name('index');
             Route::get('create', [IngredientController::class, 'create'])->name('create');
             Route::post('/', [IngredientController::class, 'store'])->name('store');
+            Route::get('{ingredient}', [IngredientController::class, 'show'])->name('show');
             Route::get('{ingredient}/edit', [IngredientController::class, 'edit'])->name('edit');
             Route::put('{ingredient}', [IngredientController::class, 'update'])->name('update');
             Route::get('{ingredient}/price-options', [IngredientController::class, 'priceOptions'])->name('price-options');
@@ -40,6 +41,7 @@ Route::prefix('admin')->name('admin.')->middleware(['web', 'auth', 'admin'])->gr
             Route::get('/', [PriceHistoryController::class, 'index'])->name('index');
             Route::get('create', [PriceHistoryController::class, 'create'])->name('create');
             Route::post('/', [PriceHistoryController::class, 'store'])->name('store');
+            Route::get('{priceHistoryEntry}', [PriceHistoryController::class, 'show'])->name('show');
             Route::get('{priceHistoryEntry}/edit', [PriceHistoryController::class, 'edit'])->name('edit');
             Route::put('{priceHistoryEntry}', [PriceHistoryController::class, 'update'])->name('update');
             Route::post('{priceHistoryEntry}/update-price', [PriceHistoryController::class, 'updatePrice'])->name('update-price');
@@ -67,6 +69,7 @@ Route::prefix('admin')->name('admin.')->middleware(['web', 'auth', 'admin'])->gr
             Route::get('finished-goods/search', [RecipeController::class, 'searchFinishedGoods'])->name('finished-goods.search');
             Route::get('create', [RecipeController::class, 'create'])->name('create');
             Route::post('/', [RecipeController::class, 'store'])->name('store');
+            Route::get('{recipe}', [RecipeController::class, 'show'])->name('show');
             Route::get('{recipe}/edit', [RecipeController::class, 'edit'])->name('edit');
             Route::put('{recipe}', [RecipeController::class, 'update'])->name('update');
             Route::put('{recipe}/costing', [RecipeController::class, 'updateCosting'])->name('update-costing');

@@ -4,7 +4,7 @@
       <CostingModuleNav />
       <AdminMobileHeader title="Production Runs" />
 
-      <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="md:max-w-5xl md:mx-auto md:px-6 lg:px-8">
       <div class="hidden md:flex md:items-center md:justify-between mb-6">
         <div>
           <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Production Runs</h1>
@@ -27,24 +27,19 @@
         </div>
       </div>
 
-      <div class="md:hidden flex flex-wrap gap-2 mb-6">
-        <Link :href="route('admin.costing.kitchen-rentals.index')" class="tap-target-touch flex-1 inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700">
-          Rental Schedule
-        </Link>
-        <button
-          type="button"
-          @click="showCreateModal = true"
-          class="tap-target-touch flex-1 inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600"
-        >
-          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-          </svg>
-          New Run
-        </button>
-      </div>
+      <ActionShelf class="md:hidden" overlay="always">
+        <ShelfAction icon="plus" label="New production run" @click="showCreateModal = true" />
+        <ShelfAction icon="calendar" label="Rental schedule" :href="route('admin.costing.kitchen-rentals.index')" />
+      </ActionShelf>
+      <StatHero
+        class="md:hidden -mt-4"
+        :headline="{ label: 'Planned runs', value: plannedCount }"
+        :stats="[{ label: 'Completed', value: props.runs.length - plannedCount }]"
+      />
+      <hr class="md:hidden border-gray-200 dark:border-gray-700" />
       <!-- No overflow-hidden: it breaks DataTable's sticky toolbar by
            pinning it inside this box instead of the viewport. -->
-      <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg">
+      <div class="bg-white dark:bg-gray-800 md:shadow-sm md:rounded-lg">
         <BulkActionsBar :count="selectedIds.length" singular="run" plural="runs" @clear="selectedIds = []">
           <button type="button" @click="bulkDelete" class="tap-target-touch px-3 py-1.5 text-xs font-medium bg-red-600 text-white rounded-md hover:bg-red-700">
             Delete
@@ -109,6 +104,9 @@ import { Link, router } from '@inertiajs/vue3'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import AdminMobileHeader from '@/Components/Admin/AdminMobileHeader.vue'
+import ActionShelf from '@/Components/Admin/ActionShelf.vue'
+import ShelfAction from '@/Components/Admin/ShelfAction.vue'
+import StatHero from '@/Components/Admin/StatHero.vue'
 import DataTable, { type Column, type Action } from '@/Components/Admin/DataTable.vue'
 import BulkActionsBar from '../Shared/BulkActionsBar.vue'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
@@ -132,6 +130,8 @@ interface Props {
 
 const props = defineProps<Props>()
 const { confirmDialog } = useConfirmDialog()
+
+const plannedCount = computed(() => props.runs.filter((r) => r.completed_at === null).length)
 
 const runTypes = [
   { value: 'production', label: 'Production' },

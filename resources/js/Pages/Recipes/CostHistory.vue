@@ -2,8 +2,8 @@
   <div class="pb-36 md:pt-6 md:pb-6">
     <div>
       <CostingModuleNav />
-      <AdminMobileHeader title="Cost History" :href="route('admin.costing.recipes.index')" />
-      <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      <AdminMobileHeader title="Cost History" :href="route('admin.costing.recipes.costing')" />
+      <div class="md:max-w-5xl md:mx-auto md:px-6 lg:px-8">
       <div class="hidden md:flex md:items-center md:justify-between mb-6">
         <div>
           <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Cost History</h1>
@@ -16,13 +16,8 @@
         </Link>
       </div>
 
-      <div class="md:hidden mb-6">
-        <Link :href="route('admin.costing.recipes.costing')" class="tap-target-touch flex items-center justify-center w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700">
-          Costing
-        </Link>
-      </div>
 
-      <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-6">
+      <div class="bg-white dark:bg-gray-800 md:shadow-sm md:rounded-lg p-4 md:p-6">
         <div class="flex flex-wrap gap-4 mb-6">
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Recipe</label>

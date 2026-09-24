@@ -14,13 +14,8 @@
         </Link>
       </div>
 
-      <div class="md:hidden mb-6">
-        <Link :href="route('admin.costing.recipes.index')" class="tap-target-touch w-full inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700">
-          List View
-        </Link>
-      </div>
 
-      <div v-if="recipes.length === 0" class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-6 text-sm text-gray-500 dark:text-gray-400">
+      <div v-if="recipes.length === 0" class="bg-white dark:bg-gray-800 md:shadow-sm md:rounded-lg p-4 md:p-6 text-sm text-gray-500 dark:text-gray-400">
         No recipes yet.
       </div>
 
@@ -30,7 +25,7 @@
            horizontal scroll, rather than collapsed into a DataTable card
            list which can't represent this shape. Denser padding/type below
            md so more of the grid fits on a phone at once. -->
-      <div v-else class="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
+      <div v-else class="bg-white dark:bg-gray-800 md:shadow-sm md:rounded-lg overflow-hidden">
         <div class="overflow-auto max-h-[70vh]">
           <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead class="bg-gray-50 dark:bg-gray-900">
@@ -41,7 +36,7 @@
                   :key="recipe.id"
                   class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-900 px-2 py-1.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase whitespace-nowrap sm:px-4 sm:py-2"
                 >
-                  <Link :href="route('admin.costing.recipes.edit', recipe.id)" class="hover:text-indigo-600 dark:hover:text-indigo-400">
+                  <Link :href="route('admin.costing.recipes.show', recipe.id)" class="hover:text-indigo-600 dark:hover:text-indigo-400">
                     {{ recipe.name }}
                   </Link>
                 </th>

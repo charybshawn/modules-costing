@@ -71,7 +71,7 @@
           table-id="costing-ingredients"
           item-key="id"
           mobile-row-style="line"
-          :row-href="(item) => route('admin.costing.ingredients.edit', item.id)"
+          :row-href="(item) => route('admin.costing.ingredients.show', item.id)"
           :extra-filter-count="recipeFilterId !== null ? 1 : 0"
           @sort="handleSort"
           @clear-filters="recipeFilterId = null"
@@ -98,9 +98,9 @@
           <!-- Single-line mobile row: ingredient (truncates) + category only,
                plus the stale-price dot -- pricing detail, sources, and every
                other column drop from the compact view entirely rather than
-               wrapping to a second line; tapping the row opens Edit
-               (row-href, above), which now owns every change including
-               sources (same SourcesTable Edit already embeds). -->
+               wrapping to a second line; tapping the row opens Show
+               (row-href, above), which has sources and prices plus edit
+               and delete. -->
           <template #mobile-card="{ item }">
             <div class="flex items-center gap-3 min-w-0">
               <span class="min-w-0 flex-1 inline-flex items-center gap-1.5 truncate text-sm font-medium text-gray-900 dark:text-white">
@@ -262,8 +262,7 @@ const columns: Column[] = [
 ]
 
 // Per-row actions (Price History, Edit, Delete) are gone -- the row itself
-// links to Edit (row-href, above), which now owns every change including
-// delete. Bulk delete (BulkActionsBar, below) is a separate
+// opens Show (row-href, above), whose actions pill has edit and delete. Bulk delete (BulkActionsBar, below) is a separate
 // selection-driven mechanism and still applies.
 const selectedIds = ref<number[]>([])
 
