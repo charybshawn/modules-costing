@@ -54,7 +54,7 @@
           <div>
             <dt class="text-sm text-gray-500 dark:text-gray-400">Ingredient</dt>
             <dd class="mt-1 text-sm">
-              <Link :href="route('admin.costing.ingredients.show', entry.ingredient_id)" class="text-indigo-600 dark:text-indigo-400 hover:underline">
+              <Link :href="route('admin.costing.ingredients.show', entry.ingredient_id)" class="tap-target-touch inline-flex items-center text-indigo-600 dark:text-indigo-400 hover:underline">
                 {{ entry.ingredient_name }}
               </Link>
             </dd>

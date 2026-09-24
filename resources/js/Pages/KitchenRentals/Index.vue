@@ -4,7 +4,7 @@
       <CostingModuleNav />
       <AdminMobileHeader title="Rental Schedule" :href="route('admin.costing.production-planner.runs')" />
 
-      <div class="md:max-w-5xl md:mx-auto md:px-6 lg:px-8 space-y-6">
+      <div class="md:max-w-5xl md:mx-auto md:px-6 lg:px-8 md:space-y-6">
       <div class="hidden md:flex md:items-center md:justify-between">
         <div>
           <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Rental Schedule</h1>
@@ -44,7 +44,7 @@
         />
         <hr class="border-gray-200 dark:border-gray-700" />
       </div>
-      <FormErrorSummary v-if="Object.keys(importForm.errors).length" :errors="importForm.errors" />
+      <FormErrorSummary v-if="Object.keys(importForm.errors).length" :errors="importForm.errors" class="m-4 md:m-0" />
 
       <!-- Slots -->
       <!-- No overflow-hidden: it breaks DataTable's sticky toolbar by
