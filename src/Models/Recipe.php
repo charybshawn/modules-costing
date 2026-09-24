@@ -74,6 +74,11 @@ class Recipe extends Model
         return $query->where('is_active', true);
     }
 
+    public function productionRuns(): BelongsToMany
+    {
+        return $this->belongsToMany(ProductionRun::class, 'costing_production_run_recipe', 'recipe_id', 'production_run_id');
+    }
+
     public function ingredients(): BelongsToMany
     {
         return $this->belongsToMany(Ingredient::class, 'costing_ingredient_recipe', 'recipe_id', 'ingredient_id')

@@ -273,6 +273,7 @@
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import { Link, router } from '@inertiajs/vue3'
+import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import DataTable, { type Column } from '@/Components/Admin/DataTable.vue'
 import { formatQuantity } from './formatWeight'
 import IconButton from '@/Components/IconButton.vue'
@@ -312,6 +313,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), { mobileRowStyle: 'card' })
+const { confirmDialog } = useConfirmDialog()
 
 // Minimalist datatable, no search/filter/column-hide chrome needed -- a
 // single ingredient rarely has more than a handful of sources.
@@ -328,10 +330,15 @@ const optionKey = (option: PriceOption) => String(option.package_size_id ?? `${o
 // Reuses Inventory's own delete endpoint -- same guard applies here
 // (blocked while stock is still on hand), so there's exactly one place
 // that decides whether a source can be removed.
-const deleteSource = (option: PriceOption) => {
+const deleteSource = async (option: PriceOption) => {
   if (option.package_size_id === null) return
   const label = option.brand ? `${option.provider} — ${option.brand}` : option.provider
-  if (!confirm(`Remove "${label}" as a source for ${props.ingredient.name}? Its price history is kept, just no longer linked to this source.`)) return
+  if (!(await confirmDialog({
+    title: 'Remove Source',
+    message: `Remove "${label}" as a source for ${props.ingredient.name}? Its price history is kept, just no longer linked to this source.`,
+    confirmLabel: 'Remove',
+    variant: 'danger',
+  }))) return
 
   router.delete(route('admin.costing.inventory.sources.destroy', [props.ingredient.id, option.package_size_id]), {
     preserveScroll: true,

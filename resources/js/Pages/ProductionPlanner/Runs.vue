@@ -106,6 +106,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
+import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import AdminMobileHeader from '@/Components/Admin/AdminMobileHeader.vue'
 import DataTable, { type Column, type Action } from '@/Components/Admin/DataTable.vue'
@@ -130,6 +131,7 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+const { confirmDialog } = useConfirmDialog()
 
 const runTypes = [
   { value: 'production', label: 'Production' },
@@ -189,7 +191,7 @@ const onCreated = (productionRunId: number) => {
   router.reload({ only: ['runs'] })
 }
 
-const handleAction = (action: string, item: ProductionRunRow) => {
+const handleAction = async (action: string, item: ProductionRunRow) => {
   if (action === 'view') {
     autoComplete.value = false
     openRunId.value = item.id
@@ -197,7 +199,7 @@ const handleAction = (action: string, item: ProductionRunRow) => {
     autoComplete.value = true
     openRunId.value = item.id
   } else if (action === 'delete') {
-    if (confirm(`Delete production run "${item.name ?? item.run_date}"? This cannot be undone.`)) {
+    if (await confirmDialog({ title: 'Delete Production Run', message: `Delete production run "${item.name ?? item.run_date}"? This cannot be undone.`, confirmLabel: 'Delete', variant: 'danger' })) {
       router.delete(route('admin.costing.production-planner.destroy', item.id), { preserveScroll: true })
     }
   }
@@ -205,9 +207,14 @@ const handleAction = (action: string, item: ProductionRunRow) => {
 
 const selectedIds = ref<number[]>([])
 
-const bulkDelete = () => {
+const bulkDelete = async () => {
   if (selectedIds.value.length === 0) return
-  if (!confirm(`Delete ${selectedIds.value.length} production run${selectedIds.value.length === 1 ? '' : 's'}? Completed runs are skipped -- undo their completion first if they need to go too.`)) return
+  if (!(await confirmDialog({
+    title: 'Delete Production Runs',
+    message: `Delete ${selectedIds.value.length} production run${selectedIds.value.length === 1 ? '' : 's'}? Completed runs are skipped -- undo their completion first if they need to go too.`,
+    confirmLabel: 'Delete',
+    variant: 'danger',
+  }))) return
 
   router.post(route('admin.costing.production-planner.bulk-action'), { action: 'delete', ids: selectedIds.value }, {
     preserveScroll: true,

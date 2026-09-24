@@ -5,9 +5,7 @@
       <AdminMobileHeader title="Ingredients" />
 
       <!-- Desktop: title + actions band. Mobile: AdminMobileHeader above
-           covers the title, actions collapse into their own row below it
-           (see Workstream 1b) rather than a second fixed bottom bar --
-           the bottom bar slot is already spoken for by CostingModuleNav. -->
+           covers the title and the ActionShelf below the actions. -->
       <div class="hidden md:flex md:items-center md:justify-between mb-6">
         <div>
           <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Ingredients</h1>
@@ -26,50 +24,33 @@
             :href="route('admin.costing.ingredients.create')"
             class="tap-target-touch inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
           >
-            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
-            Add Ingredient
+            + Add Ingredient
           </Link>
         </div>
       </div>
 
-      <!-- Mobile-only hero block: headline stat + quick-action icon
-           tile(s), matching Admin/Dashboard.vue and Admin/Inventory/
-           Dashboard.vue's own hero shell exactly (same colored card,
-           w-16 h-16 rounded-2xl tile, Archivo Black label). Only one
-           action so far (Add Ingredient) -- Price History dropped from
-           here since it's already one tap away via CostingModuleNav's
-           bottom bar, no longer worth its own button. justify-center
-           rather than -around: with a single tile they render identically,
-           but -around would visibly re-space once a second tile is added,
-           where -center wouldn't need to change. -->
-      <div class="md:hidden mb-6 rounded-lg bg-gray-200 dark:bg-amber-500 px-5 pt-[30px] pb-[20px]">
-        <div class="text-center">
-          <div class="text-sm font-bold text-gray-800">Total Ingredients</div>
-          <div class="mt-1 text-4xl font-extrabold text-emerald-600">{{ props.ingredients.length }}</div>
-        </div>
-        <div class="mt-[30px] flex items-center justify-center">
-          <div class="flex flex-col items-center gap-3">
-            <Link
-              :href="route('admin.costing.ingredients.create')"
-              class="tap-target-touch w-16 h-16 rounded-2xl bg-white dark:bg-gray-900 shadow-md dark:shadow-[0_4px_10px_rgba(0,0,0,0.5)] flex items-center justify-center"
-            >
-              <svg class="w-11 h-11 text-amber-500 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-              </svg>
-            </Link>
-            <span class="text-xs font-['Archivo_Black'] uppercase tracking-wide text-amber-500 dark:text-white leading-tight text-center">Add<br>Ingredient</span>
-          </div>
-        </div>
-      </div>
+      <!-- Mobile: icon shelf over the headline stats (same pattern as the
+           host's dashboard/index pages). -->
+      <ActionShelf class="md:hidden" overlay="always">
+        <ShelfAction icon="plus" label="Add ingredient" :href="route('admin.costing.ingredients.create')" />
+        <ShelfAction icon="tag" label="Prices needing an update" :href="route('admin.costing.price-history.index', { needs_update: 1 })" :count="needsUpdateCount" attention />
+      </ActionShelf>
+      <StatHero
+        class="md:hidden -mt-4"
+        :headline="{ label: 'Ingredients', value: props.ingredients.length }"
+        :stats="[
+          { label: 'Need a price update', value: needsUpdateCount, tone: needsUpdateCount > 0 ? 'warning' : 'default' },
+          { label: 'Categories', value: categoryCount },
+        ]"
+      />
+      <hr class="md:hidden border-gray-200 dark:border-gray-700" />
 
       <!-- No overflow-hidden here: it establishes a containing block for
            DataTable's sticky toolbar, pinning it at a fixed offset inside
            this box instead of sticking to the viewport (confirmed live --
            the toolbar rendered mid-card on mobile). Matches Admin/Products/
            Index.vue's own wrapper, which omits it for the same reason. -->
-      <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg">
+      <div class="bg-white dark:bg-gray-800 md:shadow-sm md:rounded-lg">
         <BulkActionsBar :count="selectedIds.length" singular="ingredient" plural="ingredients" @clear="selectedIds = []">
           <button type="button" @click="bulkDelete" class="tap-target-touch px-3 py-1.5 text-xs font-medium bg-red-600 text-white rounded-md hover:bg-red-700">
             Delete
@@ -199,8 +180,12 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
+import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import AdminMobileHeader from '@/Components/Admin/AdminMobileHeader.vue'
+import ActionShelf from '@/Components/Admin/ActionShelf.vue'
+import ShelfAction from '@/Components/Admin/ShelfAction.vue'
+import StatHero from '@/Components/Admin/StatHero.vue'
 import DataTable, { type Column } from '@/Components/Admin/DataTable.vue'
 import BulkActionsBar from '../Shared/BulkActionsBar.vue'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
@@ -237,8 +222,12 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+const { confirmDialog } = useConfirmDialog()
 
 const recipeFilterId = ref<number | null>(null)
+
+const needsUpdateCount = computed(() => props.ingredients.filter((i) => i.status !== 'ok').length)
+const categoryCount = computed(() => new Set(props.ingredients.map((i) => i.category).filter(Boolean)).size)
 
 const sortField = ref('name')
 const sortDirection = ref<'asc' | 'desc'>('asc')
@@ -278,9 +267,14 @@ const columns: Column[] = [
 // selection-driven mechanism and still applies.
 const selectedIds = ref<number[]>([])
 
-const bulkDelete = () => {
+const bulkDelete = async () => {
   if (selectedIds.value.length === 0) return
-  if (!confirm(`Delete ${selectedIds.value.length} ingredient${selectedIds.value.length === 1 ? '' : 's'}? This also removes their price history and inventory records.`)) return
+  if (!(await confirmDialog({
+    title: 'Delete Ingredients',
+    message: `Delete ${selectedIds.value.length} ingredient${selectedIds.value.length === 1 ? '' : 's'}? This also removes their price history and inventory records.`,
+    confirmLabel: 'Delete',
+    variant: 'danger',
+  }))) return
 
   router.post(route('admin.costing.ingredients.bulk-action'), { action: 'delete', ids: selectedIds.value }, {
     preserveScroll: true,

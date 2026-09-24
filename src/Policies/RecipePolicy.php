@@ -31,4 +31,16 @@ class RecipePolicy
     {
         return $user->isAdmin();
     }
+
+    /**
+     * Hard-delete a recipe the Create form autosaved into existence this
+     * session: only while it's fresh (under a day old) and no production
+     * run uses it yet.
+     */
+    public function discardDraft(User $user, Recipe $recipe): bool
+    {
+        return $user->isAdmin()
+            && $recipe->created_at?->greaterThan(now()->subDay())
+            && ! $recipe->productionRuns()->exists();
+    }
 }

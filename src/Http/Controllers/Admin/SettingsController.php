@@ -90,6 +90,12 @@ class SettingsController extends Controller implements HasMiddleware
             ));
         }
 
+        // Background autosave from the Settings page: no success flash, the
+        // page's SaveIndicator is the feedback.
+        if ($request->boolean('stay')) {
+            return redirect()->route('admin.costing.settings.index');
+        }
+
         return back()->with('success', 'Settings updated.');
     }
 }

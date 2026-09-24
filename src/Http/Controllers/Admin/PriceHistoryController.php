@@ -131,11 +131,20 @@ class PriceHistoryController extends Controller implements HasMiddleware
 
         event(CostingRecordSaved::forCreated($entry, auth()->id()));
 
-        // Normally lands on the index -- this is the full Log a Price page's
-        // primary submit action. But AvailablePricesModal also posts here
-        // directly (its "+ Add a new source" flow), and wants to stay right
-        // where it is rather than navigating away, same reasoning as
-        // updatePrice()/setPreferred()/setPackageSize() below.
+        // Two background callers pass `stay`:
+        // - The Log a Price form's autosave (with `step`): the first save
+        //   creates the entry and hands off to its Edit page, `created=1` so
+        //   that page's × can discard it outright. No success flash.
+        // - SourcesTable's inline "log a price" (no `step`): stays right
+        //   where it is, same as updatePrice()/setPreferred() below.
+        if ($request->boolean('stay') && $request->has('step')) {
+            return redirect()->route('admin.costing.price-history.edit', [
+                'priceHistoryEntry' => $entry,
+                'step' => max(0, $request->integer('step')),
+                'created' => 1,
+            ]);
+        }
+
         if ($request->boolean('stay')) {
             return redirect()->back()->with('success', 'Price logged.');
         }
@@ -180,10 +189,10 @@ class PriceHistoryController extends Controller implements HasMiddleware
         $priceHistoryEntry->save();
         event($savedEvent);
 
-        // See store()'s "stay" handling above -- usePersistedForm's
-        // autosave also PUTs here from Edit.vue and needs to stay put.
+        // Background autosave from the Edit page: stay on it, no success
+        // flash (SaveIndicator is the feedback).
         if ($request->boolean('stay')) {
-            return redirect()->back()->with('success', 'Price entry updated.');
+            return redirect()->route('admin.costing.price-history.edit', $priceHistoryEntry);
         }
 
         return redirect()
@@ -262,6 +271,25 @@ class PriceHistoryController extends Controller implements HasMiddleware
      * Multi-select "Delete" from the Price History table -- same per-item
      * try/catch + success/fail tally as IngredientController::bulkAction().
      */
+    /**
+     * Hard-deletes a price entry the Log a Price form autosaved into
+     * existence and the admin then discarded (Edit page × -> "Discard
+     * Entry"). PriceHistoryEntryPolicy::discardDraft limits it to fresh
+     * entries.
+     */
+    public function discardDraft(PriceHistoryEntry $priceHistoryEntry): RedirectResponse
+    {
+        $this->authorize('discardDraft', $priceHistoryEntry);
+
+        $deletedEvent = CostingRecordDeleted::forModel($priceHistoryEntry, auth()->id(), ['discarded_draft' => true]);
+        $priceHistoryEntry->delete();
+        event($deletedEvent);
+
+        return redirect()
+            ->route('admin.costing.price-history.index')
+            ->with('success', 'Price entry discarded.');
+    }
+
     public function bulkAction(Request $request): RedirectResponse
     {
         $validated = $request->validate([

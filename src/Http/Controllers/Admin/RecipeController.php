@@ -203,6 +203,17 @@ class RecipeController extends Controller implements HasMiddleware
 
         event(CostingRecordSaved::forCreated($recipe, auth()->id()));
 
+        // Background autosave from the Create form: hand off to the new
+        // recipe's Edit page (same step; `created=1` lets its × discard the
+        // recipe outright). No success flash.
+        if ($request->boolean('stay')) {
+            return redirect()->route('admin.costing.recipes.edit', [
+                'recipe' => $recipe,
+                'step' => max(0, $request->integer('step')),
+                'created' => 1,
+            ]);
+        }
+
         return redirect()
             ->route('admin.costing.recipes.index')
             ->with('success', "Recipe '{$recipe->name}' created.");
@@ -279,11 +290,10 @@ class RecipeController extends Controller implements HasMiddleware
 
         event($savedEvent);
 
-        // usePersistedForm's autosave also PUTs here from Edit.vue and
-        // needs to stay put rather than navigate away mid-edit -- same
-        // "stay" pattern as PriceHistoryController::store()/update().
+        // Background autosave from the Edit page: stay on it, no success
+        // flash (SaveIndicator is the feedback).
         if ($request->boolean('stay')) {
-            return redirect()->back()->with('success', "Recipe '{$recipe->name}' updated.");
+            return redirect()->route('admin.costing.recipes.edit', $recipe);
         }
 
         return redirect()
@@ -338,6 +348,25 @@ class RecipeController extends Controller implements HasMiddleware
      * invented just for this. Same per-item try/catch + tally pattern as
      * IngredientController::bulkAction().
      */
+    /**
+     * Hard-deletes a recipe the Create form autosaved into existence and
+     * the admin then discarded (Edit page × -> "Discard Recipe").
+     * RecipePolicy::discardDraft limits it to fresh recipes no production
+     * run uses yet.
+     */
+    public function discardDraft(Recipe $recipe): RedirectResponse
+    {
+        $this->authorize('discardDraft', $recipe);
+
+        $deletedEvent = CostingRecordDeleted::forModel($recipe, auth()->id(), ['discarded_draft' => true]);
+        $recipe->delete();
+        event($deletedEvent);
+
+        return redirect()
+            ->route('admin.costing.recipes.index')
+            ->with('success', 'Recipe discarded.');
+    }
+
     public function bulkAction(Request $request): RedirectResponse
     {
         $validated = $request->validate([

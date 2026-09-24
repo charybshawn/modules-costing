@@ -139,6 +139,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
+import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import AdminMobileHeader from '@/Components/Admin/AdminMobileHeader.vue'
 import DataTable, { type Column } from '@/Components/Admin/DataTable.vue'
@@ -173,6 +174,7 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+const { confirmDialog } = useConfirmDialog()
 
 // Defaults from ?needs_update=1 so the Dashboard's "Update Prices" card can
 // deep-link straight into the filtered view instead of landing on
@@ -243,9 +245,14 @@ const columns = computed<Column[]>(() => [
 // separate selection-driven mechanism and still applies.
 const selectedIds = ref<number[]>([])
 
-const bulkDelete = () => {
+const bulkDelete = async () => {
   if (selectedIds.value.length === 0) return
-  if (!confirm(`Delete ${selectedIds.value.length} price ${selectedIds.value.length === 1 ? 'entry' : 'entries'}?`)) return
+  if (!(await confirmDialog({
+    title: 'Delete Price Entries',
+    message: `Delete ${selectedIds.value.length} price ${selectedIds.value.length === 1 ? 'entry' : 'entries'}? This cannot be undone.`,
+    confirmLabel: 'Delete',
+    variant: 'danger',
+  }))) return
 
   router.post(route('admin.costing.price-history.bulk-action'), { action: 'delete', ids: selectedIds.value }, {
     preserveScroll: true,

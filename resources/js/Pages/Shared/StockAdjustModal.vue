@@ -336,6 +336,7 @@
 import { ref, computed, watch } from 'vue'
 import axios from 'axios'
 import { router } from '@inertiajs/vue3'
+import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import ResponsiveModal from '@/Components/ResponsiveModal.vue'
 import { formatQuantity } from './formatWeight'
 import IconButton from '@/Components/IconButton.vue'
@@ -361,6 +362,7 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+const { confirmDialog } = useConfirmDialog()
 
 const emit = defineEmits<{ close: []; updated: [] }>()
 
@@ -445,10 +447,15 @@ const saveRecount = (source: Source) => {
 
 // Remove a source entirely -- backend blocks this while it still has stock
 // (recount to 0 first, same guard the disabled state above enforces).
-const deleteSource = (source: Source) => {
+const deleteSource = async (source: Source) => {
   if (!props.ingredient) return
   const label = source.brand ? `${source.provider} — ${source.brand}` : source.provider
-  if (!confirm(`Remove "${label}" as a source for ${props.ingredient.name}?`)) return
+  if (!(await confirmDialog({
+    title: 'Remove Source',
+    message: `Remove "${label}" as a source for ${props.ingredient.name}? Its price history is kept, just no longer linked to this source.`,
+    confirmLabel: 'Remove',
+    variant: 'danger',
+  }))) return
 
   const ingredientId = props.ingredient.id
   router.delete(route('admin.costing.inventory.sources.destroy', [ingredientId, source.id]), {

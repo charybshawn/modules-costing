@@ -149,6 +149,7 @@
 import { computed, ref } from 'vue'
 import axios from 'axios'
 import { Link, router, useForm } from '@inertiajs/vue3'
+import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import AdminMobileHeader from '@/Components/Admin/AdminMobileHeader.vue'
 import DataTable, { type Column, type Action } from '@/Components/Admin/DataTable.vue'
@@ -184,6 +185,7 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+const { confirmDialog } = useConfirmDialog()
 
 // 'plan' and 'equipment_names' aren't real prop fields -- computed here so
 // DataTable's search (which reads item[column.key] directly) can actually
@@ -393,7 +395,7 @@ const handleAction = async (action: string, item: KitchenRentalRow) => {
     autoComplete.value = true
     openRunId.value = item.production_run_id
   } else if (action === 'unlink-plan') {
-    if (confirm(`Unlink "${item.booking_title}" from its production run? The run itself is not affected.`)) {
+    if (await confirmDialog({ title: 'Unlink Production Run', message: `Unlink "${item.booking_title}" from its production run? The run itself is not affected.`, confirmLabel: 'Unlink' })) {
       router.post(route('admin.costing.kitchen-rentals.detach-run', item.id), {}, { preserveScroll: true })
     }
   }

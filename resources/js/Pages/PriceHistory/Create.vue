@@ -1,159 +1,64 @@
 <template>
-  <div class="md:pt-6 pb-6">
-    <div>
-      <AdminMobileHeader title="Log a Price" :href="route('admin.costing.price-history.index')" />
-      <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
-        <div class="hidden md:flex p-6 border-b border-gray-200 dark:border-gray-700 justify-between items-center">
-          <div>
+  <div>
+    <ResponsiveFormSections
+      ref="shellRef"
+      :sections="sections"
+      :dirty="form.isDirty"
+      @discard="form.clearPersistedData()"
+    >
+      <template #mobile-header>
+        <AdminMobileHeader title="Log a Price" :on-back="leave">
+          <template #subtitle>
+            <SaveIndicator :processing="form.processing" :recently-successful="form.recentlySuccessful" :error="saveProblem" />
+          </template>
+          <template #actions>
+            <IconButton label="Cancel" :class="iconActionClass" @click="leave">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </IconButton>
+          </template>
+        </AdminMobileHeader>
+      </template>
+
+      <template #header>
+        <Link :href="indexUrl" :class="backLinkClass" @click.prevent="leave">&larr; Back to Price History</Link>
+        <div class="hidden md:flex flex-wrap items-center justify-between gap-3 mt-2 mb-2">
+          <div class="flex items-center gap-3">
             <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Log a Price</h1>
-            <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Log every wholesaler you check, even if you didn't buy.</p>
+            <SaveIndicator :processing="form.processing" :recently-successful="form.recentlySuccessful" :error="saveProblem" />
           </div>
-          <Link :href="route('admin.costing.price-history.index')" class="tap-target-touch inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">&larr; Back</Link>
+          <button type="button" :class="secondaryButtonClass" @click="leave">Cancel</button>
         </div>
-        <p class="md:hidden px-6 pt-6 text-sm text-gray-600 dark:text-gray-400">Log every wholesaler you check, even if you didn't buy.</p>
+        <p class="mb-6 text-sm text-gray-600 dark:text-gray-400">Log every wholesaler you check, even if you didn't buy. Saved as soon as the price is filled in.</p>
 
-        <form @submit.prevent="submit" class="p-6 space-y-6">
-          <FormErrorSummary :errors="form.errors" />
+        <div v-if="clone" class="mb-6 rounded-md bg-indigo-50 dark:bg-indigo-900/20 p-4">
+          <p class="text-sm text-indigo-800 dark:text-indigo-200">Copied from a previous entry: update the price and date.</p>
+        </div>
 
-          <div v-if="props.clone" class="rounded-md bg-indigo-50 dark:bg-indigo-900/20 p-4">
-            <p class="text-sm text-indigo-800 dark:text-indigo-200">Cloned from a previous entry -- update the price and date, then save.</p>
-          </div>
+        <FormErrorSummary v-if="Object.keys(form.errors).length > 0" :errors="form.errors" class="mb-6" />
+      </template>
 
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Ingredient *</label>
-            <select v-model="form.ingredient_id" required class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm">
-              <option value="">Select ingredient</option>
-              <option v-for="ingredient in ingredients" :key="ingredient.id" :value="ingredient.id">{{ ingredient.name }}</option>
-            </select>
-            <p v-if="form.errors.ingredient_id" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.ingredient_id }}</p>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Date Checked</label>
-              <input v-model="form.purchased_at" type="date" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Source *</label>
-              <div v-if="!addingSource">
-                <select v-model="form.package_size_id" required :disabled="!form.ingredient_id" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:opacity-50 text-base sm:text-sm">
-                  <option value="">{{ form.ingredient_id ? 'Select a source' : 'Select an ingredient first' }}</option>
-                  <option v-for="source in sources" :key="source.id" :value="source.id">{{ sourceLabel(source) }}</option>
-                </select>
-                <button type="button" @click="startAddSource" :disabled="!form.ingredient_id" class="tap-target-touch inline-flex items-center mt-1 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 disabled:opacity-40 disabled:cursor-not-allowed">+ Add new source</button>
-                <p v-if="form.errors.package_size_id" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.package_size_id }}</p>
-              </div>
-              <div v-else class="mt-1 space-y-2">
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <div>
-                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Provider</label>
-                    <input v-model="newSourceProvider" type="text" placeholder="e.g. GFS" autofocus class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
-                  </div>
-                  <div>
-                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Brand</label>
-                    <input v-model="newSourceBrand" type="text" placeholder="Optional" class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
-                  </div>
-                </div>
-                <div class="flex flex-wrap items-end gap-2">
-                  <div>
-                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Unit Size</label>
-                    <input v-model.number="newSourceSize" type="number" inputmode="decimal" min="0.01" step="0.01" title="The size of ONE individual package -- e.g. 1 lid. Never the case total, even if sold by the case." class="w-full sm:w-40 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
-                  </div>
-                  <div>
-                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Total Units</label>
-                    <input v-model.number="newSourceUnitsPerCase" type="number" inputmode="decimal" min="1" step="1" title="How many individual packages come in one case -- purchasing info only, doesn't change how stock is counted. Leave at 1 if not sold by the case." class="w-full sm:w-28 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
-                  </div>
-                  <button type="button" @click="saveNewSource" :disabled="addSourceSaving || !newSourceProvider || !newSourceSize" class="tap-target-touch py-1.5 px-4 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40">
-                    <span v-if="addSourceSaving">Saving...</span>
-                    <span v-else>Add</span>
-                  </button>
-                  <button type="button" @click="cancelAddSource" :disabled="addSourceSaving" class="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">Cancel</button>
-                </div>
-                <p v-if="addSourceError" class="text-xs text-red-600 dark:text-red-400">{{ addSourceError }}</p>
-              </div>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div v-if="isGramBased">
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Weight{{ isCase ? ' per Each' : '' }}</label>
-              <div class="mt-1 flex gap-2">
-                <input v-model.number="weightValue" type="number" inputmode="decimal" min="0" step="0.01" class="flex-1 min-w-0 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" placeholder="e.g. 2.27" />
-                <select v-model="weightUnit" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm">
-                  <option value="kg">kg</option>
-                  <option value="g">g</option>
-                </select>
-              </div>
-
-              <label class="tap-target-touch mt-2 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                <input v-model="isCase" type="checkbox" class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500 dark:bg-gray-700" />
-                This was a case of multiple identical packages
-              </label>
-              <div v-if="isCase" class="mt-1 flex items-center gap-2">
-                <span class="text-xs text-gray-500 dark:text-gray-400">Items per case</span>
-                <input v-model.number="eachesPerCase" type="number" inputmode="numeric" min="1" step="1" class="w-20 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-base sm:text-xs" />
-              </div>
-
-              <p v-if="form.qty !== null" class="mt-1 text-xs text-gray-500 dark:text-gray-400">= {{ form.qty }} g total logged</p>
-            </div>
-            <div v-else>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Qty (units)</label>
-              <input v-model.number="form.qty" type="number" inputmode="numeric" min="0" step="1" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" placeholder="e.g. 24" />
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Total Price ($)</label>
-              <input v-model.number="form.total_price" type="number" inputmode="decimal" min="0" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
-              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">$/kg (or $/unit) is calculated automatically from the weight/qty above and this price.</p>
-              <div v-if="!isGramBased && selectedSource && selectedSource.units_per_case > 1" class="mt-2 flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-                <span>Price is for:</span>
-                <label class="flex items-center gap-1">
-                  <input type="radio" :checked="!form.priced_as_case" @change="applyPricedAsCase(false)" />
-                  one package
-                </label>
-                <label class="flex items-center gap-1">
-                  <input type="radio" :checked="form.priced_as_case" @change="applyPricedAsCase(true)" />
-                  whole case ({{ selectedSource.units_per_case }})
-                </label>
-              </div>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">SKU</label>
-              <input v-model="form.sku" type="text" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Notes</label>
-            <input v-model="form.notes" type="text" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
-          </div>
-
-          <div class="flex items-center justify-end pt-6 border-t border-gray-200 dark:border-gray-700">
-            <Link :href="route('admin.costing.price-history.index')" class="tap-target-touch bg-gray-200 dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600">Cancel</Link>
-            <button type="submit" :disabled="form.processing" class="tap-target-touch ml-3 bg-indigo-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
-              <span v-if="form.processing">Saving...</span>
-              <span v-else>Log Price</span>
-            </button>
-          </div>
-        </form>
-      </div>
-      </div>
-    </div>
+      <template #section-entry>
+        <PriceEntryFields :form="form" :entry="entry" :ingredients="ingredients" />
+      </template>
+    </ResponsiveFormSections>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { Link } from '@inertiajs/vue3'
 import { usePersistedForm } from '@/composables/usePersistedForm'
-import { useWeightEntry } from '../Shared/useWeightEntry'
-import { useIngredientSources, sourceLabel } from '../Shared/useIngredientSources'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import AdminMobileHeader from '@/Components/Admin/AdminMobileHeader.vue'
 import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
+import SaveIndicator from '@/Components/Admin/SaveIndicator.vue'
+import ResponsiveFormSections, { type FormSection } from '@/Components/Admin/ResponsiveFormSections.vue'
+import IconButton from '@/Components/IconButton.vue'
+import PriceEntryFields from '../Shared/PriceEntryFields.vue'
+import { usePriceEntry, type PriceEntryFormData, type PriceEntryIngredient } from '../Shared/usePriceEntry'
+import { backLinkClass, iconActionClass, secondaryButtonClass } from '../Shared/formClasses'
 
 defineOptions({ layout: (h, page) => h(AdminLayout, { hideBreadcrumbOnMobile: true }, () => page) })
 
@@ -168,29 +73,22 @@ interface CloneSource {
 }
 
 interface Props {
-  ingredients: Array<{ id: number; name: string; unit_type: 'g' | 'unit' }>
+  ingredients: PriceEntryIngredient[]
   clone: CloneSource | null
   preselectIngredientId: number | null
 }
 
 const props = defineProps<Props>()
 
-interface FormData {
-  ingredient_id: number | ''
-  package_size_id: number | ''
-  purchased_at: string
-  qty: number | null
-  priced_as_case: boolean
-  total_price: number | null
-  sku: string
-  notes: string
-}
+const sections: FormSection[] = [{ key: 'entry', title: 'Price' }]
+
+const shellRef = ref<InstanceType<typeof ResponsiveFormSections> | null>(null)
+const indexUrl = route('admin.costing.price-history.index')
 
 // Cloning carries over everything except the date, which resets to today
 // since it's a new price check. preselectIngredientId (arriving via
-// ?ingredient=) covers the other entry point: "Log a new price" from the
-// Ingredients page for an ingredient that has none logged yet.
-const initialData: FormData = {
+// ?ingredient=) covers "Log a new price" from an ingredient with none yet.
+const form = usePersistedForm<PriceEntryFormData>({
   ingredient_id: props.clone?.ingredient_id ?? props.preselectIngredientId ?? '',
   package_size_id: props.clone?.package_size_id ?? '',
   purchased_at: new Date().toISOString().slice(0, 10),
@@ -199,94 +97,39 @@ const initialData: FormData = {
   total_price: props.clone?.total_price ?? null,
   sku: props.clone?.sku ?? '',
   notes: props.clone?.notes ?? '',
-}
-
-const form = usePersistedForm<FormData>(initialData, {
+}, {
   key: 'costing-price-history-create',
-  initialData,
-})
-
-const selectedIngredient = computed(() => props.ingredients.find((i) => i.id === form.ingredient_id) ?? null)
-const isGramBased = computed(() => selectedIngredient.value?.unit_type !== 'unit')
-
-const { sources, addSource, addSourceSaving, addSourceError } = useIngredientSources(computed(() => form.ingredient_id))
-
-const selectedSource = computed(() => sources.value.find((s) => s.id === form.package_size_id) ?? null)
-
-// Picking either option here pre-fills qty from the selected source's
-// registered size -- still a plain number afterward, editable like any
-// other qty entry (e.g. if the actual invoiced qty differs slightly).
-const applyPricedAsCase = (pricedAsCase: boolean) => {
-  form.priced_as_case = pricedAsCase
-  if (selectedSource.value) {
-    form.qty = pricedAsCase
-      ? selectedSource.value.package_size * selectedSource.value.units_per_case
-      : selectedSource.value.package_size
-  }
-}
-
-// Switching to a different ingredient invalidates whatever source was
-// picked for the previous one -- but only on a real change, not on mount,
-// so a cloned/preselected package_size_id survives the initial load.
-watch(
-  () => form.ingredient_id,
-  () => {
-    form.package_size_id = ''
+  // Autosave logs the entry: the first save POSTs to store, whose `stay` +
+  // `step` branch redirects to the new entry's Edit page, and that page's
+  // PUT autosave takes over from there.
+  autosave: {
+    method: 'post',
+    url: () => `${route('admin.costing.price-history.store')}?step=${shellRef.value?.currentStepIndex ?? 0}`,
+    requiredFields: ['ingredient_id', 'package_size_id'],
+    // A price entry without a price or quantity would become the
+    // ingredient's "latest price" and skew its costing -- wait for both.
+    enabled: (): boolean => hasPriceAndQty.value && !entry.addingSource,
   },
-)
-
-const addingSource = ref(false)
-const newSourceProvider = ref('')
-const newSourceBrand = ref('')
-const newSourceSize = ref<number | null>(null)
-const newSourceUnitsPerCase = ref<number>(1)
-
-const startAddSource = () => {
-  addingSource.value = true
-  newSourceProvider.value = ''
-  newSourceBrand.value = ''
-  newSourceSize.value = null
-  newSourceUnitsPerCase.value = 1
-}
-
-const cancelAddSource = () => {
-  addingSource.value = false
-}
-
-const saveNewSource = async () => {
-  if (!newSourceProvider.value || !newSourceSize.value || !form.ingredient_id) return
-  const id = await addSource(form.ingredient_id, newSourceProvider.value, newSourceBrand.value || null, newSourceSize.value, newSourceUnitsPerCase.value || 1)
-  if (id !== null) {
-    form.package_size_id = id
-    addingSource.value = false
-  }
-}
-
-// Weight input for gram-based ingredients -- kg/g toggle plus an optional
-// case breakdown, resolving to a single grams total stored in form.qty.
-// Cloning a gram-based entry seeds it with the cloned total, which is
-// stored (and so must be displayed) in grams -- defaulting the unit
-// selector to 'kg' in that case would silently misrepresent the value
-// (6000 g shown as "6000 kg"). Only default to kg when starting blank.
-const { weightValue, weightUnit, isCase, eachesPerCase, totalGrams } = useWeightEntry(
-  isGramBased.value ? (props.clone?.qty ?? null) : null,
-  props.clone?.qty != null ? 'g' : 'kg',
-)
-
-watch(totalGrams, (total) => {
-  if (isGramBased.value && total !== null) {
-    form.qty = total
-  }
 })
 
-const submit = () => {
-  // Gram-based ingredients express "priced as a case" through the weight
-  // entry's own "This was a case of multiple identical packages" checkbox
-  // rather than the separate toggle above (which only applies to unit-type
-  // ingredients) -- sync it into form.priced_as_case right before posting.
-  if (isGramBased.value) {
-    form.priced_as_case = isCase.value
-  }
-  form.post(route('admin.costing.price-history.store'))
-}
+// A cloned gram-based entry's qty is stored in grams, so it's shown in g;
+// only a blank form defaults the weight unit to kg.
+const entry = usePriceEntry(form, () => props.ingredients, {
+  initialGrams: props.clone?.qty ?? null,
+  defaultUnit: props.clone?.qty != null ? 'g' : 'kg',
+})
+
+const hasPriceAndQty = computed<boolean>(() => form.total_price !== null && (form.total_price as unknown) !== '' && !!form.qty)
+
+// Nothing saved yet, so leaving goes through the shell's unsaved-changes
+// guard rather than the autosave session.
+const leave = () => shellRef.value?.guardNavigation(indexUrl)
+
+const saveProblem = computed(() => {
+  if (form.processing || !form.isDirty) return null
+  if (!form.ingredient_id || !form.package_size_id) return 'Not saved yet: pick an ingredient and source'
+  if (!hasPriceAndQty.value) return 'Not saved yet: add the quantity and price'
+  if (form.hasErrors) return 'Not saved: fix the errors below'
+  return null
+})
 </script>

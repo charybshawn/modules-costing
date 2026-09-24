@@ -112,6 +112,18 @@ class IngredientController extends Controller implements HasMiddleware
 
         event(CostingRecordSaved::forCreated($ingredient, auth()->id()));
 
+        // Background autosave from the Create form: the first save creates
+        // the ingredient and hands off to its Edit page (same step, and
+        // `created=1` so that page's × offers to discard it outright). No
+        // success flash -- the page's SaveIndicator is the feedback.
+        if ($request->boolean('stay')) {
+            return redirect()->route('admin.costing.ingredients.edit', [
+                'ingredient' => $ingredient,
+                'step' => max(0, $request->integer('step')),
+                'created' => 1,
+            ]);
+        }
+
         return redirect()
             ->route('admin.costing.ingredients.index')
             ->with('success', "Ingredient '{$ingredient->name}' created.");
@@ -150,13 +162,10 @@ class IngredientController extends Controller implements HasMiddleware
         $ingredient->save();
         event($savedEvent);
 
-        // Normally lands on the index -- this is the explicit Save button's
-        // primary action. But usePersistedForm's autosave also PUTs here in
-        // the background while the user is still on this page, and wants to
-        // stay put rather than get navigated away mid-edit -- same "stay"
-        // pattern as PriceHistoryController::store().
+        // Background autosave from the Edit page: stay on it, no success
+        // flash (SaveIndicator is the feedback).
         if ($request->boolean('stay')) {
-            return redirect()->back()->with('success', "Ingredient '{$ingredient->name}' updated.");
+            return redirect()->route('admin.costing.ingredients.edit', $ingredient);
         }
 
         return redirect()
@@ -329,6 +338,25 @@ class IngredientController extends Controller implements HasMiddleware
         return redirect()
             ->route('admin.costing.ingredients.index')
             ->with('success', "Ingredient '{$name}' deleted.");
+    }
+
+    /**
+     * Hard-deletes an ingredient the Create form autosaved into existence
+     * and the admin then discarded (Edit page × -> "Discard Ingredient").
+     * IngredientPolicy::discardDraft limits it to fresh ingredients nothing
+     * depends on yet.
+     */
+    public function discardDraft(Ingredient $ingredient): RedirectResponse
+    {
+        $this->authorize('discardDraft', $ingredient);
+
+        $deletedEvent = CostingRecordDeleted::forModel($ingredient, auth()->id(), ['discarded_draft' => true]);
+        $ingredient->delete();
+        event($deletedEvent);
+
+        return redirect()
+            ->route('admin.costing.ingredients.index')
+            ->with('success', 'Ingredient discarded.');
     }
 
     /**

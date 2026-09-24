@@ -46,60 +46,27 @@
         </div>
       </div>
 
-      <!-- Mobile-only hero block: headline stat + quick-action icon tiles,
-           matching Ingredients/Index.vue's own hero shell exactly (same
-           colored card, w-16 h-16 rounded-2xl tiles, Archivo Black label).
-           Three tiles rather than Ingredients' one -- Add Item, Bulk Update
-           Stock, and View History all lack a bottom-nav equivalent, unlike
-           "Ingredients" (dropped here, same reasoning Ingredients used to
-           drop its own Price History button: one tap away via
-           CostingModuleNav's bottom bar). justify-around rather than
-           -center: with more than one tile, -center would cluster them
-           together instead of spacing them across the row. -->
-      <div class="md:hidden mb-6 rounded-lg bg-gray-200 dark:bg-amber-500 px-5 pt-[30px] pb-[20px]">
-        <div class="text-center">
-          <div class="text-sm font-bold text-gray-800">Total Items</div>
-          <div class="mt-1 text-4xl font-extrabold text-emerald-600">{{ props.ingredients.length }}</div>
-        </div>
-        <div class="mt-[30px] flex items-center justify-around">
-          <div class="flex flex-col items-center gap-3">
-            <button
-              type="button"
-              @click="openAddItemModal"
-              class="tap-target-touch w-16 h-16 rounded-2xl bg-white dark:bg-gray-900 shadow-md dark:shadow-[0_4px_10px_rgba(0,0,0,0.5)] flex items-center justify-center"
-            >
-              <svg class="w-11 h-11 text-amber-500 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-              </svg>
-            </button>
-            <span class="text-xs font-['Archivo_Black'] uppercase tracking-wide text-amber-500 dark:text-white leading-tight text-center">Add<br>Item</span>
-          </div>
-          <div class="flex flex-col items-center gap-3">
-            <button
-              type="button"
-              @click="openBulkModal"
-              class="tap-target-touch w-16 h-16 rounded-2xl bg-white dark:bg-gray-900 shadow-md dark:shadow-[0_4px_10px_rgba(0,0,0,0.5)] flex items-center justify-center"
-            >
-              <svg class="w-11 h-11 text-amber-500 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-              </svg>
-            </button>
-            <span class="text-xs font-['Archivo_Black'] uppercase tracking-wide text-amber-500 dark:text-white leading-tight text-center">Bulk<br>Update</span>
-          </div>
-          <Link :href="route('admin.costing.inventory.adjustments')" class="flex flex-col items-center gap-3">
-            <span class="tap-target-touch w-16 h-16 rounded-2xl bg-white dark:bg-gray-900 shadow-md dark:shadow-[0_4px_10px_rgba(0,0,0,0.5)] flex items-center justify-center">
-              <svg class="w-11 h-11 text-amber-500 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </span>
-            <span class="text-xs font-['Archivo_Black'] uppercase tracking-wide text-amber-500 dark:text-white leading-tight text-center">View<br>History</span>
-          </Link>
-        </div>
-      </div>
+      <!-- Mobile: icon shelf over the headline stats (same pattern as the
+           host's dashboard/index pages). Ingredients is one tap away via
+           CostingModuleNav's bottom bar, so it isn't repeated here. -->
+      <ActionShelf class="md:hidden" overlay="always">
+        <ShelfAction icon="plus" label="Add item" @click="openAddItemModal" />
+        <ShelfAction icon="edit" label="Bulk update stock" @click="openBulkModal" />
+        <ShelfAction icon="clock" label="Adjustment history" :href="route('admin.costing.inventory.adjustments')" />
+      </ActionShelf>
+      <StatHero
+        class="md:hidden -mt-4"
+        :headline="{ label: 'Items', value: props.ingredients.length }"
+        :stats="[
+          { label: 'In stock', value: inStockCount, tone: 'good' },
+          { label: 'Out of stock', value: props.ingredients.length - inStockCount, tone: props.ingredients.length - inStockCount > 0 ? 'danger' : 'default' },
+        ]"
+      />
+      <hr class="md:hidden border-gray-200 dark:border-gray-700" />
 
       <!-- No overflow-hidden: it breaks DataTable's sticky toolbar by
            pinning it inside this box instead of the viewport. -->
-      <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg">
+      <div class="bg-white dark:bg-gray-800 md:shadow-sm md:rounded-lg">
         <DataTable
           :columns="columns"
           :items="ingredients"
@@ -182,7 +149,7 @@
       <StockAdjustModal v-if="isDesktop" :ingredient="stockIngredient" @close="closeStockModal" />
 
       <!-- Bulk Update Stock modal -->
-      <Modal :show="showBulkModal" max-width="2xl" @close="closeBulkModal">
+      <ResponsiveModal :show="showBulkModal" max-width="2xl" @close="closeBulkModal">
         <form @submit.prevent="submitBulk" class="p-6">
           <h2 class="text-lg font-medium text-gray-900 dark:text-white">Bulk Update Stock</h2>
           <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Update several ingredients' stock in one go.</p>
@@ -310,13 +277,13 @@
             </button>
           </div>
         </form>
-      </Modal>
+      </ResponsiveModal>
 
       <!-- Add Item modal -- for something not in the system at all yet.
            An existing ingredient that just needs a new source still uses
            the per-item Stock modal (opened via the ingredient name above),
            not this. -->
-      <Modal :show="showAddItemModal" max-width="lg" @close="closeAddItemModal">
+      <ResponsiveModal :show="showAddItemModal" max-width="lg" @close="closeAddItemModal">
         <form @submit.prevent="submitAddItem" class="p-6">
           <h2 class="text-lg font-medium text-gray-900 dark:text-white">Add Item</h2>
           <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">For something not in the system yet -- creates the ingredient, its first source, and a starting count in one go.</p>
@@ -388,7 +355,7 @@
             </button>
           </div>
         </form>
-      </Modal>
+      </ResponsiveModal>
     </div>
   </div>
 </template>
@@ -399,8 +366,11 @@ import { useMediaQuery } from '@vueuse/core'
 import { Link, useForm } from '@inertiajs/vue3'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import AdminMobileHeader from '@/Components/Admin/AdminMobileHeader.vue'
+import ActionShelf from '@/Components/Admin/ActionShelf.vue'
+import ShelfAction from '@/Components/Admin/ShelfAction.vue'
+import StatHero from '@/Components/Admin/StatHero.vue'
 import DataTable, { type Column } from '@/Components/Admin/DataTable.vue'
-import Modal from '@/Components/Modal.vue'
+import ResponsiveModal from '@/Components/ResponsiveModal.vue'
 import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
 import StockAdjustModal, { type StockIngredient } from '../Shared/StockAdjustModal.vue'
 import InventoryStockDrawer from '../Shared/InventoryStockDrawer.vue'
@@ -441,6 +411,8 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+
+const inStockCount = computed(() => props.ingredients.filter((i) => i.on_hand > 0).length)
 
 const recipeFilterId = ref<number | null>(null)
 

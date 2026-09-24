@@ -1,86 +1,61 @@
 <template>
-  <div class="md:pt-6 pb-6">
-    <div>
-      <AdminMobileHeader title="Add Ingredient" :href="route('admin.costing.ingredients.index')" />
-      <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
-        <div class="hidden md:flex p-6 border-b border-gray-200 dark:border-gray-700 justify-between items-center">
-          <div>
-            <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Add Ingredient</h1>
-            <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">$/kg and $/unit pricing is calculated from Price History, not entered here.</p>
+  <div>
+    <ResponsiveFormSections
+      ref="shellRef"
+      :sections="sections"
+      :dirty="form.isDirty"
+      @discard="form.clearPersistedData()"
+    >
+      <template #mobile-header>
+        <AdminMobileHeader title="New Ingredient" :on-back="leave">
+          <template #subtitle>
+            <SaveIndicator :processing="form.processing" :recently-successful="form.recentlySuccessful" :error="saveProblem" />
+          </template>
+          <template #actions>
+            <IconButton label="Cancel" :class="iconActionClass" @click="leave">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </IconButton>
+          </template>
+        </AdminMobileHeader>
+      </template>
+
+      <template #header>
+        <Link :href="indexUrl" :class="backLinkClass" @click.prevent="leave">&larr; Back to Ingredients</Link>
+        <div class="hidden md:flex flex-wrap items-center justify-between gap-3 mt-2 mb-2">
+          <div class="flex items-center gap-3">
+            <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">New Ingredient</h1>
+            <SaveIndicator :processing="form.processing" :recently-successful="form.recentlySuccessful" :error="saveProblem" />
           </div>
-          <Link :href="route('admin.costing.ingredients.index')" class="tap-target-touch inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">&larr; Back</Link>
+          <button type="button" :class="secondaryButtonClass" @click="leave">Cancel</button>
         </div>
-        <p class="md:hidden px-6 pt-6 text-sm text-gray-600 dark:text-gray-400">$/kg and $/unit pricing is calculated from Price History, not entered here.</p>
+        <p class="mb-6 text-sm text-gray-600 dark:text-gray-400">
+          Saved as you go. Sources and prices can be added once it has a name.
+        </p>
 
-        <form @submit.prevent="submit" class="p-6 space-y-6">
-          <FormErrorSummary :errors="form.errors" />
+        <FormErrorSummary v-if="Object.keys(form.errors).length > 0" :errors="form.errors" class="mb-6" />
+      </template>
 
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Name *</label>
-            <input v-model="form.name" type="text" required class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" placeholder="e.g. Cream Cheese" />
-            <p v-if="form.errors.name" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.name }}</p>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Category</label>
-              <input v-model="form.category" type="text" list="category-options" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" placeholder="e.g. Dairy & Eggs" />
-              <datalist id="category-options">
-                <option v-for="c in categories" :key="c" :value="c" />
-              </datalist>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Measured In *</label>
-              <select v-model="form.unit_type" required class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm">
-                <option value="g">Grams (priced per kg)</option>
-                <option value="unit">Units (priced per unit, e.g. packaging)</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Waste % *</label>
-            <input v-model.number="form.waste_percent" type="number" inputmode="decimal" min="1" max="100" step="0.01" required class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">100 = no waste, 95 = 5% trim loss.</p>
-            <p v-if="form.errors.waste_percent" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.waste_percent }}</p>
-          </div>
-
-          <p class="text-sm text-gray-500 dark:text-gray-400 rounded-md bg-gray-50 dark:bg-gray-700/50 p-3">
-            Sources, pricing, and a preferred supplier are managed after the ingredient is created -- save this first, then open it again to add them.
-          </p>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Byproduct</label>
-            <input v-model="form.byproduct_name" type="text" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" placeholder="e.g. Juice, Brine -- leave blank if none" />
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">If this ingredient comes with a usable byproduct (e.g. pickle juice), name it here to make it selectable as its own line in Recipes. Free -- not costed or tracked in inventory.</p>
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Notes</label>
-            <textarea v-model="form.notes" rows="3" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" placeholder="Brand recommendations, purchasing notes, etc."></textarea>
-          </div>
-
-          <div class="flex items-center justify-end pt-6 border-t border-gray-200 dark:border-gray-700">
-            <Link :href="route('admin.costing.ingredients.index')" class="tap-target-touch bg-gray-200 dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600">Cancel</Link>
-            <button type="submit" :disabled="form.processing" class="tap-target-touch ml-3 bg-indigo-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
-              <span v-if="form.processing">Creating...</span>
-              <span v-else>Create Ingredient</span>
-            </button>
-          </div>
-        </form>
-      </div>
-      </div>
-    </div>
+      <template #section-details>
+        <IngredientFields :form="form" :categories="categories" />
+      </template>
+    </ResponsiveFormSections>
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed, ref } from 'vue'
 import { Link } from '@inertiajs/vue3'
 import { usePersistedForm } from '@/composables/usePersistedForm'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import AdminMobileHeader from '@/Components/Admin/AdminMobileHeader.vue'
 import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
+import SaveIndicator from '@/Components/Admin/SaveIndicator.vue'
+import ResponsiveFormSections, { type FormSection } from '@/Components/Admin/ResponsiveFormSections.vue'
+import IconButton from '@/Components/IconButton.vue'
+import IngredientFields, { type IngredientFormData } from '../Shared/IngredientFields.vue'
+import { backLinkClass, iconActionClass, secondaryButtonClass } from '../Shared/formClasses'
 
 defineOptions({ layout: (h, page) => h(AdminLayout, { hideBreadcrumbOnMobile: true }, () => page) })
 
@@ -90,25 +65,44 @@ interface Props {
 
 defineProps<Props>()
 
-interface FormData {
-  name: string
-  category: string
-  unit_type: 'g' | 'unit'
-  waste_percent: number
-  byproduct_name: string
-  notes: string
-}
+// Single section: no step bar (the Sources step only exists once the
+// ingredient does -- on the Edit page this form hands off to).
+const sections: FormSection[] = [{ key: 'details', title: 'Details' }]
 
-const form = usePersistedForm<FormData>({
+const shellRef = ref<InstanceType<typeof ResponsiveFormSections> | null>(null)
+const indexUrl = route('admin.costing.ingredients.index')
+
+const form = usePersistedForm<IngredientFormData>({
   name: '',
   category: '',
   unit_type: 'g',
   waste_percent: 100,
   byproduct_name: '',
   notes: '',
-}, { key: 'costing-ingredient-create' })
+}, {
+  key: 'costing-ingredient-create',
+  // Autosave creates the ingredient: the first save POSTs to store, whose
+  // `stay` branch redirects to the new ingredient's Edit page, and that
+  // page's PUT autosave takes over from there.
+  autosave: {
+    method: 'post',
+    url: () => `${route('admin.costing.ingredients.store')}?step=${shellRef.value?.currentStepIndex ?? 0}`,
+    requiredFields: ['name'],
+    // Don't create an ingredient named after the first keystroke.
+    enabled: (): boolean => nameLongEnough.value,
+  },
+})
 
-const submit = () => {
-  form.post(route('admin.costing.ingredients.store'))
-}
+const nameLongEnough = computed<boolean>(() => (form.name ?? '').trim().length >= 2)
+
+// Nothing saved yet, so leaving goes through the shell's unsaved-changes
+// guard rather than the autosave session.
+const leave = () => shellRef.value?.guardNavigation(indexUrl)
+
+const saveProblem = computed(() => {
+  if (form.processing || !form.isDirty) return null
+  if (!nameLongEnough.value) return 'Not saved yet: add a name (2+ characters)'
+  if (form.hasErrors) return 'Not saved: fix the errors below'
+  return null
+})
 </script>

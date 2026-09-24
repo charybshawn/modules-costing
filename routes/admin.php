@@ -32,6 +32,7 @@ Route::prefix('admin')->name('admin.')->middleware(['web', 'auth', 'admin'])->gr
             Route::post('{ingredient}/package-size', [IngredientController::class, 'setPackageSize'])->name('set-package-size');
             Route::post('{ingredient}/sources/{packageSize}/rename', [IngredientController::class, 'renameSource'])->name('sources.rename');
             Route::delete('{ingredient}', [IngredientController::class, 'destroy'])->name('destroy');
+            Route::delete('{ingredient}/discard-draft', [IngredientController::class, 'discardDraft'])->name('discard-draft');
             Route::post('bulk-action', [IngredientController::class, 'bulkAction'])->name('bulk-action');
         });
 
@@ -43,6 +44,7 @@ Route::prefix('admin')->name('admin.')->middleware(['web', 'auth', 'admin'])->gr
             Route::put('{priceHistoryEntry}', [PriceHistoryController::class, 'update'])->name('update');
             Route::post('{priceHistoryEntry}/update-price', [PriceHistoryController::class, 'updatePrice'])->name('update-price');
             Route::delete('{priceHistoryEntry}', [PriceHistoryController::class, 'destroy'])->name('destroy');
+            Route::delete('{priceHistoryEntry}/discard-draft', [PriceHistoryController::class, 'discardDraft'])->name('discard-draft');
             Route::post('bulk-action', [PriceHistoryController::class, 'bulkAction'])->name('bulk-action');
         });
 
@@ -69,6 +71,7 @@ Route::prefix('admin')->name('admin.')->middleware(['web', 'auth', 'admin'])->gr
             Route::put('{recipe}', [RecipeController::class, 'update'])->name('update');
             Route::put('{recipe}/costing', [RecipeController::class, 'updateCosting'])->name('update-costing');
             Route::delete('{recipe}', [RecipeController::class, 'destroy'])->name('destroy');
+            Route::delete('{recipe}/discard-draft', [RecipeController::class, 'discardDraft'])->name('discard-draft');
             Route::post('bulk-action', [RecipeController::class, 'bulkAction'])->name('bulk-action');
         });
 

@@ -83,7 +83,7 @@
       </div>
 
       <!-- Edit Costing modal -->
-      <Modal :show="editingRecipe !== null" max-width="md" @close="closeEditModal">
+      <ResponsiveModal :show="editingRecipe !== null" max-width="md" @close="closeEditModal">
         <form v-if="editingRecipe" @submit.prevent="submitEdit" class="p-6">
           <h2 class="text-lg font-medium text-gray-900 dark:text-white">Edit Costing -- {{ editingRecipe.name }}</h2>
 
@@ -91,18 +91,18 @@
 
           <div class="mt-4">
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Sell Price ($)</label>
-            <input v-model.number="editForm.sell_price" type="number" inputmode="decimal" min="0" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+            <input v-model.number="editForm.sell_price" type="number" inputmode="decimal" min="0" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
           </div>
 
           <div class="mt-4">
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Fill Size (g)</label>
-            <input v-model.number="editForm.fill_size_g" type="number" inputmode="decimal" min="0" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+            <input v-model.number="editForm.fill_size_g" type="number" inputmode="decimal" min="0" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Actual measured fill weight per jar, from production. Leave blank to use the theoretical ingredient-weight total instead.</p>
           </div>
 
           <div class="mt-4">
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Cost Buffer (%)</label>
-            <input v-model.number="editForm.cost_buffer_percent" type="number" inputmode="decimal" min="0" max="100" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+            <input v-model.number="editForm.cost_buffer_percent" type="number" inputmode="decimal" min="0" max="100" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Contingency added on top of ingredient cost, e.g. for price drift or over-portioning. Leave blank for none.</p>
           </div>
 
@@ -116,7 +116,7 @@
             </button>
           </div>
         </form>
-      </Modal>
+      </ResponsiveModal>
     </div>
   </div>
 </template>
@@ -127,7 +127,7 @@ import { Link, useForm } from '@inertiajs/vue3'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import AdminMobileHeader from '@/Components/Admin/AdminMobileHeader.vue'
 import DataTable, { type Column, type Action } from '@/Components/Admin/DataTable.vue'
-import Modal from '@/Components/Modal.vue'
+import ResponsiveModal from '@/Components/ResponsiveModal.vue'
 import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
 

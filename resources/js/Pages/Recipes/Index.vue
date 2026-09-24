@@ -107,6 +107,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
+import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import AdminMobileHeader from '@/Components/Admin/AdminMobileHeader.vue'
 import DataTable, { type Column, type Action } from '@/Components/Admin/DataTable.vue'
@@ -130,6 +131,7 @@ interface Props {
 }
 
 defineProps<Props>()
+const { confirmDialog } = useConfirmDialog()
 
 // Only flagged when a threshold is actually set -- matches the same
 // "null disables it" convention the old Ingredient::low_stock_threshold used.
@@ -148,9 +150,9 @@ const tableActions: Action[] = [
   { name: 'delete', icon: 'delete', color: 'red', label: 'Delete' },
 ]
 
-const handleAction = (action: string, item: Recipe) => {
+const handleAction = async (action: string, item: Recipe) => {
   if (action === 'delete') {
-    if (confirm(`Delete "${item.name}"? This also removes it from any production runs.`)) {
+    if (await confirmDialog({ title: 'Delete Recipe', message: `Delete "${item.name}"? This also removes it from any production runs.`, confirmLabel: 'Delete', variant: 'danger' })) {
       router.delete(route('admin.costing.recipes.destroy', item.id), { preserveScroll: true })
     }
   }
@@ -158,10 +160,16 @@ const handleAction = (action: string, item: Recipe) => {
 
 const selectedIds = ref<number[]>([])
 
-const bulkAction = (action: 'delete' | 'activate' | 'deactivate') => {
+const bulkAction = async (action: 'delete' | 'activate' | 'deactivate') => {
   if (selectedIds.value.length === 0) return
-  const verb = action === 'delete' ? 'delete' : action
-  if (!confirm(`${verb.charAt(0).toUpperCase() + verb.slice(1)} ${selectedIds.value.length} recipe${selectedIds.value.length === 1 ? '' : 's'}?`)) return
+  const verb = action.charAt(0).toUpperCase() + action.slice(1)
+  const count = `${selectedIds.value.length} recipe${selectedIds.value.length === 1 ? '' : 's'}`
+  if (!(await confirmDialog({
+    title: `${verb} Recipes`,
+    message: action === 'delete' ? `Delete ${count}? This also removes them from any production runs.` : `${verb} ${count}?`,
+    confirmLabel: verb,
+    variant: action === 'delete' ? 'danger' : 'warning',
+  }))) return
 
   router.post(route('admin.costing.recipes.bulk-action'), { action, ids: selectedIds.value }, {
     preserveScroll: true,

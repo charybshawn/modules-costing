@@ -384,6 +384,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import axios from 'axios'
 import { router } from '@inertiajs/vue3'
+import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import ResponsiveModal from '@/Components/ResponsiveModal.vue'
 import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
 import IconButton from '@/Components/IconButton.vue'
@@ -430,6 +431,7 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+const { confirmDialog } = useConfirmDialog()
 const emit = defineEmits<{ close: []; updated: [] }>()
 
 const loading = ref(false)
@@ -688,9 +690,13 @@ const completeRun = () => {
   })
 }
 
-const undoCompletion = () => {
+const undoCompletion = async () => {
   if (!productionRun.value) return
-  if (!confirm("Undo this run's completion? This restores the deducted inventory and clears its cost snapshot -- the run goes back to Planned and can be completed again later.")) return
+  if (!(await confirmDialog({
+    title: 'Undo Completion',
+    message: "Undo this run's completion? This restores the deducted inventory and clears its cost snapshot -- the run goes back to Planned and can be completed again later.",
+    confirmLabel: 'Undo Completion',
+  }))) return
 
   const runId = productionRun.value.id
   undoing.value = true

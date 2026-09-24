@@ -8,6 +8,7 @@ use Cultpantry\Costing\Actions\CalculateIngredientCosting;
 use Cultpantry\Costing\Actions\GetModuleVersion;
 use Cultpantry\Costing\Models\Ingredient;
 use Cultpantry\Costing\Models\ProductionRun;
+use Cultpantry\Costing\Models\Recipe;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Inertia\Inertia;
@@ -44,8 +45,8 @@ class DashboardController extends Controller implements HasMiddleware
         // ingredient counts whether its latest price is stale OR it's never
         // been priced at all -- not just a count of stale PriceHistoryEntry
         // rows, which silently ignored ingredients with zero price history.
-        $stalePriceCount = Ingredient::with('priceHistory.ingredient', 'inventory', 'packageSizes')
-            ->get()
+        $ingredients = Ingredient::with('priceHistory.ingredient', 'inventory', 'packageSizes')->get();
+        $stalePriceCount = $ingredients
             ->filter(fn (Ingredient $ingredient) => $calculateIngredientCosting->handle($ingredient)['status'] !== 'ok')
             ->count();
 
@@ -54,6 +55,8 @@ class DashboardController extends Controller implements HasMiddleware
         return Inertia::render('Vendor/costing/Dashboard/Index', [
             'stale_price_count' => $stalePriceCount,
             'planned_run_count' => $plannedRunCount,
+            'ingredient_count' => $ingredients->count(),
+            'active_recipe_count' => Recipe::active()->count(),
             'module_version' => $getModuleVersion->handle(),
             // Not CostingBreadcrumbs::trail() -- this IS the module root now,
             // so it's a single, non-linked crumb rather than a self-link.

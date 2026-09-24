@@ -1,171 +1,147 @@
 <template>
-  <div class="md:pt-6 pb-6">
-    <div>
-      <AdminMobileHeader :title="`Edit Recipe: ${recipe.name}`" :href="route('admin.costing.recipes.index')" />
-      <div class="md:hidden mb-4 flex justify-center">
-        <SaveIndicator :processing="form.processing" :recently-successful="form.recentlySuccessful" />
-      </div>
-      <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
-        <div class="hidden md:flex p-6 border-b border-gray-200 dark:border-gray-700 justify-between items-center">
-          <div class="flex items-center gap-3">
-            <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Edit Recipe: {{ recipe.name }}</h1>
-            <SaveIndicator :processing="form.processing" :recently-successful="form.recentlySuccessful" />
+  <div>
+    <ResponsiveFormSections
+      ref="shellRef"
+      :sections="sections"
+      :dirty="form.isDirty"
+      :initial-step="initialStep"
+      @discard="form.clearPersistedData()"
+    >
+      <template #mobile-header="{ currentStepIndex, goToStep }">
+        <AdminMobileHeader title="Edit Recipe" :on-back="() => shellRef?.guardNavigation(indexUrl)">
+          <template #subtitle>
+            <SaveIndicator
+              v-if="form.processing || form.recentlySuccessful || saveProblem"
+              :processing="form.processing"
+              :recently-successful="form.recentlySuccessful"
+              :error="saveProblem"
+            />
+            <span v-else class="max-w-full truncate text-xs text-gray-500 dark:text-gray-400">{{ recipe.name }}</span>
+          </template>
+          <template #actions>
+            <IconButton label="Cancel editing" :class="iconActionClass" @click="closeEditor">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </IconButton>
+          </template>
+          <template #bottom>
+            <FormStepNav :sections="sections" :current-index="currentStepIndex" @select="goToStep" />
+          </template>
+        </AdminMobileHeader>
+      </template>
+
+      <template #mobile-actions>
+        <IconButton label="Delete recipe" :class="dangerIconActionClass" @click="destroy">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </IconButton>
+      </template>
+
+      <template #header>
+        <Link :href="indexUrl" :class="backLinkClass" @click.prevent="shellRef?.guardNavigation(indexUrl)">&larr; Back to Recipes</Link>
+        <div class="hidden md:flex flex-wrap items-center justify-between gap-3 mt-2 mb-6">
+          <div class="flex items-center gap-3 min-w-0">
+            <h1 class="text-2xl font-semibold text-gray-900 dark:text-white truncate">{{ recipe.name }}</h1>
+            <span
+              class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+              :class="form.is_active
+                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'"
+            >
+              {{ form.is_active ? 'Active' : 'Inactive' }}
+            </span>
+            <SaveIndicator :processing="form.processing" :recently-successful="form.recentlySuccessful" :error="saveProblem" />
           </div>
-          <Link :href="route('admin.costing.recipes.index')" class="tap-target-touch inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">&larr; Back</Link>
+          <div class="flex items-center gap-3">
+            <button type="button" :class="dangerOutlineButtonClass" @click="destroy">Delete Recipe</button>
+            <button type="button" :class="secondaryButtonClass" @click="closeEditor">Cancel</button>
+          </div>
         </div>
 
-        <form @submit.prevent class="p-6 space-y-6">
-          <FormErrorSummary :errors="form.errors" />
+        <FormErrorSummary v-if="Object.keys(form.errors).length > 0" :errors="form.errors" class="mb-6" />
+      </template>
 
-          <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <!-- Details -->
-            <div class="lg:col-span-1 space-y-6">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Flavour Name *</label>
-                <input v-model="form.name" type="text" required class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
-                <p v-if="isDuplicateName" class="mt-1 text-sm text-amber-600 dark:text-amber-500">A recipe named "{{ form.name.trim() }}" already exists.</p>
-                <p v-if="form.errors.name" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.name }}</p>
-              </div>
+      <template #section-details>
+        <RecipeDetailsFields
+          :form="form"
+          :duplicate-name="isDuplicateName"
+          :finished-good-label="finishedGoodOption?.label ?? null"
+        />
+      </template>
 
-              <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Notes</label>
-                <textarea v-model="form.notes" rows="4" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm"></textarea>
-              </div>
+      <template #section-ingredients>
+        <RecipeLinesFields :rows="form.ingredients" :pool="ingredients" noun="Ingredient" />
+        <p class="mt-4 text-sm text-gray-600 dark:text-gray-400">
+          Cost per jar: <span class="font-semibold text-gray-900 dark:text-white tabular-nums">${{ costPerJar.total.toFixed(2) }}</span>
+          <span v-if="costPerJar.anyStale || costPerJar.anyMissing" class="text-amber-600 dark:text-amber-500"> (estimate)</span>
+        </p>
+      </template>
 
-              <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Finished product</label>
-                <FinishedGoodPicker
-                  v-model="form.product_id"
-                  :initial-label="props.finishedGoodOption?.label ?? null"
-                  class="mt-1"
-                />
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">When set, completing a production run for this recipe credits the units produced to this product's storefront stock.</p>
-                <p v-if="form.errors.product_id" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.product_id }}</p>
-              </div>
+      <template #section-byproducts>
+        <RecipeLinesFields
+          :rows="form.byproducts"
+          :pool="byproductIngredients"
+          noun="Byproduct"
+          description="Free, always assumed sufficient: not costed or tracked in inventory, just documents the recipe."
+          empty-pool-hint="No ingredient has a byproduct yet. Name one on the ingredient to offer it here."
+        />
+      </template>
 
-              <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Minimum units to keep in stock</label>
-                <input v-model.number="form.min_stock_threshold" type="number" inputmode="numeric" min="0" step="1" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" placeholder="e.g. 20" />
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Flagged as needing reordering whenever current ingredient stock can't produce at least this many jars. Leave blank to disable.</p>
-                <p v-if="form.errors.min_stock_threshold" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.min_stock_threshold }}</p>
-              </div>
+      <template #section-cost>
+        <p v-if="!costBreakdown.length" class="text-sm text-gray-500 dark:text-gray-400">Add ingredients to see the cost per jar.</p>
 
-              <div>
-                <label class="tap-target-touch flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  <input v-model="form.is_active" type="checkbox" class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500 dark:bg-gray-700" />
-                  Active
-                </label>
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Inactive recipes are hidden from the Production Planner's recipe picker, but stay visible here.</p>
-              </div>
-            </div>
-
-            <!-- Ingredients & byproducts -->
-            <div class="lg:col-span-2 space-y-6">
-              <div>
-                <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">Ingredients (per jar)</h3>
-                <div v-if="form.ingredients.length" class="border border-gray-200 dark:border-gray-700 rounded-md divide-y divide-gray-200 dark:divide-gray-700">
-                  <div v-for="(row, index) in form.ingredients" :key="index" class="flex flex-wrap items-center gap-3 px-4 py-2">
-                    <select v-model.number="row.ingredient_id" required class="flex-1 min-w-[10rem] rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm">
-                      <option :value="null" disabled>Select an ingredient&hellip;</option>
-                      <option v-for="opt in availableIngredients(form.ingredients, row.ingredient_id)" :key="opt.id" :value="opt.id">{{ opt.name }}</option>
-                    </select>
-                    <input v-model.number="row.quantity_per_jar" type="number" inputmode="decimal" min="0" step="0.01" required class="w-28 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
-                    <span class="text-xs text-gray-500 dark:text-gray-400 w-10">{{ ingredientUnit(row.ingredient_id) }}</span>
-                    <IconButton type="button" @click="form.ingredients.splice(index, 1)" class="text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400"
-            label="Remove ingredient"
-          >
-                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </IconButton>
-                  </div>
-                </div>
-                <button type="button" @click="addRow(form.ingredients)" :disabled="form.ingredients.length >= props.ingredients.length" class="tap-target-touch inline-flex items-center mt-3 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 disabled:opacity-40">
-                  + Add Ingredient
+        <dl v-else class="divide-y divide-gray-100 dark:divide-gray-700">
+          <div v-for="line in costBreakdown" :key="line.ingredientId" class="flex items-start justify-between gap-3 py-2 text-sm">
+            <div class="min-w-0">
+              <dt class="font-medium text-gray-900 dark:text-white truncate">{{ line.name }}</dt>
+              <dd class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                {{ line.quantity }}{{ line.unit }}
+                <span class="mx-1">&middot;</span>
+                <button type="button" class="tap-target-touch inline-flex items-center font-medium" :class="priceIndicatorClass(line.ingredientId)" @click="openPricesModal(line.ingredientId)">
+                  {{ priceIndicatorLabel(line.ingredientId) }}
                 </button>
-              </div>
-
-              <div>
-                <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">Byproducts (per jar)</h3>
-                <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">Free, always assumed sufficient -- not costed or tracked in inventory, just documents the recipe.</p>
-                <div v-if="form.byproducts.length" class="border border-gray-200 dark:border-gray-700 rounded-md divide-y divide-gray-200 dark:divide-gray-700">
-                  <div v-for="(row, index) in form.byproducts" :key="index" class="flex flex-wrap items-center gap-3 px-4 py-2">
-                    <select v-model.number="row.ingredient_id" required class="flex-1 min-w-[10rem] rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm">
-                      <option :value="null" disabled>Select a byproduct&hellip;</option>
-                      <option v-for="opt in availableIngredients(form.byproducts, row.ingredient_id, byproductIngredients)" :key="opt.id" :value="opt.id">{{ opt.name }} — {{ opt.byproduct_name }}</option>
-                    </select>
-                    <input v-model.number="row.quantity_per_jar" type="number" inputmode="decimal" min="0" step="0.01" required class="w-28 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
-                    <span class="text-xs text-gray-500 dark:text-gray-400 w-10">{{ ingredientUnit(row.ingredient_id) }}</span>
-                    <IconButton type="button" @click="form.byproducts.splice(index, 1)" class="text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400"
-            label="Remove byproduct"
-          >
-                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </IconButton>
-                  </div>
-                </div>
-                <button type="button" @click="addRow(form.byproducts, byproductIngredients)" :disabled="byproductIngredients.length === 0 || form.byproducts.length >= byproductIngredients.length" class="tap-target-touch inline-flex items-center mt-3 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 disabled:opacity-40">
-                  + Add Byproduct
-                </button>
-              </div>
+              </dd>
             </div>
-
-            <!-- Costing breakdown -->
-            <div class="lg:col-span-1">
-              <div class="lg:sticky lg:top-6 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 p-4">
-                <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">Costing Breakdown</h3>
-
-                <p v-if="!costBreakdown.length" class="text-sm text-gray-500 dark:text-gray-400">Add ingredients to see the cost per jar.</p>
-
-                <dl v-else class="space-y-3">
-                  <div v-for="line in costBreakdown" :key="line.ingredientId" class="flex items-start justify-between gap-3 text-sm">
-                    <div class="min-w-0">
-                      <dt class="font-medium text-gray-900 dark:text-white truncate">{{ line.name }}</dt>
-                      <dd class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                        {{ line.quantity }}{{ line.unit }}
-                        <span class="mx-1">&middot;</span>
-                        <button type="button" @click="openPricesModal(line.ingredientId)" class="tap-target-touch inline-flex items-center font-medium" :class="priceIndicatorClass(line.ingredientId)">
-                          {{ priceIndicatorLabel(line.ingredientId) }}
-                        </button>
-                      </dd>
-                    </div>
-                    <dd class="shrink-0 text-gray-900 dark:text-white tabular-nums">{{ line.subtotal === null ? '—' : `$${line.subtotal.toFixed(2)}` }}</dd>
-                  </div>
-                </dl>
-
-                <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <div class="flex items-center justify-between">
-                    <span class="text-sm font-medium text-gray-900 dark:text-white">Cost per jar</span>
-                    <span class="text-lg font-semibold text-gray-900 dark:text-white tabular-nums">${{ costPerJar.total.toFixed(2) }}</span>
-                  </div>
-                  <p v-if="costPerJar.anyStale || costPerJar.anyMissing" class="mt-2 text-xs text-amber-600 dark:text-amber-500">
-                    Estimate only -- {{ costPerJar.anyMissing ? 'one or more ingredients have no logged price' : 'one or more ingredients are using a price that needs updating' }}. Click a price above to fix it.
-                  </p>
-                </div>
-              </div>
-            </div>
+            <dd class="shrink-0 text-gray-900 dark:text-white tabular-nums">{{ line.subtotal === null ? '—' : `$${line.subtotal.toFixed(2)}` }}</dd>
           </div>
+        </dl>
 
-          <div class="flex items-center justify-between pt-6 border-t border-gray-200 dark:border-gray-700">
-            <button type="button" @click="destroy" class="tap-target-touch px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Delete Recipe</button>
-            <Link :href="route('admin.costing.recipes.index')" class="tap-target-touch bg-gray-200 dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600">Cancel</Link>
+        <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div class="flex items-center justify-between">
+            <span class="text-sm font-medium text-gray-900 dark:text-white">Cost per jar</span>
+            <span class="text-lg font-semibold text-gray-900 dark:text-white tabular-nums">${{ costPerJar.total.toFixed(2) }}</span>
           </div>
-        </form>
-      </div>
+          <p v-if="costPerJar.anyStale || costPerJar.anyMissing" class="mt-2 text-xs text-amber-600 dark:text-amber-500">
+            Estimate only: {{ costPerJar.anyMissing ? 'one or more ingredients have no logged price' : 'one or more ingredients are using a price that needs updating' }}. Tap a price above to fix it.
+          </p>
+        </div>
+      </template>
+    </ResponsiveFormSections>
 
-      <AvailablePricesModal :ingredient="pricesIngredient" @close="pricesIngredient = null" />
-    </div>
+    <AvailablePricesModal :ingredient="pricesIngredient" @close="pricesIngredient = null" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed, ref } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
 import { usePersistedForm } from '@/composables/usePersistedForm'
-import AvailablePricesModal, { type PricesIngredient } from '../Shared/AvailablePricesModal.vue'
-import FinishedGoodPicker, { type FinishedGoodOption } from '../Shared/FinishedGoodPicker.vue'
+import { useConfirmDialog } from '@/composables/useConfirmDialog'
+import { useAutosaveSession } from '@/composables/useAutosaveSession'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import AdminMobileHeader from '@/Components/Admin/AdminMobileHeader.vue'
 import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
+import FormStepNav from '@/Components/Admin/FormStepNav.vue'
 import SaveIndicator from '@/Components/Admin/SaveIndicator.vue'
+import ResponsiveFormSections, { type FormSection } from '@/Components/Admin/ResponsiveFormSections.vue'
 import IconButton from '@/Components/IconButton.vue'
+import AvailablePricesModal, { type PricesIngredient } from '../Shared/AvailablePricesModal.vue'
+import type { FinishedGoodOption } from '../Shared/FinishedGoodPicker.vue'
+import RecipeDetailsFields, { type RecipeFormData } from '../Shared/RecipeDetailsFields.vue'
+import RecipeLinesFields from '../Shared/RecipeLinesFields.vue'
+import { backLinkClass, dangerIconActionClass, dangerOutlineButtonClass, iconActionClass, secondaryButtonClass } from '../Shared/formClasses'
 
 defineOptions({ layout: (h, page) => h(AdminLayout, { hideBreadcrumbOnMobile: true }, () => page) })
 
@@ -200,22 +176,22 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+const { confirmDialog } = useConfirmDialog()
 
-type Row = { ingredient_id: number | null; quantity_per_jar: number | null }
+const sections: FormSection[] = [
+  { key: 'details', title: 'Details' },
+  { key: 'ingredients', title: 'Ingredients (per jar)', shortTitle: 'Ingredients' },
+  { key: 'byproducts', title: 'Byproducts (per jar)', shortTitle: 'Byproducts' },
+  { key: 'cost', title: 'Costing Breakdown', shortTitle: 'Cost' },
+]
 
-interface FormData {
-  name: string
-  notes: string
-  product_id: number | null
-  min_stock_threshold: number | null
-  is_active: boolean
-  ingredients: Row[]
-  byproducts: Row[]
-}
+const shellRef = ref<InstanceType<typeof ResponsiveFormSections> | null>(null)
+const indexUrl = route('admin.costing.recipes.index')
+const updateUrl = () => route('admin.costing.recipes.update', props.recipe.id)
 
 const byproductIngredients = props.ingredients.filter((i) => i.byproduct_name)
 
-const initialData: FormData = {
+const initialData: RecipeFormData = {
   name: props.recipe.name,
   notes: props.recipe.notes ?? '',
   product_id: props.recipe.product_id,
@@ -225,40 +201,56 @@ const initialData: FormData = {
   byproducts: props.recipe.byproducts.map((row) => ({ ...row })),
 }
 
-const form = usePersistedForm<FormData>(initialData, {
+// What the × -> "Discard Changes" restores.
+const openingData = JSON.parse(JSON.stringify(initialData)) as RecipeFormData
+
+const form = usePersistedForm<RecipeFormData>(initialData, {
   key: `costing-recipe-edit-${props.recipe.id}`,
   initialData,
   autosave: {
-    url: route('admin.costing.recipes.update', props.recipe.id),
+    url: updateUrl,
     requiredFields: ['name'],
+    enabled: (): boolean => !isDuplicateName.value,
+    onSuccess: (): void => markSaved(),
   },
 })
 
-// Drops rows where an ingredient hasn't been picked yet (e.g. right after
-// "+ Add Ingredient", before selecting from the dropdown) -- registered as
-// a persistent transform rather than done inline in submit() so it applies
-// to every save, including autosave's background PUTs, not just an
-// explicit click. The displayed form.ingredients/byproducts arrays
-// themselves are untouched -- a half-filled row stays visible to keep
-// editing, only the submitted payload is filtered.
+// Half-filled rows (just added, not picked or no quantity yet) stay on
+// screen but aren't sent -- on every save, autosave included.
 form.transform((data) => ({
   ...data,
-  ingredients: data.ingredients.filter((row) => row.ingredient_id !== null),
-  byproducts: data.byproducts.filter((row) => row.ingredient_id !== null),
+  ingredients: data.ingredients.filter((row) => row.ingredient_id !== null && row.quantity_per_jar !== null),
+  byproducts: data.byproducts.filter((row) => row.ingredient_id !== null && row.quantity_per_jar !== null),
 }))
+
+const { initialStep, markSaved, closeEditor } = useAutosaveSession({
+  form,
+  noun: 'recipe',
+  exitUrl: () => indexUrl,
+  updateUrl,
+  discardDraftUrl: () => route('admin.costing.recipes.discard-draft', props.recipe.id),
+  discardPayload: () => ({ ...openingData }),
+})
 
 const isDuplicateName = computed(() => {
   const name = form.name.trim().toLowerCase()
   return name.length > 0 && props.existingRecipeNames.some((existing) => existing.trim().toLowerCase() === name)
 })
 
+const saveProblem = computed(() => {
+  if (form.processing || !form.isDirty) return null
+  if (!form.name?.trim()) return 'Not saved: name is required'
+  if (isDuplicateName.value) return 'Not saved: that name is taken'
+  if (form.hasErrors) return 'Not saved: fix the errors below'
+  return null
+})
+
 const findIngredient = (id: number | null) => props.ingredients.find((i) => i.id === id) ?? null
 
 const ingredientUnit = (id: number | null) => (findIngredient(id)?.unit_type === 'unit' ? 'unit' : 'g')
 
-// Price indicator next to each ingredient row -- click through to the same
-// Available Prices modal used on the Ingredients page, without leaving the
-// recipe.
+// Price indicator on each cost line -- taps through to the same Available
+// Prices modal used on the Ingredients page, without leaving the recipe.
 const pricesIngredient = ref<PricesIngredient | null>(null)
 
 const openPricesModal = (ingredientId: number) => {
@@ -284,34 +276,6 @@ const priceIndicatorClass = (id: number | null): string => {
   return 'text-gray-400 dark:text-gray-500 italic hover:text-indigo-600 dark:hover:text-indigo-400'
 }
 
-// Estimated cost per jar -- sum of each main ingredient's effective $
-// contribution (falling back to the stale figure when there's no fresh
-// price), same math CalculateProductionPlan uses per-ingredient.
-const costPerJar = computed(() => {
-  let total = 0
-  let anyStale = false
-  let anyMissing = false
-
-  for (const row of form.ingredients) {
-    if (row.ingredient_id === null || !row.quantity_per_jar) continue
-    const ingredient = findIngredient(row.ingredient_id)
-    if (!ingredient) continue
-
-    const effectivePrice = ingredient.status === 'ok' ? ingredient.effective_price : ingredient.stale_effective_price
-    if (effectivePrice === null) {
-      anyMissing = true
-      continue
-    }
-    if (ingredient.status !== 'ok') anyStale = true
-
-    total += ingredient.unit_type === 'unit'
-      ? row.quantity_per_jar * effectivePrice
-      : (row.quantity_per_jar * effectivePrice) / 1000
-  }
-
-  return { total, anyStale, anyMissing }
-})
-
 interface CostLine {
   ingredientId: number
   name: string
@@ -320,8 +284,9 @@ interface CostLine {
   subtotal: number | null
 }
 
-// Per-ingredient line items backing the Costing Breakdown panel -- same
-// effective-price logic as costPerJar, just kept per-row instead of summed.
+// Per-ingredient cost lines -- each main ingredient's effective $
+// contribution (falling back to the stale figure when there's no fresh
+// price), same math CalculateProductionPlan uses per-ingredient.
 const costBreakdown = computed<CostLine[]>(() => {
   const lines: CostLine[] = []
 
@@ -350,20 +315,37 @@ const costBreakdown = computed<CostLine[]>(() => {
   return lines
 })
 
-const availableIngredients = (rows: Row[], currentValue: number | null, pool: IngredientOption[] = props.ingredients) => {
-  const chosen = new Set(rows.map((r) => r.ingredient_id).filter((id) => id !== null && id !== currentValue))
-  return pool.filter((i) => !chosen.has(i.id))
-}
+// Estimated cost per jar: the lines above, summed, flagging any stale or
+// missing price.
+const costPerJar = computed(() => {
+  let total = 0
+  let anyStale = false
+  let anyMissing = false
 
-const addRow = (rows: Row[], pool: IngredientOption[] = props.ingredients) => {
-  if (rows.length < pool.length) {
-    rows.push({ ingredient_id: null, quantity_per_jar: null })
+  for (const line of costBreakdown.value) {
+    const ingredient = findIngredient(line.ingredientId)
+    if (!ingredient || !line.quantity) continue
+    if (line.subtotal === null) {
+      anyMissing = true
+      continue
+    }
+    if (ingredient.status !== 'ok') anyStale = true
+    total += line.subtotal
   }
-}
 
-const destroy = () => {
-  if (confirm(`Delete "${props.recipe.name}"? This also removes it from any production runs.`)) {
-    router.delete(route('admin.costing.recipes.destroy', props.recipe.id))
-  }
+  return { total, anyStale, anyMissing }
+})
+
+const destroy = async () => {
+  const confirmed = await confirmDialog({
+    title: 'Delete Recipe',
+    message: `Delete "${props.recipe.name}"? This also removes it from any production runs.`,
+    confirmLabel: 'Delete',
+    variant: 'danger',
+  })
+  if (!confirmed) return
+  form.cancelAutosave()
+  form.clearPersistedData()
+  router.delete(route('admin.costing.recipes.destroy', props.recipe.id))
 }
 </script>
