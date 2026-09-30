@@ -29,7 +29,7 @@ class RecipeController extends Controller implements HasMiddleware
     {
         return [
             new Middleware(function ($request, $next) {
-                abort_unless($request->user()?->isAdmin(), 403, 'Admin access required.');
+                abort_unless($request->user()?->canAccessAdminPanel(), 403, 'Admin access required.');
                 return $next($request);
             }),
             new Middleware(function ($request, $next) {
