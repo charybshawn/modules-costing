@@ -69,7 +69,7 @@
               <span class="min-w-0">
                 <span class="block truncate font-medium text-gray-900 dark:text-white">{{ line.name }}</span>
                 <span class="block text-xs" :class="line.stale ? 'text-amber-600 dark:text-amber-400' : 'text-gray-500 dark:text-gray-400'">
-                  {{ line.quantity }}{{ line.unit }} · {{ line.priceLabel }}
+                  {{ line.quantity }}{{ line.unit }}<template v-if="line.percent !== null"> ({{ line.percent.toFixed(1) }}%)</template> · {{ line.priceLabel }}
                 </span>
               </span>
               <span class="shrink-0 tabular-nums text-gray-900 dark:text-white">{{ line.subtotal === null ? '—' : `$${line.subtotal.toFixed(2)}` }}</span>
@@ -147,6 +147,12 @@ const indexUrl = route('admin.costing.recipes.index')
 const belowMinimum = computed(() =>
   props.recipe.min_stock_threshold !== null && props.recipe.max_producible_units < props.recipe.min_stock_threshold)
 
+// Total gram weight of the jar -- per-unit ingredients have no weight, so
+// they're left out of the total and get no percentage.
+const totalGrams = computed(() => props.recipe.ingredients
+  .filter((ingredient) => ingredient.unit_type === 'g')
+  .reduce((sum, ingredient) => sum + Number(ingredient.quantity_per_jar || 0), 0))
+
 // Per-ingredient cost lines -- same effective-price math as Edit's
 // Costing Breakdown (falls back to the stale figure when nothing's fresh).
 const lines = computed(() => props.recipe.ingredients.map((ingredient) => {
@@ -160,6 +166,9 @@ const lines = computed(() => props.recipe.ingredients.map((ingredient) => {
     name: ingredient.name,
     quantity,
     unit: ingredient.unit_type === 'unit' ? ' unit' : 'g',
+    percent: ingredient.unit_type === 'g' && totalGrams.value > 0
+      ? (Number(quantity || 0) / totalGrams.value) * 100
+      : null,
     stale: !fresh,
     priceLabel: price === null ? 'no price' : `$${Number(price).toFixed(2)}${suffix}${fresh ? '' : ' (needs update)'}`,
     subtotal: effective === null || !quantity
