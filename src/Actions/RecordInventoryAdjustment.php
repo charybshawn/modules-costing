@@ -2,6 +2,7 @@
 
 namespace Cultpantry\Costing\Actions;
 
+use Cultpantry\Costing\Events\CostingRecordSaved;
 use Cultpantry\Costing\Models\InventoryAdjustment;
 use Cultpantry\Costing\Models\PackageSize;
 use Cultpantry\Costing\Models\ProductionRun;
@@ -25,7 +26,7 @@ class RecordInventoryAdjustment
         ?ProductionRun $productionRun = null,
         ?int $userId = null,
     ): void {
-        InventoryAdjustment::create([
+        $adjustment = InventoryAdjustment::create([
             'ingredient_id' => $packageSize->ingredient_id,
             'package_size_id' => $packageSize->id,
             // Snapshotted, not just left to the relation -- stays readable
@@ -40,5 +41,12 @@ class RecordInventoryAdjustment
             'on_hand_after' => $onHandAfter,
             'notes' => $notes,
         ]);
+
+        // Every stock change (counts, corrections, deliveries, production
+        // runs) reaches the host's audit log through this one call.
+        event(CostingRecordSaved::forCreated($adjustment, $userId, array_filter([
+            'reason' => $reason,
+            'production_run_id' => $productionRun?->id,
+        ], fn ($v) => $v !== null)));
     }
 }

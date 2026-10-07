@@ -230,10 +230,13 @@ class IngredientController extends Controller implements HasMiddleware
             'brand' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $ingredient->update([
+        $ingredient->fill([
             'preferred_source' => $validated['provider'] ?? null,
             'preferred_brand' => $validated['brand'] ?? null,
         ]);
+        $savedEvent = CostingRecordSaved::forUpdated($ingredient, auth()->id());
+        $ingredient->save();
+        event($savedEvent);
 
         // Not a hardcoded route -- the Available Prices modal that calls
         // this is reused from both the Ingredients page and the Recipe
@@ -267,14 +270,17 @@ class IngredientController extends Controller implements HasMiddleware
             'units_per_case' => ['required', 'integer', 'min:1'],
         ]);
 
-        $packageSize = PackageSize::updateOrCreate(
-            [
-                'ingredient_id' => $ingredient->id,
-                'provider' => $validated['provider'],
-                'brand' => $validated['brand'] ?? null,
-            ],
-            ['package_size' => $validated['package_size'], 'units_per_case' => $validated['units_per_case']],
-        );
+        // firstOrNew + save rather than updateOrCreate, so the audit event
+        // can capture the old values before they're overwritten.
+        $packageSize = PackageSize::firstOrNew([
+            'ingredient_id' => $ingredient->id,
+            'provider' => $validated['provider'],
+            'brand' => $validated['brand'] ?? null,
+        ]);
+        $packageSize->fill(['package_size' => $validated['package_size'], 'units_per_case' => $validated['units_per_case']]);
+        $savedEvent = $packageSize->exists ? CostingRecordSaved::forUpdated($packageSize, auth()->id()) : null;
+        $packageSize->save();
+        event($savedEvent ?? CostingRecordSaved::forCreated($packageSize, auth()->id()));
 
         // Editing an existing source's package size leaves its most
         // recently logged price's qty pointing at whatever size was true
@@ -296,9 +302,12 @@ class IngredientController extends Controller implements HasMiddleware
                 ->orderByDesc('id')
                 ->first();
 
-            $latestEntry?->update([
-                'qty' => $latestEntry->priced_as_case ? $packageSize->case_total : $packageSize->package_size,
-            ]);
+            if ($latestEntry) {
+                $latestEntry->fill(['qty' => $latestEntry->priced_as_case ? $packageSize->case_total : $packageSize->package_size]);
+                $entryEvent = CostingRecordSaved::forUpdated($latestEntry, auth()->id(), ['reason' => 'package_size_changed']);
+                $latestEntry->save();
+                event($entryEvent);
+            }
         }
 
         // Not a hardcoded route -- same reasoning as setPreferred() above,
@@ -353,13 +362,29 @@ class IngredientController extends Controller implements HasMiddleware
         $wasPreferred = $ingredient->preferred_source === $packageSize->provider
             && $ingredient->preferred_brand === $packageSize->brand;
 
-        $packageSize->update(['provider' => $validated['provider'], 'brand' => $brand]);
+        $packageSize->fill(['provider' => $validated['provider'], 'brand' => $brand]);
+        $sourceEvent = CostingRecordSaved::forUpdated($packageSize, auth()->id());
+        $packageSize->save();
 
-        PriceHistoryEntry::where('package_size_id', $packageSize->id)
+        $renamedEntries = PriceHistoryEntry::where('package_size_id', $packageSize->id)
             ->update(['provider' => $validated['provider'], 'brand' => $brand]);
 
+        // The source's event carries the bulk-renamed price entries as context.
+        event(new CostingRecordSaved(
+            modelClass: $sourceEvent->modelClass,
+            modelId: $sourceEvent->modelId,
+            action: $sourceEvent->action,
+            label: $sourceEvent->label,
+            changes: $sourceEvent->changes,
+            actorId: $sourceEvent->actorId,
+            context: ['price_entries_renamed' => $renamedEntries],
+        ));
+
         if ($wasPreferred) {
-            $ingredient->update(['preferred_source' => $validated['provider'], 'preferred_brand' => $brand]);
+            $ingredient->fill(['preferred_source' => $validated['provider'], 'preferred_brand' => $brand]);
+            $preferredEvent = CostingRecordSaved::forUpdated($ingredient, auth()->id(), ['reason' => 'preferred_source_renamed']);
+            $ingredient->save();
+            event($preferredEvent);
         }
 
         return redirect()->back()->with('success', "Source renamed to '{$validated['provider']}'.");

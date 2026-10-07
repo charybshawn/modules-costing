@@ -5,6 +5,8 @@ namespace Cultpantry\Costing\Http\Controllers\Admin;
 use App\Actions\GetSiteSetting;
 use App\Http\Controllers\Controller;
 use Cultpantry\Costing\Actions\RecordInventoryAdjustment;
+use Cultpantry\Costing\Events\CostingRecordDeleted;
+use Cultpantry\Costing\Events\CostingRecordSaved;
 use Cultpantry\Costing\Models\Ingredient;
 use Cultpantry\Costing\Models\InventoryAdjustment;
 use Cultpantry\Costing\Models\InventoryItem;
@@ -121,6 +123,7 @@ class InventoryController extends Controller implements HasMiddleware
                 'unit_type' => $validated['unit_type'],
                 'waste_percent' => $validated['waste_percent'],
             ]);
+            event(CostingRecordSaved::forCreated($ingredient, $request->user()?->id, ['source' => 'inventory_add_item']));
 
             $packageSize = PackageSize::create([
                 'ingredient_id' => $ingredient->id,
@@ -130,6 +133,7 @@ class InventoryController extends Controller implements HasMiddleware
                 'units_per_case' => $validated['units_per_case'] ?? 1,
                 'quantity_on_hand' => 0,
             ]);
+            event(CostingRecordSaved::forCreated($packageSize, $request->user()?->id, ['source' => 'inventory_add_item']));
 
             $packages = (float) ($validated['packages'] ?? 0);
             if ($packages > 0) {
@@ -295,7 +299,9 @@ class InventoryController extends Controller implements HasMiddleware
         );
 
         $name = $packageSize->brand ? "{$packageSize->provider} — {$packageSize->brand}" : $packageSize->provider;
+        $deletedEvent = CostingRecordDeleted::forModel($packageSize, auth()->id());
         $packageSize->delete();
+        event($deletedEvent);
 
         // back(), not a hardcoded index redirect -- this is called from
         // StockAdjustModal (Inventory), but also from SourcesTable, which

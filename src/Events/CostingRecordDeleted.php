@@ -3,7 +3,9 @@
 namespace Cultpantry\Costing\Events;
 
 use Cultpantry\Costing\Models\Ingredient;
+use Cultpantry\Costing\Models\InventoryAdjustment;
 use Cultpantry\Costing\Models\KitchenRental;
+use Cultpantry\Costing\Models\PackageSize;
 use Cultpantry\Costing\Models\PriceHistoryEntry;
 use Cultpantry\Costing\Models\ProductionRun;
 use Cultpantry\Costing\Models\Recipe;
@@ -56,6 +58,8 @@ final class CostingRecordDeleted
             $model instanceof PriceHistoryEntry => trim(($model->ingredient?->name ?? 'Unknown ingredient')." — {$model->provider}"),
             $model instanceof ProductionRun => $model->name ?? optional($model->run_date)->format('Y-m-d') ?? "Run #{$model->getKey()}",
             $model instanceof KitchenRental => $model->booking_title,
+            $model instanceof PackageSize => trim(($model->ingredient?->name ?? 'Unknown ingredient').' — '.$model->provider.($model->brand ? " — {$model->brand}" : '')),
+            $model instanceof InventoryAdjustment => trim(($model->ingredient?->name ?? 'Unknown ingredient').' — '.$model->source_provider.": {$model->reason}"),
             default => (string) $model->getKey(),
         };
     }
