@@ -444,6 +444,37 @@ describe('CalculateProductionPlan', function () {
         expect((float) $rows['Beef Stock Concentrate']['est_cost'])->toBe(9.46); // $10/kg x 946g / 1000
     });
 
+    it('buys enough to cover waste and prices the purchase at the shelf price', function () {
+        // 90% usable: $10 for a 2000g bag of whole apples.
+        $apples = Ingredient::create(['name' => 'Waste Plan Apples', 'unit_type' => 'g', 'waste_percent' => 90]);
+        $apples->priceHistory()->create(['purchased_at' => Carbon::now()->subDay()->toDateString(), 'provider' => 'Store', 'qty' => 2000, 'total_price' => 10]);
+        $apples->packageSizes()->create(['provider' => 'Store', 'package_size' => 2000]);
+
+        $recipe = Recipe::create(['name' => 'Waste Plan Flavour', 'fill_size_g' => null]);
+        $recipe->ingredients()->sync([$apples->id => ['quantity_per_jar' => 90]]);
+
+        $run = ProductionRun::create(['batch_size' => 20, 'run_date' => Carbon::now()->toDateString()]);
+        $run->recipes()->sync([$recipe->id => ['batches' => 2]]);
+
+        $row = collect((new CalculateProductionPlan(new CalculateIngredientCosting))->handle($run->fresh())['rows'])->firstOrFail();
+
+        // 40 units x 90g usable = 3600g usable = 4000g whole -> 2 bags, at $10 each.
+        expect((float) $row['required'])->toBe(4000.0);
+        expect($row['units_to_buy'])->toBe(2);
+        expect((float) $row['est_cost'])->toBe(20.0);
+    });
+
+    it('counts only the usable share of stock towards units it can make', function () {
+        $apples = Ingredient::create(['name' => 'Waste Producible Apples', 'unit_type' => 'g', 'waste_percent' => 90]);
+        $apples->packageSizes()->create(['provider' => 'Store', 'package_size' => 1000, 'quantity_on_hand' => 1000]);
+
+        // 1000g whole = 900g usable = 9 units at 100g, not 10.
+        $recipe = Recipe::create(['name' => 'Waste Producible Recipe']);
+        $recipe->mainIngredients()->sync([$apples->id => ['quantity_per_jar' => 100]]);
+
+        expect((new CalculateMaxProducibleUnits)->handle($recipe->fresh()))->toBe(9);
+    });
+
     it('plans the recipe amounts as-is per unit -- the fill weight only affects cost', function () {
         $base = Ingredient::create(['name' => 'Fill Plan Base', 'unit_type' => 'g', 'waste_percent' => 100]);
         $mixIn = Ingredient::create(['name' => 'Fill Plan Mix-in', 'unit_type' => 'g', 'waste_percent' => 100]);

@@ -35,7 +35,9 @@ class CalculateMaxProducibleUnits
                 continue;
             }
 
-            $possible = (int) floor(((float) $ingredient->inventory->on_hand) / $qty);
+            // Stock is as bought; only its usable share (waste %) goes in.
+            $usable = (float) $ingredient->inventory->on_hand * max((float) $ingredient->waste_percent, 0.01) / 100;
+            $possible = (int) floor(round($usable / $qty, 6));
             $producible = $producible === null ? $possible : min($producible, $possible);
         }
 

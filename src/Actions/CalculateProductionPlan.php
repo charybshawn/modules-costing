@@ -97,7 +97,11 @@ class CalculateProductionPlan
 
         foreach ($expanded['raw'] as $entry) {
             $ingredient = $entry['ingredient'];
-            $required = $entry['quantity'];
+            // Recipe amounts are usable weight; stock and purchases are as
+            // bought. Gross up by the usable share (waste %) so enough is
+            // bought to cover trim -- e.g. 900g of cored apples at 90%
+            // usable means 1000g of whole apples.
+            $required = $entry['quantity'] / ($this->usableShare($ingredient));
             $onHand = (float) ($ingredient->inventory->on_hand ?? 0.0);
             $toPurchase = max(0.0, $required - $onHand);
 
@@ -121,14 +125,16 @@ class CalculateProductionPlan
             // -- always a whole multiple of the package size (e.g. 1 case of
             // 50 = 50, not the 20-unit shortfall that triggered buying it).
             // Estimated cost is priced against this, not the raw shortfall,
-            // since that's genuinely what you'll be charged for.
+            // since that's genuinely what you'll be charged for -- at the
+            // shelf price, not the waste-adjusted one: the quantity above
+            // already covers the waste.
             $purchaseQty = $unitsToBuy * $purchaseSize;
 
             $estCost = 0.0;
-            if ($purchaseQty > 0 && $costing['effective_price'] !== null) {
+            if ($purchaseQty > 0 && $costing['weekly_price'] !== null) {
                 $estCost = $ingredient->isGramBased()
-                    ? $costing['effective_price'] * $purchaseQty / 1000
-                    : $costing['effective_price'] * $purchaseQty;
+                    ? $costing['weekly_price'] * $purchaseQty / 1000
+                    : $costing['weekly_price'] * $purchaseQty;
             }
 
             $rows[] = [
@@ -160,5 +166,15 @@ class CalculateProductionPlan
             'total_units' => $productionRun->totalUnits(),
             'total_estimated_cost' => round($totalCost, 2),
         ];
+    }
+
+    /**
+     * Usable share of what's bought (waste_percent: 100 = no waste, 90 =
+     * 10% trimmed away). House-made ingredients are never bought, so this
+     * only applies to the raw rows they expand into.
+     */
+    private function usableShare(Ingredient $ingredient): float
+    {
+        return max((float) $ingredient->waste_percent, 0.01) / 100;
     }
 }
