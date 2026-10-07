@@ -6,6 +6,7 @@
       :dirty="form.isDirty"
       :initial-step="initialStep"
       @discard="form.clearPersistedData()"
+      @close="closeEditor"
     >
       <template #mobile-header="{ currentStepIndex, goToStep }">
         <AdminMobileHeader title="Edit Ingredient" :on-back="() => shellRef?.guardNavigation(showUrl())">
@@ -51,7 +52,7 @@
           <div class="flex items-center gap-3">
             <button type="button" :class="secondaryButtonClass" @click="shellRef?.guardNavigation(showUrl())">View Ingredient</button>
             <button type="button" :class="dangerOutlineButtonClass" @click="destroy">Delete Ingredient</button>
-            <button type="button" :class="secondaryButtonClass" @click="closeEditor">Cancel</button>
+            <button type="button" :class="primaryButtonClass" :disabled="saving" @click="saveAndClose">Save</button>
           </div>
         </div>
 
@@ -95,7 +96,7 @@ import IconButton from '@/Components/IconButton.vue'
 import HouseMadeFields, { type ComponentOption } from '../Shared/HouseMadeFields.vue'
 import IngredientFields, { type IngredientFormData } from '../Shared/IngredientFields.vue'
 import SourcesTable from '../Shared/SourcesTable.vue'
-import { backLinkClass, dangerIconActionClass, dangerOutlineButtonClass, iconActionClass, secondaryButtonClass } from '../Shared/formClasses'
+import { backLinkClass, dangerIconActionClass, dangerOutlineButtonClass, iconActionClass, secondaryButtonClass, primaryButtonClass } from '../Shared/formClasses'
 
 defineOptions({ layout: (h, page) => h(AdminLayout, { hideBreadcrumbOnMobile: true }, () => page) })
 
@@ -173,7 +174,7 @@ form.transform((data) => ({
 // Sources and prices save through their own requests, so Discard only
 // reverts the ingredient's own fields -- or, for an ingredient created this
 // session, deletes it along with them.
-const { initialStep, markSaved, closeEditor } = useAutosaveSession({
+const { initialStep, markSaved, saving, saveAndClose, closeEditor } = useAutosaveSession({
   form,
   noun: 'ingredient',
   exitUrl: () => indexUrl,

@@ -6,6 +6,7 @@
       :dirty="form.isDirty"
       :initial-step="initialStep"
       @discard="form.clearPersistedData()"
+      @close="closeEditor"
     >
       <template #mobile-header="{ currentStepIndex, goToStep }">
         <AdminMobileHeader title="Edit Recipe" :on-back="() => shellRef?.guardNavigation(showUrl())">
@@ -64,7 +65,7 @@
           <div class="flex items-center gap-3">
             <button type="button" :class="secondaryButtonClass" @click="shellRef?.guardNavigation(showUrl())">View Recipe</button>
             <button type="button" :class="dangerOutlineButtonClass" @click="destroy">Delete Recipe</button>
-            <button type="button" :class="secondaryButtonClass" @click="closeEditor">Cancel</button>
+            <button type="button" :class="primaryButtonClass" :disabled="saving" @click="saveAndClose">Save</button>
           </div>
         </div>
 
@@ -153,7 +154,7 @@ import type { FinishedGoodOption } from '../Shared/FinishedGoodPicker.vue'
 import { costPerFilledUnit } from '../Shared/fillCost'
 import RecipeDetailsFields, { type RecipeFormData } from '../Shared/RecipeDetailsFields.vue'
 import RecipeLinesFields from '../Shared/RecipeLinesFields.vue'
-import { backLinkClass, dangerIconActionClass, dangerOutlineButtonClass, iconActionClass, secondaryButtonClass } from '../Shared/formClasses'
+import { backLinkClass, dangerIconActionClass, dangerOutlineButtonClass, iconActionClass, secondaryButtonClass, primaryButtonClass } from '../Shared/formClasses'
 
 defineOptions({ layout: (h, page) => h(AdminLayout, { hideBreadcrumbOnMobile: true }, () => page) })
 
@@ -240,7 +241,7 @@ form.transform((data) => ({
   byproducts: data.byproducts.filter((row) => row.ingredient_id !== null && row.quantity_per_jar !== null),
 }))
 
-const { initialStep, markSaved, closeEditor } = useAutosaveSession({
+const { initialStep, markSaved, saving, saveAndClose, closeEditor } = useAutosaveSession({
   form,
   noun: 'recipe',
   exitUrl: () => indexUrl,

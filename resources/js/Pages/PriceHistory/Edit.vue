@@ -6,6 +6,7 @@
       :dirty="form.isDirty"
       :initial-step="initialStep"
       @discard="form.clearPersistedData()"
+      @close="closeEditor"
     >
       <template #mobile-header>
         <AdminMobileHeader title="Edit Price" :on-back="() => shellRef?.guardNavigation(showUrl())">
@@ -47,7 +48,7 @@
           <div class="flex items-center gap-3">
             <button type="button" :class="secondaryButtonClass" @click="shellRef?.guardNavigation(showUrl())">View Entry</button>
             <button type="button" :class="dangerOutlineButtonClass" @click="destroy">Delete Entry</button>
-            <button type="button" :class="secondaryButtonClass" @click="closeEditor">Cancel</button>
+            <button type="button" :class="primaryButtonClass" :disabled="saving" @click="saveAndClose">Save</button>
           </div>
         </div>
 
@@ -80,7 +81,7 @@ import ResponsiveFormSections, { type FormSection } from '@/Components/Admin/Res
 import IconButton from '@/Components/IconButton.vue'
 import PriceEntryFields from '../Shared/PriceEntryFields.vue'
 import { usePriceEntry, type PriceEntryFormData, type PriceEntryIngredient } from '../Shared/usePriceEntry'
-import { backLinkClass, dangerIconActionClass, dangerOutlineButtonClass, iconActionClass, secondaryButtonClass } from '../Shared/formClasses'
+import { backLinkClass, dangerIconActionClass, dangerOutlineButtonClass, iconActionClass, secondaryButtonClass, primaryButtonClass } from '../Shared/formClasses'
 
 defineOptions({ layout: (h, page) => h(AdminLayout, { hideBreadcrumbOnMobile: true }, () => page) })
 
@@ -140,7 +141,7 @@ const form = usePersistedForm<PriceEntryFormData>(initialData, {
 // draft is what's shown; stored in grams, so shown in g.
 const entry = usePriceEntry(form, () => props.ingredients, { initialGrams: form.qty, defaultUnit: 'g' })
 
-const { initialStep, markSaved, closeEditor } = useAutosaveSession({
+const { initialStep, markSaved, saving, saveAndClose, closeEditor } = useAutosaveSession({
   form,
   noun: 'entry',
   exitUrl: () => indexUrl,

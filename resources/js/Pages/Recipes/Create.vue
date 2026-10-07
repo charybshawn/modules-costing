@@ -5,6 +5,7 @@
       :sections="sections"
       :dirty="form.isDirty"
       @discard="form.clearPersistedData()"
+      @close="leave"
     >
       <template #mobile-header="{ currentStepIndex, goToStep }">
         <AdminMobileHeader title="New Recipe" :on-back="leave">
@@ -31,7 +32,7 @@
             <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">New Recipe</h1>
             <SaveIndicator :processing="form.processing" :recently-successful="form.recentlySuccessful" :error="saveProblem" />
           </div>
-          <button type="button" :class="secondaryButtonClass" @click="leave">Cancel</button>
+          <button type="button" :class="primaryButtonClass" :disabled="form.processing" @click="saveAndClose">Save</button>
         </div>
         <p class="mb-6 text-sm text-gray-600 dark:text-gray-400">Add each ingredient this flavour uses, with grams (or units) per unit. Saved as you go.</p>
 
@@ -72,7 +73,7 @@ import ResponsiveFormSections, { type FormSection } from '@/Components/Admin/Res
 import IconButton from '@/Components/IconButton.vue'
 import RecipeDetailsFields, { type RecipeFormData } from '../Shared/RecipeDetailsFields.vue'
 import RecipeLinesFields, { type RecipeIngredientOption } from '../Shared/RecipeLinesFields.vue'
-import { backLinkClass, iconActionClass, secondaryButtonClass } from '../Shared/formClasses'
+import { backLinkClass, iconActionClass, primaryButtonClass } from '../Shared/formClasses'
 
 defineOptions({ layout: (h, page) => h(AdminLayout, { hideBreadcrumbOnMobile: true }, () => page) })
 
@@ -136,6 +137,13 @@ const isDuplicateName = computed(() => {
 // Nothing saved yet, so leaving goes through the shell's unsaved-changes
 // guard rather than the autosave session.
 const leave = () => shellRef.value?.guardNavigation(indexUrl)
+
+// Desktop Save: create the record now and go back to the index (the store
+// action's non-`stay` branch), rather than waiting on autosave.
+const saveAndClose = (): void => {
+  form.cancelAutosave()
+  form.post(route('admin.costing.recipes.store'))
+}
 
 const saveProblem = computed(() => {
   if (form.processing || !form.isDirty) return null

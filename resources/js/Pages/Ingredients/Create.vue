@@ -5,6 +5,7 @@
       :sections="sections"
       :dirty="form.isDirty"
       @discard="form.clearPersistedData()"
+      @close="leave"
     >
       <template #mobile-header>
         <AdminMobileHeader title="New Ingredient" :on-back="leave">
@@ -28,7 +29,7 @@
             <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">New Ingredient</h1>
             <SaveIndicator :processing="form.processing" :recently-successful="form.recentlySuccessful" :error="saveProblem" />
           </div>
-          <button type="button" :class="secondaryButtonClass" @click="leave">Cancel</button>
+          <button type="button" :class="primaryButtonClass" :disabled="form.processing" @click="saveAndClose">Save</button>
         </div>
         <p class="mb-6 text-sm text-gray-600 dark:text-gray-400">
           Saved as you go. Sources and prices can be added once it has a name, unless it's made in-house.
@@ -60,7 +61,7 @@ import ResponsiveFormSections, { type FormSection } from '@/Components/Admin/Res
 import IconButton from '@/Components/IconButton.vue'
 import HouseMadeFields, { type ComponentOption } from '../Shared/HouseMadeFields.vue'
 import IngredientFields, { type IngredientFormData } from '../Shared/IngredientFields.vue'
-import { backLinkClass, iconActionClass, secondaryButtonClass } from '../Shared/formClasses'
+import { backLinkClass, iconActionClass, primaryButtonClass } from '../Shared/formClasses'
 
 defineOptions({ layout: (h, page) => h(AdminLayout, { hideBreadcrumbOnMobile: true }, () => page) })
 
@@ -113,6 +114,13 @@ const nameLongEnough = computed<boolean>(() => (form.name ?? '').trim().length >
 // Nothing saved yet, so leaving goes through the shell's unsaved-changes
 // guard rather than the autosave session.
 const leave = () => shellRef.value?.guardNavigation(indexUrl)
+
+// Desktop Save: create the record now and go back to the index (the store
+// action's non-`stay` branch), rather than waiting on autosave.
+const saveAndClose = (): void => {
+  form.cancelAutosave()
+  form.post(route('admin.costing.ingredients.store'))
+}
 
 const saveProblem = computed(() => {
   if (form.processing || !form.isDirty) return null
