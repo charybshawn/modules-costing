@@ -42,6 +42,7 @@ class CalculateProductionPlan
             'recipes.ingredients.inventory',
             'recipes.ingredients.packageSizes',
             'recipes.ingredients.priceHistory.ingredient',
+            'recipes.mainIngredients',
         ]);
 
         /** @var array<int, array{ingredient: Ingredient, required: float}> $requiredByIngredient */
@@ -62,7 +63,8 @@ class CalculateProductionPlan
                     continue;
                 }
 
-                $qtyPerJar = (float) $ingredient->pivot->quantity_per_jar;
+                // Lines are per batch; scaled to one filled unit.
+                $qtyPerJar = $recipe->quantityPerUnit($ingredient, (float) $ingredient->pivot->quantity_per_jar);
                 if ($qtyPerJar <= 0) {
                     continue;
                 }

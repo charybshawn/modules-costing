@@ -63,6 +63,34 @@ class Recipe extends Model
         'cost_buffer_percent' => 'decimal:2',
     ];
 
+    /**
+     * How much of each gram-based line goes into one filled unit: the
+     * recipe's lines make one batch, and each unit only holds fill_size_g of
+     * it (the rest fills the next unit). 1.0 when no fill is set or nothing
+     * is weighed -- the whole batch is then treated as one unit, matching
+     * CalculateRecipeCost's actual_cost_per_jar fallback. Packaging (unit-
+     * based) lines aren't scaled by this: every unit gets a whole one.
+     */
+    public function gramScalePerUnit(): float
+    {
+        $this->loadMissing('mainIngredients');
+
+        $fill = $this->fill_size_g !== null ? (float) $this->fill_size_g : null;
+        $batchGrams = (float) $this->mainIngredients
+            ->filter(fn (Ingredient $ingredient) => $ingredient->isGramBased())
+            ->sum(fn (Ingredient $ingredient) => (float) $ingredient->pivot->quantity_per_jar);
+
+        return ($fill !== null && $fill > 0 && $batchGrams > 0) ? $fill / $batchGrams : 1.0;
+    }
+
+    /**
+     * A line's quantity for one filled unit -- see gramScalePerUnit().
+     */
+    public function quantityPerUnit(Ingredient $ingredient, float $quantity): float
+    {
+        return $ingredient->isGramBased() ? $quantity * $this->gramScalePerUnit() : $quantity;
+    }
+
     public function finishedGood(): ?FinishedGood
     {
         return $this->product_id !== null

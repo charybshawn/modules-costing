@@ -347,7 +347,7 @@ describe('CalculateProductionPlan', function () {
         $covered = Ingredient::create(['name' => 'Covered Ingredient', 'unit_type' => 'g', 'waste_percent' => 100]);
         $covered->packageSizes()->create(['provider' => 'Unspecified', 'package_size' => 1, 'quantity_on_hand' => 200]); // 200g on hand, no price needed
 
-        $recipe = Recipe::create(['name' => 'Plan Flavour']);
+        $recipe = Recipe::create(['name' => 'Plan Flavour', 'fill_size_g' => null]);
         $recipe->ingredients()->sync([
             $primary->id => ['quantity_per_jar' => 100], // 100g per jar
             $covered->id => ['quantity_per_jar' => 10],  // 10g per jar
@@ -393,7 +393,7 @@ describe('CalculateProductionPlan', function () {
         // Zero on hand is the default with no source rows at all -- no
         // PackageSize needed to represent it.
 
-        $recipe = Recipe::create(['name' => 'Batch Size Plan Flavour']);
+        $recipe = Recipe::create(['name' => 'Batch Size Plan Flavour', 'fill_size_g' => null]);
         $recipe->ingredients()->sync([$ingredient->id => ['quantity_per_jar' => 10]]); // 10g/unit
 
         // 4 batches x batch_size 15 = 60 real units -> requires 600g, not 40g.
@@ -419,7 +419,7 @@ describe('CalculateProductionPlan', function () {
         $beefConcentrate->priceHistory()->create(['purchased_at' => Carbon::now()->subDay()->toDateString(), 'provider' => 'GFS', 'qty' => 946, 'total_price' => 9.46]); // $10/kg
         $beefConcentrate->packageSizes()->create(['provider' => 'GFS', 'package_size' => 946]);
 
-        $recipe = Recipe::create(['name' => 'Package Size Flavour']);
+        $recipe = Recipe::create(['name' => 'Package Size Flavour', 'fill_size_g' => null]);
         $recipe->ingredients()->sync([
             $deliCups->id => ['quantity_per_jar' => 1],   // 20 jars -> needs 20 cups
             $beefConcentrate->id => ['quantity_per_jar' => 5], // 20 jars -> needs 100g
@@ -442,6 +442,29 @@ describe('CalculateProductionPlan', function () {
         expect($rows['Beef Stock Concentrate']['units_to_buy'])->toBe(1);
         expect((float) $rows['Beef Stock Concentrate']['purchase_qty'])->toBe(946.0);
         expect((float) $rows['Beef Stock Concentrate']['est_cost'])->toBe(9.46); // $10/kg x 946g / 1000
+    });
+
+    it('scales per-batch gram lines down to the fill weight, but keeps one packaging item per unit', function () {
+        $base = Ingredient::create(['name' => 'Fill Plan Base', 'unit_type' => 'g', 'waste_percent' => 100]);
+        $mixIn = Ingredient::create(['name' => 'Fill Plan Mix-in', 'unit_type' => 'g', 'waste_percent' => 100]);
+        $cup = Ingredient::create(['name' => 'Fill Plan Cup', 'unit_type' => 'unit', 'waste_percent' => 100]);
+
+        // 250g + 70g = 320g batch, filled at 280g -> each unit takes 0.875 of every gram line.
+        $recipe = Recipe::create(['name' => 'Fill Plan Flavour', 'fill_size_g' => 280]);
+        $recipe->ingredients()->sync([
+            $base->id => ['quantity_per_jar' => 250],
+            $mixIn->id => ['quantity_per_jar' => 70],
+            $cup->id => ['quantity_per_jar' => 1],
+        ]);
+
+        $run = ProductionRun::create(['batch_size' => 1, 'run_date' => Carbon::now()->toDateString()]);
+        $run->recipes()->sync([$recipe->id => ['batches' => 8]]);
+
+        $rows = collect((new CalculateProductionPlan(new CalculateIngredientCosting))->handle($run->fresh())['rows'])->keyBy('ingredient_name');
+
+        expect((float) $rows['Fill Plan Base']['required'])->toBe(1750.0); // 250 x 0.875 x 8
+        expect((float) $rows['Fill Plan Mix-in']['required'])->toBe(490.0); // 70 x 0.875 x 8
+        expect((float) $rows['Fill Plan Cup']['required'])->toBe(8.0);
     });
 });
 
@@ -601,7 +624,7 @@ describe('CalculateMaxProducibleUnits', function () {
         $scarce = Ingredient::create(['name' => 'Scarce', 'unit_type' => 'g', 'waste_percent' => 100]);
         $scarce->packageSizes()->create(['provider' => 'GFS', 'package_size' => 1000, 'quantity_on_hand' => 2000]); // only 40 jars' worth at 50g/jar
 
-        $recipe = Recipe::create(['name' => 'Bottleneck Recipe']);
+        $recipe = Recipe::create(['name' => 'Bottleneck Recipe', 'fill_size_g' => null]);
         $recipe->mainIngredients()->sync([
             $plentiful->id => ['quantity_per_jar' => 100],
             $scarce->id => ['quantity_per_jar' => 50],
@@ -616,7 +639,7 @@ describe('CalculateMaxProducibleUnits', function () {
         $ingredient = Ingredient::create(['name' => 'Fractional', 'unit_type' => 'g', 'waste_percent' => 100]);
         $ingredient->packageSizes()->create(['provider' => 'GFS', 'package_size' => 1000, 'quantity_on_hand' => 105]);
 
-        $recipe = Recipe::create(['name' => 'Fractional Recipe']);
+        $recipe = Recipe::create(['name' => 'Fractional Recipe', 'fill_size_g' => null]);
         $recipe->mainIngredients()->sync([$ingredient->id => ['quantity_per_jar' => 10]]);
 
         // 105 / 10 = 10.5 -- can't produce a partial jar, so this floors to 10.
@@ -630,7 +653,7 @@ describe('CalculateMaxProducibleUnits', function () {
         $byproduct = Ingredient::create(['name' => 'Byproduct', 'unit_type' => 'g', 'waste_percent' => 100, 'byproduct_name' => 'Juice']);
         $byproduct->packageSizes()->create(['provider' => 'GFS', 'package_size' => 1000, 'quantity_on_hand' => 10]); // would bottleneck to 0 if counted
 
-        $recipe = Recipe::create(['name' => 'Byproduct Recipe']);
+        $recipe = Recipe::create(['name' => 'Byproduct Recipe', 'fill_size_g' => null]);
         $recipe->mainIngredients()->sync([$main->id => ['quantity_per_jar' => 100]]);
         $recipe->byproductIngredients()->sync([$byproduct->id => ['quantity_per_jar' => 200]]);
 
@@ -641,14 +664,25 @@ describe('CalculateMaxProducibleUnits', function () {
         $ingredient = Ingredient::create(['name' => 'Out of Stock', 'unit_type' => 'g', 'waste_percent' => 100]);
         // No packageSizes created at all -- on_hand defaults to 0.
 
-        $recipe = Recipe::create(['name' => 'Out of Stock Recipe']);
+        $recipe = Recipe::create(['name' => 'Out of Stock Recipe', 'fill_size_g' => null]);
         $recipe->mainIngredients()->sync([$ingredient->id => ['quantity_per_jar' => 50]]);
 
         expect((new CalculateMaxProducibleUnits)->handle($recipe->fresh()))->toBe(0);
     });
 
+    it('counts units at the fill weight, not whole batches', function () {
+        $ingredient = Ingredient::create(['name' => 'Fill Producible', 'unit_type' => 'g', 'waste_percent' => 100]);
+        $ingredient->packageSizes()->create(['provider' => 'GFS', 'package_size' => 1000, 'quantity_on_hand' => 1000]);
+
+        // A 400g batch filled at 200g: each unit uses 200g, so 1000g makes 5 units, not 2.
+        $recipe = Recipe::create(['name' => 'Fill Producible Recipe', 'fill_size_g' => 200]);
+        $recipe->mainIngredients()->sync([$ingredient->id => ['quantity_per_jar' => 400]]);
+
+        expect((new CalculateMaxProducibleUnits)->handle($recipe->fresh()))->toBe(5);
+    });
+
     it('returns zero for a recipe with no main ingredients at all', function () {
-        $recipe = Recipe::create(['name' => 'Empty Recipe']);
+        $recipe = Recipe::create(['name' => 'Empty Recipe', 'fill_size_g' => null]);
 
         expect((new CalculateMaxProducibleUnits)->handle($recipe->fresh()))->toBe(0);
     });

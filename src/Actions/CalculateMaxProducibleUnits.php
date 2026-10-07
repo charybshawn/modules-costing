@@ -5,7 +5,7 @@ namespace Cultpantry\Costing\Actions;
 use Cultpantry\Costing\Models\Recipe;
 
 /**
- * The classic limiting-ingredient calculation: how many units (jars) of this
+ * The classic limiting-ingredient calculation: how many units of this
  * recipe could be produced right now given current on-hand ingredient stock,
  * ignoring any chosen batch_size/target (that's CalculateProductionPlan's
  * job, for an already-created ProductionRun). For each main ingredient,
@@ -30,7 +30,8 @@ class CalculateMaxProducibleUnits
         $producible = null;
 
         foreach ($recipe->mainIngredients as $ingredient) {
-            $qty = (float) $ingredient->pivot->quantity_per_jar;
+            // Lines are per batch; scaled to one filled unit.
+            $qty = $recipe->quantityPerUnit($ingredient, (float) $ingredient->pivot->quantity_per_jar);
             if ($qty <= 0) {
                 continue;
             }

@@ -485,7 +485,7 @@ describe('costing admin module', function () {
             // units_on_hand aggregate on costing_inventory.
             $ingredient->packageSizes()->create(['provider' => 'Unspecified', 'package_size' => 1000, 'quantity_on_hand' => 5000]);
 
-            $recipe = Recipe::create(['name' => 'Complete Flavour']);
+            $recipe = Recipe::create(['name' => 'Complete Flavour', 'fill_size_g' => null]);
             $recipe->ingredients()->sync([$ingredient->id => ['quantity_per_jar' => 100]]); // 100g/jar
 
             $run = ProductionRun::create(['batch_size' => 1, 'run_date' => Carbon::now()->toDateString()]);
@@ -506,7 +506,7 @@ describe('costing admin module', function () {
             $ingredient = Ingredient::create(['name' => 'Batch Math Cream', 'unit_type' => 'g', 'waste_percent' => 100]);
             $ingredient->packageSizes()->create(['provider' => 'Unspecified', 'package_size' => 1000, 'quantity_on_hand' => 100000]); // 100,000g on hand
 
-            $recipe = Recipe::create(['name' => 'Batch Math Flavour']);
+            $recipe = Recipe::create(['name' => 'Batch Math Flavour', 'fill_size_g' => null]);
             $recipe->ingredients()->sync([$ingredient->id => ['quantity_per_jar' => 100]]); // 100g/unit
 
             // 20 (batch size) x 3 (batches) = 60 real units -> requires 6000g, not 300g.
@@ -565,7 +565,7 @@ describe('costing admin module', function () {
         });
 
         it('does not snapshot a recipe included in the run with zero batches', function () {
-            $recipe = Recipe::create(['name' => 'Zero Batches Recipe']);
+            $recipe = Recipe::create(['name' => 'Zero Batches Recipe', 'fill_size_g' => null]);
             $run = ProductionRun::create(['batch_size' => 1, 'run_date' => Carbon::now()->toDateString()]);
             $run->recipes()->sync([$recipe->id => ['batches' => 0]]);
 
@@ -580,7 +580,7 @@ describe('costing admin module', function () {
             $ingredient = Ingredient::create(['name' => 'Short Cream', 'unit_type' => 'g', 'waste_percent' => 100]);
             $ingredient->packageSizes()->create(['provider' => 'Unspecified', 'package_size' => 1000, 'quantity_on_hand' => 500]); // 500g on hand
 
-            $recipe = Recipe::create(['name' => 'Short Flavour']);
+            $recipe = Recipe::create(['name' => 'Short Flavour', 'fill_size_g' => null]);
             $recipe->ingredients()->sync([$ingredient->id => ['quantity_per_jar' => 100]]);
 
             $run = ProductionRun::create(['batch_size' => 1, 'run_date' => Carbon::now()->toDateString()]);
@@ -594,7 +594,7 @@ describe('costing admin module', function () {
         });
 
         it('cannot be completed twice, and does not create a duplicate snapshot on the second attempt', function () {
-            $recipe = Recipe::create(['name' => 'No Double Snapshot Recipe']);
+            $recipe = Recipe::create(['name' => 'No Double Snapshot Recipe', 'fill_size_g' => null]);
             $run = ProductionRun::create(['batch_size' => 1, 'run_date' => Carbon::now()->toDateString()]);
             $run->recipes()->sync([$recipe->id => ['batches' => 3]]);
 
@@ -612,7 +612,7 @@ describe('costing admin module', function () {
         });
 
         it('locks batch counts from further edits once completed', function () {
-            $recipe = Recipe::create(['name' => 'Locked Flavour']);
+            $recipe = Recipe::create(['name' => 'Locked Flavour', 'fill_size_g' => null]);
             $run = ProductionRun::create(['batch_size' => 1, 'run_date' => Carbon::now()->toDateString()]);
             $run->recipes()->sync([$recipe->id => ['batches' => 5]]);
 
@@ -712,7 +712,7 @@ describe('costing admin module', function () {
             // ingredient-level fallback exists anymore.
             $deliCups->packageSizes()->create(['provider' => 'GFS', 'package_size' => 50]);
 
-            $recipe = Recipe::create(['name' => 'PO Recipe']);
+            $recipe = Recipe::create(['name' => 'PO Recipe', 'fill_size_g' => null]);
             $recipe->ingredients()->sync([$deliCups->id => ['quantity_per_jar' => 1]]);
 
             $run = ProductionRun::create(['batch_size' => 1, 'run_date' => Carbon::now()->toDateString()]);
@@ -1032,7 +1032,7 @@ describe('costing admin module', function () {
             $pickles = Ingredient::create(['name' => 'Shopping Pickles', 'unit_type' => 'g', 'waste_percent' => 100, 'byproduct_name' => 'Juice']);
             // Zero on hand is the default with no source rows at all.
 
-            $recipe = Recipe::create(['name' => 'Shopping Recipe']);
+            $recipe = Recipe::create(['name' => 'Shopping Recipe', 'fill_size_g' => null]);
             $recipe->mainIngredients()->sync([$pickles->id => ['quantity_per_jar' => 50]]);
             $recipe->byproductIngredients()->sync([$pickles->id => ['quantity_per_jar' => 999999]]); // huge -- must not affect the plan
 
