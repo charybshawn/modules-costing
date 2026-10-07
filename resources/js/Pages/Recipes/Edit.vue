@@ -82,7 +82,7 @@
       <template #section-ingredients>
         <RecipeLinesFields :rows="form.ingredients" :pool="ingredients" noun="Ingredient" />
         <p class="mt-4 text-sm text-gray-600 dark:text-gray-400">
-          Cost per jar: <span class="font-semibold text-gray-900 dark:text-white tabular-nums">${{ costPerJar.total.toFixed(2) }}</span>
+          Cost per unit: <span class="font-semibold text-gray-900 dark:text-white tabular-nums">${{ costPerJar.total.toFixed(2) }}</span>
           <span v-if="costPerJar.anyStale || costPerJar.anyMissing" class="text-amber-600 dark:text-amber-500"> (estimate)</span>
         </p>
       </template>
@@ -98,7 +98,7 @@
       </template>
 
       <template #section-cost>
-        <p v-if="!costBreakdown.length" class="text-sm text-gray-500 dark:text-gray-400">Add ingredients to see the cost per jar.</p>
+        <p v-if="!costBreakdown.length" class="text-sm text-gray-500 dark:text-gray-400">Add ingredients to see the cost per unit.</p>
 
         <dl v-else class="divide-y divide-gray-100 dark:divide-gray-700">
           <div v-for="line in costBreakdown" :key="line.ingredientId" class="flex items-start justify-between gap-3 py-2 text-sm">
@@ -118,9 +118,12 @@
 
         <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
           <div class="flex items-center justify-between">
-            <span class="text-sm font-medium text-gray-900 dark:text-white">Cost per jar</span>
+            <span class="text-sm font-medium text-gray-900 dark:text-white">Cost per unit<template v-if="costPerJar.prorated"> ({{ form.fill_size_g }}g)</template></span>
             <span class="text-lg font-semibold text-gray-900 dark:text-white tabular-nums">${{ costPerJar.total.toFixed(2) }}</span>
           </div>
+          <p v-if="costPerJar.prorated" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Batch: ${{ costPerJar.batchCost.toFixed(2) }} for {{ +costPerJar.batchGrams.toFixed(2) }}g
+          </p>
           <p v-if="costPerJar.anyStale || costPerJar.anyMissing" class="mt-2 text-xs text-amber-600 dark:text-amber-500">
             Estimate only: {{ costPerJar.anyMissing ? 'one or more ingredients have no logged price' : 'one or more ingredients are using a price that needs updating' }}. Tap a price above to fix it.
           </p>
@@ -147,6 +150,7 @@ import ResponsiveFormSections, { type FormSection } from '@/Components/Admin/Res
 import IconButton from '@/Components/IconButton.vue'
 import AvailablePricesModal, { type PricesIngredient } from '../Shared/AvailablePricesModal.vue'
 import type { FinishedGoodOption } from '../Shared/FinishedGoodPicker.vue'
+import { costPerFilledUnit } from '../Shared/fillCost'
 import RecipeDetailsFields, { type RecipeFormData } from '../Shared/RecipeDetailsFields.vue'
 import RecipeLinesFields from '../Shared/RecipeLinesFields.vue'
 import { backLinkClass, dangerIconActionClass, dangerOutlineButtonClass, iconActionClass, secondaryButtonClass } from '../Shared/formClasses'
@@ -171,6 +175,7 @@ interface Recipe {
   notes: string | null
   product_id: number | null
   min_stock_threshold: number | null
+  fill_size_g: number | null
   is_active: boolean
   ingredients: Array<{ ingredient_id: number; quantity_per_jar: number }>
   byproducts: Array<{ ingredient_id: number; quantity_per_jar: number }>
@@ -188,8 +193,8 @@ const { confirmDialog } = useConfirmDialog()
 
 const sections: FormSection[] = [
   { key: 'details', title: 'Details' },
-  { key: 'ingredients', title: 'Ingredients (per jar)', shortTitle: 'Ingredients' },
-  { key: 'byproducts', title: 'Byproducts (per jar)', shortTitle: 'Byproducts' },
+  { key: 'ingredients', title: 'Ingredients (per batch)', shortTitle: 'Ingredients' },
+  { key: 'byproducts', title: 'Byproducts (per batch)', shortTitle: 'Byproducts' },
   { key: 'cost', title: 'Costing Breakdown', shortTitle: 'Cost' },
 ]
 
@@ -205,6 +210,7 @@ const initialData: RecipeFormData = {
   notes: props.recipe.notes ?? '',
   product_id: props.recipe.product_id,
   min_stock_threshold: props.recipe.min_stock_threshold,
+  fill_size_g: props.recipe.fill_size_g,
   is_active: props.recipe.is_active,
   ingredients: props.recipe.ingredients.map((row) => ({ ...row })),
   byproducts: props.recipe.byproducts.map((row) => ({ ...row })),
@@ -324,25 +330,35 @@ const costBreakdown = computed<CostLine[]>(() => {
   return lines
 })
 
-// Estimated cost per jar: the lines above, summed, flagging any stale or
-// missing price.
+// Estimated cost per unit: the lines above summed into a batch cost, then
+// scaled to the fill weight, flagging any stale or missing price.
 const costPerJar = computed(() => {
-  let total = 0
+  let batchCost = 0
+  let batchGrams = 0
   let anyStale = false
   let anyMissing = false
 
   for (const line of costBreakdown.value) {
     const ingredient = findIngredient(line.ingredientId)
     if (!ingredient || !line.quantity) continue
+    if (ingredient.unit_type === 'g') batchGrams += line.quantity
     if (line.subtotal === null) {
       anyMissing = true
       continue
     }
     if (ingredient.status !== 'ok') anyStale = true
-    total += line.subtotal
+    batchCost += line.subtotal
   }
 
-  return { total, anyStale, anyMissing }
+  const fill = typeof form.fill_size_g === 'number' ? form.fill_size_g : null
+  return {
+    total: costPerFilledUnit(batchCost, batchGrams, fill),
+    batchCost,
+    batchGrams,
+    prorated: fill !== null && fill > 0 && batchGrams > 0,
+    anyStale,
+    anyMissing,
+  }
 })
 
 const destroy = async () => {

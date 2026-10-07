@@ -44,7 +44,7 @@ php artisan db:seed --class="Cultpantry\\Costing\\Database\\Seeders\\CostingData
 
 The seeder loads the real data from the original Costing & Recipe Workbook:
 17 ingredients, their full price history, current inventory, all 5 recipes,
-and one production run (60 / 0 / 80 / 0 / 40 jars, matching the sheet).
+and one production run (60 / 0 / 80 / 0 / 40 units, matching the sheet).
 Price History dates are stored as relative day-offsets from "today" rather
 than fixed dates, so the 7-day pricing window behaves the same regardless of
 when you actually run the seeder (see the seeder's docblock for details).
@@ -88,8 +88,8 @@ proof (`actingAs()` bypasses real session middleware).
   instead of the original's `#DIV/0!` for incomplete rows.
 - **Inventory** -- unit size x units on hand, auto-created for every
   ingredient.
-- **Recipes** -- flavours with grams (or units) per jar per ingredient.
-- **Production Planner** -- jar counts per flavour; the shopping list
+- **Recipes** -- flavours with grams (or units) per batch per ingredient.
+- **Production Planner** -- unit counts per flavour; the shopping list
   (Required / On Hand / To Purchase / Units to Buy / Est. Cost) is computed
   live via `CalculateProductionPlan`, with amber/green row highlighting.
 - **Purchase Order** -- print-friendly view, filtered to only what needs

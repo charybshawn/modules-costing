@@ -959,6 +959,57 @@ describe('costing admin module', function () {
         });
     });
 
+    describe('recipe fill weight', function () {
+        it('defaults a new recipe to a 280g fill when the form leaves it out', function () {
+            $this->actingAs($this->admin)
+                ->post(route('admin.costing.recipes.store'), ['name' => 'Default Fill Recipe', 'ingredients' => []])
+                ->assertRedirect();
+
+            expect((float) Recipe::where('name', 'Default Fill Recipe')->firstOrFail()->fill_size_g)->toBe(280.0);
+        });
+
+        it('saves the fill weight from the recipe form, and blank clears it', function () {
+            $recipe = Recipe::create(['name' => 'Form Fill Recipe']);
+
+            $this->actingAs($this->admin)
+                ->put(route('admin.costing.recipes.update', $recipe), ['name' => 'Form Fill Recipe', 'fill_size_g' => 275, 'ingredients' => []])
+                ->assertRedirect();
+            expect((float) $recipe->fresh()->fill_size_g)->toBe(275.0);
+
+            $this->actingAs($this->admin)
+                ->put(route('admin.costing.recipes.update', $recipe), ['name' => 'Form Fill Recipe', 'fill_size_g' => null, 'ingredients' => []])
+                ->assertRedirect();
+            expect($recipe->fresh()->fill_size_g)->toBeNull();
+        });
+
+        it('keeps the saved fill weight when an update leaves it out', function () {
+            $recipe = Recipe::create(['name' => 'Kept Fill Recipe', 'fill_size_g' => 290]);
+
+            $this->actingAs($this->admin)
+                ->put(route('admin.costing.recipes.update', $recipe), ['name' => 'Kept Fill Recipe', 'ingredients' => []])
+                ->assertRedirect();
+
+            expect((float) $recipe->fresh()->fill_size_g)->toBe(290.0);
+        });
+
+        it('rejects a zero fill weight', function () {
+            $recipe = Recipe::create(['name' => 'Zero Fill Recipe']);
+
+            $this->actingAs($this->admin)
+                ->put(route('admin.costing.recipes.update', $recipe), ['name' => 'Zero Fill Recipe', 'fill_size_g' => 0, 'ingredients' => []])
+                ->assertSessionHasErrors('fill_size_g');
+        });
+
+        it('passes the fill weight to the show and edit pages', function () {
+            $recipe = Recipe::create(['name' => 'Props Fill Recipe', 'fill_size_g' => 285]);
+
+            $this->actingAs($this->admin)->get(route('admin.costing.recipes.show', $recipe))
+                ->assertInertia(fn ($page) => $page->where('recipe.fill_size_g', 285));
+            $this->actingAs($this->admin)->get(route('admin.costing.recipes.edit', $recipe))
+                ->assertInertia(fn ($page) => $page->where('recipe.fill_size_g', 285));
+        });
+    });
+
     describe('byproducts', function () {
         it('saves a byproduct line separately from the main ingredient line for the same ingredient', function () {
             $pickles = Ingredient::create(['name' => 'Byproduct Pickles', 'unit_type' => 'g', 'waste_percent' => 100, 'byproduct_name' => 'Juice']);
@@ -1514,7 +1565,7 @@ describe('costing admin module', function () {
         });
 
         it('leaves the costing fields nullable -- a recipe with none set still renders fine', function () {
-            $recipe = Recipe::create(['name' => 'No Costing Fields Recipe']);
+            $recipe = Recipe::create(['name' => 'No Costing Fields Recipe', 'fill_size_g' => null]);
 
             $response = $this->actingAs($this->admin)->get(route('admin.costing.recipes.costing'));
 

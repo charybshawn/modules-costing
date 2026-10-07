@@ -33,7 +33,7 @@
           </div>
           <button type="button" :class="secondaryButtonClass" @click="leave">Cancel</button>
         </div>
-        <p class="mb-6 text-sm text-gray-600 dark:text-gray-400">Add each ingredient this flavour uses, with grams (or units) per jar. Saved as you go.</p>
+        <p class="mb-6 text-sm text-gray-600 dark:text-gray-400">Add each ingredient this flavour uses, with grams (or units) for one batch. Saved as you go.</p>
 
         <FormErrorSummary v-if="Object.keys(form.errors).length > 0" :errors="form.errors" class="mb-6" />
       </template>
@@ -85,8 +85,8 @@ const props = defineProps<Props>()
 
 const sections: FormSection[] = [
   { key: 'details', title: 'Details' },
-  { key: 'ingredients', title: 'Ingredients (per jar)', shortTitle: 'Ingredients' },
-  { key: 'byproducts', title: 'Byproducts (per jar)', shortTitle: 'Byproducts' },
+  { key: 'ingredients', title: 'Ingredients (per batch)', shortTitle: 'Ingredients' },
+  { key: 'byproducts', title: 'Byproducts (per batch)', shortTitle: 'Byproducts' },
 ]
 
 const shellRef = ref<InstanceType<typeof ResponsiveFormSections> | null>(null)
@@ -99,6 +99,7 @@ const form = usePersistedForm<RecipeFormData>({
   notes: '',
   product_id: null,
   min_stock_threshold: null,
+  fill_size_g: 280,
   is_active: true,
   ingredients: [],
   byproducts: [],

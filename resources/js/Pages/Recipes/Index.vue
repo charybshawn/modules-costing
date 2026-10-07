@@ -8,7 +8,7 @@
       <div class="hidden md:flex md:items-center md:justify-between mb-6">
         <div>
           <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Recipes</h1>
-          <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Flavours and their ingredient weights per jar.</p>
+          <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Flavours and their ingredient weights per batch.</p>
         </div>
         <div class="flex flex-wrap gap-2">
           <Link :href="route('admin.costing.recipes.grid')" class="tap-target-touch inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
@@ -76,7 +76,7 @@
           :row-href="(item) => route('admin.costing.recipes.show', item.id)"
         >
           <!-- Single-line mobile row (same as Ingredients): flavour + how
-               many jars stock can make, with the below-minimum dot; tap
+               many units stock can make, with the below-minimum dot; tap
                opens Show, which has edit and delete. -->
           <template #mobile-card="{ item }">
             <div class="flex items-center gap-3 min-w-0">
@@ -85,7 +85,7 @@
                 <span v-if="!item.is_active" class="shrink-0 text-xs font-normal text-gray-500 dark:text-gray-400">Inactive</span>
                 <span v-if="isBelowThreshold(item)" class="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400 flex-shrink-0"></span>
               </span>
-              <span class="shrink-0 text-sm text-gray-500 dark:text-gray-400">{{ item.max_producible_units }} jar{{ item.max_producible_units !== 1 ? 's' : '' }}</span>
+              <span class="shrink-0 text-sm text-gray-500 dark:text-gray-400">{{ item.max_producible_units }} unit{{ item.max_producible_units !== 1 ? 's' : '' }}</span>
             </div>
           </template>
 
@@ -105,11 +105,11 @@
 
           <template #cell-max_producible_units="{ item }">
             <span class="inline-flex items-center gap-1.5">
-              <span class="text-sm text-gray-900 dark:text-white">{{ item.max_producible_units }} jar{{ item.max_producible_units !== 1 ? 's' : '' }}</span>
+              <span class="text-sm text-gray-900 dark:text-white">{{ item.max_producible_units }} unit{{ item.max_producible_units !== 1 ? 's' : '' }}</span>
               <span
                 v-if="isBelowThreshold(item)"
                 class="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400 flex-shrink-0"
-                :title="`Current ingredient stock can only produce ${item.max_producible_units} jar(s) -- below the minimum of ${item.min_stock_threshold} -- needs reordering`"
+                :title="`Current ingredient stock can only produce ${item.max_producible_units} unit(s) -- below the minimum of ${item.min_stock_threshold} -- needs reordering`"
               ></span>
             </span>
           </template>

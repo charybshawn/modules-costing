@@ -35,8 +35,9 @@
     <div class="space-y-8">
       <dl class="grid grid-cols-2 gap-4">
         <div>
-          <dt class="text-sm text-gray-500 dark:text-gray-400">Cost per jar</dt>
+          <dt class="text-sm text-gray-500 dark:text-gray-400">Cost per unit<template v-if="costPerJar.prorated"> ({{ recipe.fill_size_g }}g)</template></dt>
           <dd class="text-lg font-semibold text-gray-900 dark:text-white tabular-nums">${{ costPerJar.total.toFixed(2) }}</dd>
+          <dd v-if="costPerJar.prorated" class="text-xs text-gray-500 dark:text-gray-400">Batch: ${{ costPerJar.batchCost.toFixed(2) }} for {{ +totalGrams.toFixed(2) }}g</dd>
           <dd v-if="costPerJar.anyStale || costPerJar.anyMissing" class="text-xs text-amber-600 dark:text-amber-400">
             Estimate: {{ costPerJar.anyMissing ? 'some prices missing' : 'some prices need updating' }}
           </dd>
@@ -44,7 +45,7 @@
         <div>
           <dt class="text-sm text-gray-500 dark:text-gray-400">Stock can make</dt>
           <dd class="text-lg font-semibold" :class="belowMinimum ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-white'">
-            {{ recipe.max_producible_units }} jar{{ recipe.max_producible_units !== 1 ? 's' : '' }}
+            {{ recipe.max_producible_units }} unit{{ recipe.max_producible_units !== 1 ? 's' : '' }}
           </dd>
           <dd v-if="recipe.min_stock_threshold !== null" class="text-xs text-gray-500 dark:text-gray-400">Minimum {{ recipe.min_stock_threshold }}</dd>
         </div>
@@ -59,28 +60,42 @@
       </dl>
 
       <div>
-        <h2 class="text-lg font-medium text-gray-900 dark:text-white mb-2">Ingredients (per jar)</h2>
-        <ul v-if="recipe.ingredients.length" class="divide-y divide-gray-200 dark:divide-gray-700">
-          <li v-for="line in lines" :key="line.id">
-            <Link
-              :href="route('admin.costing.ingredients.show', line.id)"
-              class="tap-target-touch flex items-center justify-between gap-3 py-2 text-sm hover:text-indigo-600 dark:hover:text-indigo-400"
-            >
-              <span class="min-w-0">
-                <span class="block truncate font-medium text-gray-900 dark:text-white">{{ line.name }}</span>
-                <span class="block text-xs" :class="line.stale ? 'text-amber-600 dark:text-amber-400' : 'text-gray-500 dark:text-gray-400'">
-                  {{ line.quantity }}{{ line.unit }}<template v-if="line.percent !== null"> ({{ line.percent.toFixed(1) }}%)</template> · {{ line.priceLabel }}
-                </span>
-              </span>
-              <span class="shrink-0 tabular-nums text-gray-900 dark:text-white">{{ line.subtotal === null ? '—' : `$${line.subtotal.toFixed(2)}` }}</span>
-            </Link>
-          </li>
-        </ul>
+        <h2 class="text-lg font-medium text-gray-900 dark:text-white mb-2">Ingredients (per batch)</h2>
+        <!-- mx-2: DataTable's mobile rows are sized for a p-6 card; the
+             shell pads p-4 on mobile, so this keeps them flush there too. -->
+        <div v-if="recipe.ingredients.length" class="mx-2 md:mx-0">
+          <DataTable
+            :columns="ingredientColumns"
+            :items="lines"
+            item-key="id"
+            hide-toolbar
+            mobile-row-style="flat"
+            :mobile-summary-fields="3"
+            :mobile-hidden-columns="['price']"
+            :row-href="(line) => route('admin.costing.ingredients.show', line.id)"
+          >
+            <template #cell-name="{ item }">
+              <span class="text-sm font-medium text-gray-900 dark:text-white">{{ item.name }}</span>
+            </template>
+            <template #cell-quantity="{ item }">
+              <span class="text-sm tabular-nums text-gray-900 dark:text-white">{{ item.quantity }}{{ item.unit }}</span>
+            </template>
+            <template #cell-percent="{ item }">
+              <span class="text-sm tabular-nums text-gray-500 dark:text-gray-400">{{ item.percent === null ? '—' : `${item.percent.toFixed(1)}%` }}</span>
+            </template>
+            <template #cell-price="{ item }">
+              <span class="text-sm" :class="item.stale ? 'text-amber-600 dark:text-amber-400' : 'text-gray-500 dark:text-gray-400'">{{ item.priceLabel }}</span>
+            </template>
+            <template #cell-subtotal="{ item }">
+              <span class="text-sm tabular-nums text-gray-900 dark:text-white">{{ item.subtotal === null ? '—' : `$${item.subtotal.toFixed(2)}` }}</span>
+            </template>
+          </DataTable>
+        </div>
         <p v-else class="text-sm text-gray-500 dark:text-gray-400">No ingredients yet.</p>
       </div>
 
       <div v-if="recipe.byproducts.length">
-        <h2 class="text-lg font-medium text-gray-900 dark:text-white mb-2">Byproducts (per jar)</h2>
+        <h2 class="text-lg font-medium text-gray-900 dark:text-white mb-2">Byproducts (per batch)</h2>
         <ul class="divide-y divide-gray-200 dark:divide-gray-700">
           <li v-for="line in recipe.byproducts" :key="line.id" class="flex items-center justify-between gap-3 py-2 text-sm">
             <span class="truncate text-gray-900 dark:text-white">{{ line.name }} — {{ line.byproduct_name }}</span>
@@ -104,7 +119,9 @@ import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import AdminMobileHeader from '@/Components/Admin/AdminMobileHeader.vue'
 import AdminShowShell from '@/Components/Admin/AdminShowShell.vue'
+import DataTable, { type Column } from '@/Components/Admin/DataTable.vue'
 import IconButton from '@/Components/IconButton.vue'
+import { costPerFilledUnit } from '../Shared/fillCost'
 import type { FinishedGoodOption } from '../Shared/FinishedGoodPicker.vue'
 import { backLinkClass, dangerIconActionClass, iconActionClass } from '../Shared/formClasses'
 import { DELETE_ICON, EDIT_ICON } from '../Shared/showIcons'
@@ -128,6 +145,7 @@ interface Recipe {
   name: string
   notes: string | null
   min_stock_threshold: number | null
+  fill_size_g: number | null
   is_active: boolean
   max_producible_units: number
   ingredients: IngredientLine[]
@@ -147,7 +165,15 @@ const indexUrl = route('admin.costing.recipes.index')
 const belowMinimum = computed(() =>
   props.recipe.min_stock_threshold !== null && props.recipe.max_producible_units < props.recipe.min_stock_threshold)
 
-// Total gram weight of the jar -- per-unit ingredients have no weight, so
+const ingredientColumns: Column[] = [
+  { key: 'name', label: 'Ingredient' },
+  { key: 'quantity', label: 'Amount' },
+  { key: 'percent', label: '% of weight' },
+  { key: 'price', label: 'Price' },
+  { key: 'subtotal', label: 'Cost' },
+]
+
+// Total gram weight of the batch -- per-unit ingredients have no weight, so
 // they're left out of the total and get no percentage.
 const totalGrams = computed(() => props.recipe.ingredients
   .filter((ingredient) => ingredient.unit_type === 'g')
@@ -177,11 +203,17 @@ const lines = computed(() => props.recipe.ingredients.map((ingredient) => {
   }
 }))
 
-const costPerJar = computed(() => ({
-  total: lines.value.reduce((sum, line) => sum + (line.subtotal ?? 0), 0),
-  anyStale: lines.value.some((line) => line.stale && line.subtotal !== null),
-  anyMissing: lines.value.some((line) => line.subtotal === null && line.quantity > 0),
-}))
+const costPerJar = computed(() => {
+  const batchCost = lines.value.reduce((sum, line) => sum + (line.subtotal ?? 0), 0)
+  const fill = props.recipe.fill_size_g
+  return {
+    total: costPerFilledUnit(batchCost, totalGrams.value, fill),
+    batchCost,
+    prorated: fill !== null && fill > 0 && totalGrams.value > 0,
+    anyStale: lines.value.some((line) => line.stale && line.subtotal !== null),
+    anyMissing: lines.value.some((line) => line.subtotal === null && line.quantity > 0),
+  }
+})
 
 const destroy = async () => {
   const confirmed = await confirmDialog({

@@ -195,6 +195,7 @@ class RecipeController extends Controller implements HasMiddleware
             'notes' => $validated['notes'] ?? null,
             'product_id' => $validated['product_id'] ?? null,
             'min_stock_threshold' => $validated['min_stock_threshold'] ?? null,
+            'fill_size_g' => array_key_exists('fill_size_g', $validated) ? $validated['fill_size_g'] : Recipe::DEFAULT_FILL_SIZE_G,
             'is_active' => $validated['is_active'] ?? true,
         ]);
 
@@ -245,6 +246,7 @@ class RecipeController extends Controller implements HasMiddleware
                 'name' => $recipe->name,
                 'notes' => $recipe->notes,
                 'min_stock_threshold' => $recipe->min_stock_threshold,
+                'fill_size_g' => $recipe->fill_size_g !== null ? (float) $recipe->fill_size_g : null,
                 'is_active' => $recipe->is_active,
                 'max_producible_units' => $calculateMaxProducibleUnits->handle($recipe),
                 'ingredients' => $recipe->mainIngredients->sortBy('name')->map(fn (Ingredient $ingredient) => array_merge(
@@ -294,6 +296,7 @@ class RecipeController extends Controller implements HasMiddleware
                 'notes' => $recipe->notes,
                 'product_id' => $recipe->product_id,
                 'min_stock_threshold' => $recipe->min_stock_threshold,
+                'fill_size_g' => $recipe->fill_size_g !== null ? (float) $recipe->fill_size_g : null,
                 'is_active' => $recipe->is_active,
                 'ingredients' => $recipe->mainIngredients->map(fn (Ingredient $ingredient) => [
                     'ingredient_id' => $ingredient->id,
@@ -333,6 +336,7 @@ class RecipeController extends Controller implements HasMiddleware
             'notes' => $validated['notes'] ?? null,
             'product_id' => $validated['product_id'] ?? null,
             'min_stock_threshold' => $validated['min_stock_threshold'] ?? null,
+            'fill_size_g' => array_key_exists('fill_size_g', $validated) ? $validated['fill_size_g'] : $recipe->fill_size_g,
             'is_active' => $validated['is_active'] ?? true,
         ]);
         $savedEvent = CostingRecordSaved::forUpdated($recipe, auth()->id());
@@ -525,6 +529,7 @@ class RecipeController extends Controller implements HasMiddleware
                 }
             }],
             'min_stock_threshold' => ['nullable', 'integer', 'min:0'],
+            'fill_size_g' => ['nullable', 'numeric', 'gt:0'],
             'is_active' => ['boolean'],
             'ingredients' => ['array'],
             'ingredients.*.ingredient_id' => ['required', 'exists:costing_ingredients,id'],

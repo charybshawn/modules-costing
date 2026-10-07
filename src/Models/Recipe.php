@@ -36,7 +36,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  */
 class Recipe extends Model
 {
+    /** Grams in a filled unit unless a recipe says otherwise. */
+    public const DEFAULT_FILL_SIZE_G = 280;
+
     protected $table = 'costing_recipes';
+
+    protected $attributes = [
+        'fill_size_g' => self::DEFAULT_FILL_SIZE_G,
+    ];
 
     protected $fillable = [
         'product_id',

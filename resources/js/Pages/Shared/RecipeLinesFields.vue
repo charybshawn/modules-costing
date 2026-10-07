@@ -23,7 +23,7 @@
             min="0"
             step="0.01"
             required
-            :aria-label="`Quantity per jar for ${noun.toLowerCase()} ${index + 1}`"
+            :aria-label="`Quantity per batch for ${noun.toLowerCase()} ${index + 1}`"
             class="w-28 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm"
           />
           <span class="text-xs text-gray-500 dark:text-gray-400 w-8">{{ unitFor(row.ingredient_id) }}</span>

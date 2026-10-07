@@ -17,8 +17,15 @@
     <div>
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Minimum units in stock <span class="font-normal text-gray-500 dark:text-gray-400">Optional</span></label>
       <input v-model.number="form.min_stock_threshold" type="number" inputmode="numeric" min="0" step="1" :class="inputClass" placeholder="e.g. 20" />
-      <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Flagged for reordering whenever current ingredient stock can't make at least this many jars. Leave blank to turn off.</p>
+      <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Flagged for reordering whenever current ingredient stock can't make at least this many units. Leave blank to turn off.</p>
       <InputError :message="form.errors.min_stock_threshold" />
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Fill weight per unit (g)</label>
+      <input v-model.number="form.fill_size_g" type="number" inputmode="decimal" min="0" step="0.01" :class="inputClass" placeholder="e.g. 280" />
+      <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">How much goes into each unit. The ingredients below make one batch; leftover fills the next unit, so cost per unit is the batch cost scaled to this weight. Leave blank to cost the whole batch as one unit.</p>
+      <InputError :message="form.errors.fill_size_g" />
     </div>
 
     <div class="flex items-start justify-between gap-4">
@@ -49,6 +56,7 @@ export interface RecipeFormData {
   notes: string
   product_id: number | null
   min_stock_threshold: number | null
+  fill_size_g: number | null
   is_active: boolean
   ingredients: RecipeRow[]
   byproducts: RecipeRow[]

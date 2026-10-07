@@ -556,7 +556,7 @@ describe('CalculateRecipeCost', function () {
         $ingredient = Ingredient::create(['name' => 'No Fill Size Ingredient', 'unit_type' => 'g', 'waste_percent' => 100]);
         $ingredient->priceHistory()->create(['purchased_at' => Carbon::now()->subDay()->toDateString(), 'provider' => 'GFS', 'qty' => 1000, 'total_price' => 10]);
 
-        $recipe = Recipe::create(['name' => 'No Fill Size Recipe']); // no fill_size_g, no sell_price
+        $recipe = Recipe::create(['name' => 'No Fill Size Recipe', 'fill_size_g' => null]); // fill cleared, no sell_price
         $recipe->mainIngredients()->sync([$ingredient->id => ['quantity_per_jar' => 100]]);
 
         $result = (new CalculateRecipeCost(new CalculateIngredientCosting))->handle($recipe->fresh());

@@ -114,7 +114,7 @@ const metricOptions: Array<{ key: MetricKey; label: string }> = [
   { key: 'food_cost_percent', label: 'Food Cost %' },
   { key: 'raw_cost', label: 'Raw Cost' },
   { key: 'buffered_cost', label: 'Buffered Cost' },
-  { key: 'actual_cost_per_jar', label: 'Cost per Jar' },
+  { key: 'actual_cost_per_jar', label: 'Cost per Unit' },
 ]
 
 const selectedMetric = ref<MetricKey>('food_cost_percent')
