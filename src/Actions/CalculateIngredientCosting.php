@@ -56,6 +56,11 @@ class CalculateIngredientCosting
      */
     public function handle(Ingredient $ingredient): array
     {
+        // Made in-house: priced from its components, never from logged prices.
+        if ($ingredient->is_house_made) {
+            return (new CalculatePreparedIngredientCosting)->handle($ingredient, $this);
+        }
+
         // Defensive, not just an optimization: price_per_unit below reads
         // $entry->ingredient, and this Action has no control over whether
         // its caller remembered to eager-load that nested relation. A

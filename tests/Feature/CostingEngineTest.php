@@ -720,3 +720,98 @@ describe('GenerateBatchCode', function () {
         expect($code)->toBe('260911-01');
     });
 });
+
+describe('house-made ingredients', function () {
+    // A bought ingredient at a fresh (yesterday) or stale (10 days ago) $/kg.
+    $priced = function (string $name, float $perKg, int $daysAgo = 1): Ingredient {
+        $ingredient = Ingredient::create(['name' => $name, 'unit_type' => 'g', 'waste_percent' => 100]);
+        $ingredient->priceHistory()->create(['purchased_at' => Carbon::now()->subDays($daysAgo)->toDateString(), 'provider' => 'GFS', 'qty' => 1000, 'total_price' => $perKg]);
+
+        return $ingredient;
+    };
+
+    $houseMade = function (string $name, ?float $yield, array $components): Ingredient {
+        // Waste % deliberately not 100: it must be ignored for house-made.
+        $ingredient = Ingredient::create(['name' => $name, 'unit_type' => 'g', 'waste_percent' => 50, 'is_house_made' => true, 'yield_g' => $yield]);
+        $ingredient->components()->sync(collect($components)->mapWithKeys(fn ($qty, $id) => [$id => ['quantity' => $qty]])->all());
+
+        return $ingredient;
+    };
+
+    it('costs a house-made ingredient from its components spread over the cooked yield, ignoring waste %', function () use ($priced, $houseMade) {
+        $apples = $priced('HM Apples', 4);
+        $sugar = $priced('HM Sugar', 2);
+        // 1000g x $4/kg + 60g x $2/kg = $4.12 per prep batch, over 400g.
+        $butter = $houseMade('HM Apple Butter', 400, [$apples->id => 1000, $sugar->id => 60]);
+
+        $costing = (new CalculateIngredientCosting)->handle($butter->fresh());
+
+        expect($costing['status'])->toBe('ok');
+        expect($costing['effective_price'])->toBe(10.3);
+        expect($costing['source_used'])->toBe('In-house');
+    });
+
+    it('costs nested house-made ingredients recursively', function () use ($priced, $houseMade) {
+        $juice = $priced('HM Juice', 2);
+        $apples = $priced('HM Nested Apples', 4);
+        $cider = $houseMade('HM Boiled Cider', 200, [$juice->id => 1000]); // $2 over 200g = $10/kg
+        // 100g cider ($1.00) + 900g apples ($3.60) = $4.60 over 500g.
+        $butter = $houseMade('HM Nested Butter', 500, [$cider->id => 100, $apples->id => 900]);
+
+        expect((new CalculateIngredientCosting)->handle($butter->fresh())['effective_price'])->toBe(9.2);
+    });
+
+    it('falls back to a flagged estimate when a component price is stale, and is unpriced without a yield', function () use ($priced, $houseMade) {
+        $old = $priced('HM Old Apples', 4, daysAgo: 10);
+        $stale = $houseMade('HM Stale Butter', 400, [$old->id => 1000]);
+        $noYield = $houseMade('HM No Yield', null, [$old->id => 1000]);
+
+        $staleCosting = (new CalculateIngredientCosting)->handle($stale->fresh());
+        expect($staleCosting['status'])->toBe('no_price_this_week');
+        expect($staleCosting['effective_price'])->toBeNull();
+        expect($staleCosting['stale_effective_price'])->toBe(10.0);
+
+        $unpriced = (new CalculateIngredientCosting)->handle($noYield->fresh());
+        expect($unpriced['effective_price'])->toBeNull();
+        expect($unpriced['stale_effective_price'])->toBeNull();
+    });
+
+    it('flows into recipe cost like any other ingredient', function () use ($priced, $houseMade) {
+        $apples = $priced('HM Recipe Apples', 4);
+        $butter = $houseMade('HM Recipe Butter', 400, [$apples->id => 1000]); // $10/kg
+
+        $recipe = Recipe::create(['name' => 'HM Recipe', 'fill_size_g' => null]);
+        $recipe->mainIngredients()->sync([$butter->id => ['quantity_per_jar' => 50]]);
+
+        expect((new CalculateRecipeCost(new CalculateIngredientCosting))->handle($recipe->fresh())['raw_cost'])->toBe(0.5);
+    });
+
+    it('preps house-made ingredients instead of buying them, adding their components to the shopping list', function () use ($priced, $houseMade) {
+        $cheese = $priced('HM Plan Cheese', 10);
+        $apples = $priced('HM Plan Apples', 4);
+        $sugar = $priced('HM Plan Sugar', 2);
+        $butter = $houseMade('HM Plan Butter', 400, [$apples->id => 1000, $sugar->id => 60]);
+
+        $recipe = Recipe::create(['name' => 'HM Plan Flavour', 'fill_size_g' => null]);
+        $recipe->ingredients()->sync([
+            $cheese->id => ['quantity_per_jar' => 250],
+            $butter->id => ['quantity_per_jar' => 50],
+        ]);
+
+        $run = ProductionRun::create(['batch_size' => 1, 'run_date' => Carbon::now()->toDateString()]);
+        $run->recipes()->sync([$recipe->id => ['batches' => 10]]);
+
+        $plan = (new CalculateProductionPlan(new CalculateIngredientCosting))->handle($run->fresh());
+        $rows = collect($plan['rows'])->keyBy('ingredient_name');
+
+        // 10 units x 50g = 500g of butter = 1.25 prep batches of 400g.
+        expect($plan['prep_rows'])->toHaveCount(1);
+        expect((float) $plan['prep_rows'][0]['required'])->toBe(500.0);
+        expect((float) $plan['prep_rows'][0]['prep_batches'])->toBe(1.25);
+
+        expect($rows->has('HM Plan Butter'))->toBeFalse();
+        expect((float) $rows['HM Plan Cheese']['required'])->toBe(2500.0);
+        expect((float) $rows['HM Plan Apples']['required'])->toBe(1250.0);
+        expect((float) $rows['HM Plan Sugar']['required'])->toBe(75.0);
+    });
+});

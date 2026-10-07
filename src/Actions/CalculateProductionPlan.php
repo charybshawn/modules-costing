@@ -21,12 +21,14 @@ class CalculateProductionPlan
 {
     public function __construct(
         private readonly CalculateIngredientCosting $calculateIngredientCosting,
+        private readonly ExpandIngredientRequirements $expandIngredientRequirements = new ExpandIngredientRequirements,
     ) {}
 
     /**
      * @return array{
      *     rows: array<int, array>,
      *     purchase_rows: array<int, array>,
+     *     prep_rows: array<int, array>,
      *     total_units: int,
      *     total_estimated_cost: float,
      * }
@@ -75,12 +77,29 @@ class CalculateProductionPlan
             }
         }
 
+        // House-made ingredients (e.g. apple butter) are prepped, not
+        // bought: swap each for its components, which join the shopping
+        // list, and list the prep itself separately.
+        $expanded = $this->expandIngredientRequirements->handle(array_map(
+            fn (array $entry) => ['ingredient' => $entry['ingredient'], 'quantity' => $entry['required']],
+            $requiredByIngredient,
+        ));
+
+        $prepRows = array_values(array_map(fn (array $prep) => [
+            'ingredient_id' => $prep['ingredient']->id,
+            'ingredient_name' => $prep['ingredient']->name,
+            'required' => round($prep['quantity'], 2),
+            'yield_g' => round((float) $prep['ingredient']->yield_g, 2),
+            'prep_batches' => round($prep['batches'], 2),
+        ], $expanded['prep']));
+        usort($prepRows, fn (array $a, array $b) => strcmp($a['ingredient_name'], $b['ingredient_name']));
+
         $rows = [];
         $totalCost = 0.0;
 
-        foreach ($requiredByIngredient as $entry) {
+        foreach ($expanded['raw'] as $entry) {
             $ingredient = $entry['ingredient'];
-            $required = $entry['required'];
+            $required = $entry['quantity'];
             $onHand = (float) ($ingredient->inventory->on_hand ?? 0.0);
             $toPurchase = max(0.0, $required - $onHand);
 
@@ -139,6 +158,7 @@ class CalculateProductionPlan
         return [
             'rows' => $rows,
             'purchase_rows' => array_values(array_filter($rows, fn (array $r) => $r['needs_purchase'])),
+            'prep_rows' => $prepRows,
             'total_units' => $productionRun->totalUnits(),
             'total_estimated_cost' => round($totalCost, 2),
         ];

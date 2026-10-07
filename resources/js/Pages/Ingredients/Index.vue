@@ -105,6 +105,7 @@
             <div class="flex items-center gap-3 min-w-0">
               <span class="min-w-0 flex-1 inline-flex items-center gap-1.5 truncate text-sm font-medium text-gray-900 dark:text-white">
                 <span class="truncate">{{ item.name }}</span>
+                <span v-if="item.is_house_made" class="shrink-0 inline-flex items-center rounded-full bg-indigo-100 dark:bg-indigo-900/40 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:text-indigo-300">In-house</span>
                 <span
                   v-if="item.status !== 'ok'"
                   class="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400 flex-shrink-0"
@@ -116,7 +117,10 @@
           </template>
 
           <template #cell-name="{ item }">
-            <div class="text-sm font-medium text-gray-900 dark:text-white">{{ item.name }}</div>
+            <div class="flex items-center gap-1.5 text-sm font-medium text-gray-900 dark:text-white">
+              <span>{{ item.name }}</span>
+              <span v-if="item.is_house_made" class="shrink-0 inline-flex items-center rounded-full bg-indigo-100 dark:bg-indigo-900/40 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:text-indigo-300">In-house</span>
+            </div>
           </template>
 
           <template #cell-category="{ item }">
@@ -164,7 +168,7 @@
 
           <template #cell-source_count="{ item }">
             <span class="text-sm text-gray-500 dark:text-gray-400">
-              {{ item.source_count }} source{{ item.source_count !== 1 ? 's' : '' }}
+              {{ item.is_house_made ? 'Made in-house' : `${item.source_count} source${item.source_count !== 1 ? 's' : ''}` }}
             </span>
           </template>
 
@@ -208,6 +212,7 @@ interface IngredientRow {
   price_per_100g: number | null
   stale_price_per_100g: number | null
   recipe_ids: number[]
+  is_house_made: boolean
 }
 
 interface RecipeOption {

@@ -12,6 +12,7 @@
         "costing_ingredient_package_sizes",
         "costing_price_history",
         "costing_ingredient_recipe",
+        "costing_ingredient_components",
         "costing_production_run_recipe",
         "costing_recipe_cost_snapshots",
         "costing_inventory_adjustments",

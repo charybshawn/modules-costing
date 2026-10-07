@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use Cultpantry\Costing\Actions\CalculateIngredientCosting;
 use Cultpantry\Costing\Actions\CalculateMaxProducibleUnits;
 use Cultpantry\Costing\Actions\CalculateRecipeCost;
+use Cultpantry\Costing\Actions\ExpandIngredientRequirements;
 use Cultpantry\Costing\Contracts\FinishedGoodRepository;
 use Cultpantry\Costing\Events\CostingRecordDeleted;
 use Cultpantry\Costing\Events\CostingRecordSaved;
@@ -228,6 +229,7 @@ class RecipeController extends Controller implements HasMiddleware
         Recipe $recipe,
         CalculateIngredientCosting $calculateIngredientCosting,
         CalculateMaxProducibleUnits $calculateMaxProducibleUnits,
+        ExpandIngredientRequirements $expandIngredientRequirements,
     ): Response {
         $this->authorize('view', $recipe);
 
@@ -239,6 +241,22 @@ class RecipeController extends Controller implements HasMiddleware
             'mainIngredients.packageSizes',
             'byproductIngredients',
         );
+
+        // What one filled unit really takes once house-made ingredients
+        // (e.g. apple butter) are broken down -- only when there are any.
+        $rawPerUnit = [];
+        if ($recipe->mainIngredients->contains(fn (Ingredient $ingredient) => $ingredient->is_house_made)) {
+            $expanded = $expandIngredientRequirements->handle($recipe->mainIngredients->map(fn (Ingredient $ingredient) => [
+                'ingredient' => $ingredient,
+                'quantity' => $recipe->quantityPerUnit($ingredient, (float) $ingredient->pivot->quantity_per_jar),
+            ]));
+            $rawPerUnit = collect($expanded['raw'])->map(fn (array $entry) => [
+                'id' => $entry['ingredient']->id,
+                'name' => $entry['ingredient']->name,
+                'unit_type' => $entry['ingredient']->unit_type,
+                'quantity' => round($entry['quantity'], 3),
+            ])->sortBy('name')->values();
+        }
 
         return Inertia::render('Vendor/costing/Recipes/Show', [
             'recipe' => [
@@ -254,10 +272,12 @@ class RecipeController extends Controller implements HasMiddleware
                         'id' => $ingredient->id,
                         'name' => $ingredient->name,
                         'unit_type' => $ingredient->unit_type,
+                        'is_house_made' => $ingredient->is_house_made,
                         'quantity_per_jar' => (float) $ingredient->pivot->quantity_per_jar,
                     ],
                     $calculateIngredientCosting->handle($ingredient)
                 ))->values(),
+                'raw_per_unit' => $rawPerUnit,
                 'byproducts' => $recipe->byproductIngredients->sortBy('name')->map(fn (Ingredient $ingredient) => [
                     'id' => $ingredient->id,
                     'name' => $ingredient->name,

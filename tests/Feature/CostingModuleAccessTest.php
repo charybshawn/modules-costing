@@ -959,6 +959,112 @@ describe('costing admin module', function () {
         });
     });
 
+    describe('house-made ingredients', function () {
+        it('saves a house-made ingredient with what it is made from', function () {
+            $apples = Ingredient::create(['name' => 'Form Apples', 'unit_type' => 'g', 'waste_percent' => 100]);
+            $sugar = Ingredient::create(['name' => 'Form Sugar', 'unit_type' => 'g', 'waste_percent' => 100]);
+
+            $this->actingAs($this->admin)
+                ->post(route('admin.costing.ingredients.store'), [
+                    'name' => 'Form Apple Butter',
+                    'unit_type' => 'g',
+                    'waste_percent' => 100,
+                    'is_house_made' => true,
+                    'yield_g' => 400,
+                    'components' => [
+                        ['ingredient_id' => $apples->id, 'quantity_per_jar' => 1000],
+                        ['ingredient_id' => $sugar->id, 'quantity_per_jar' => 60],
+                    ],
+                ])
+                ->assertSessionHasNoErrors()
+                ->assertRedirect();
+
+            $butter = Ingredient::where('name', 'Form Apple Butter')->firstOrFail();
+            expect($butter->is_house_made)->toBeTrue();
+            expect((float) $butter->yield_g)->toBe(400.0);
+            expect($butter->components->pluck('pivot.quantity', 'id')->map(fn ($q) => (float) $q)->all())
+                ->toBe([$apples->id => 1000.0, $sugar->id => 60.0]);
+        });
+
+        it('clears the components when it is switched back to bought', function () {
+            $apples = Ingredient::create(['name' => 'Switch Apples', 'unit_type' => 'g', 'waste_percent' => 100]);
+            $butter = Ingredient::create(['name' => 'Switch Butter', 'unit_type' => 'g', 'waste_percent' => 100, 'is_house_made' => true, 'yield_g' => 400]);
+            $butter->components()->sync([$apples->id => ['quantity' => 1000]]);
+
+            $this->actingAs($this->admin)
+                ->put(route('admin.costing.ingredients.update', $butter), [
+                    'name' => 'Switch Butter', 'unit_type' => 'g', 'waste_percent' => 100,
+                    'is_house_made' => false,
+                    'components' => [['ingredient_id' => $apples->id, 'quantity_per_jar' => 1000]],
+                ])
+                ->assertSessionHasNoErrors();
+
+            expect($butter->fresh()->components)->toBeEmpty();
+        });
+
+        it('rejects a house-made ingredient made from itself, in a loop, or measured in units', function () {
+            $cider = Ingredient::create(['name' => 'Loop Cider', 'unit_type' => 'g', 'waste_percent' => 100, 'is_house_made' => true, 'yield_g' => 200]);
+            $butter = Ingredient::create(['name' => 'Loop Butter', 'unit_type' => 'g', 'waste_percent' => 100, 'is_house_made' => true, 'yield_g' => 400]);
+            $butter->components()->sync([$cider->id => ['quantity' => 100]]);
+
+            $payload = fn (array $overrides) => array_merge(['name' => 'Loop Cider', 'unit_type' => 'g', 'waste_percent' => 100, 'is_house_made' => true, 'yield_g' => 200], $overrides);
+
+            // Itself.
+            $this->actingAs($this->admin)
+                ->put(route('admin.costing.ingredients.update', $cider), $payload(['components' => [['ingredient_id' => $cider->id, 'quantity_per_jar' => 10]]]))
+                ->assertSessionHasErrors('components.0.ingredient_id');
+
+            // Cider -> butter -> cider.
+            $this->actingAs($this->admin)
+                ->put(route('admin.costing.ingredients.update', $cider), $payload(['components' => [['ingredient_id' => $butter->id, 'quantity_per_jar' => 10]]]))
+                ->assertSessionHasErrors('components');
+
+            // Units.
+            $this->actingAs($this->admin)
+                ->put(route('admin.costing.ingredients.update', $cider), $payload(['unit_type' => 'unit', 'components' => []]))
+                ->assertSessionHasErrors('unit_type');
+
+            expect($cider->fresh()->components)->toBeEmpty();
+        });
+
+        it('will not delete an ingredient a house-made one is made from', function () {
+            $apples = Ingredient::create(['name' => 'Guarded Apples', 'unit_type' => 'g', 'waste_percent' => 100]);
+            $butter = Ingredient::create(['name' => 'Guarded Butter', 'unit_type' => 'g', 'waste_percent' => 100, 'is_house_made' => true, 'yield_g' => 400]);
+            $butter->components()->sync([$apples->id => ['quantity' => 1000]]);
+
+            $this->actingAs($this->admin)
+                ->delete(route('admin.costing.ingredients.destroy', $apples))
+                ->assertSessionHas('error');
+
+            expect(Ingredient::find($apples->id))->not->toBeNull();
+        });
+
+        it('shows what it is made from, and a recipe shows its raw ingredients per unit', function () {
+            $apples = Ingredient::create(['name' => 'Shown Apples', 'unit_type' => 'g', 'waste_percent' => 100]);
+            $cheese = Ingredient::create(['name' => 'Shown Cheese', 'unit_type' => 'g', 'waste_percent' => 100]);
+            $butter = Ingredient::create(['name' => 'Shown Butter', 'unit_type' => 'g', 'waste_percent' => 100, 'is_house_made' => true, 'yield_g' => 400]);
+            $butter->components()->sync([$apples->id => ['quantity' => 1000]]);
+
+            $this->actingAs($this->admin)->get(route('admin.costing.ingredients.show', $butter))
+                ->assertInertia(fn ($page) => $page
+                    ->where('ingredient.is_house_made', true)
+                    ->where('ingredient.components.0.name', 'Shown Apples')
+                    ->where('ingredient.components.0.quantity', 1000)
+                );
+            $this->actingAs($this->admin)->get(route('admin.costing.ingredients.show', $apples))
+                ->assertInertia(fn ($page) => $page->where('ingredient.used_in_house_made.0.name', 'Shown Butter'));
+
+            // 250g cheese + 50g butter = 300g batch at a 300g fill: one unit
+            // takes 50g butter = 0.125 prep batches = 125g apples.
+            $recipe = Recipe::create(['name' => 'Shown Recipe', 'fill_size_g' => 300]);
+            $recipe->mainIngredients()->sync([$cheese->id => ['quantity_per_jar' => 250], $butter->id => ['quantity_per_jar' => 50]]);
+
+            $this->actingAs($this->admin)->get(route('admin.costing.recipes.show', $recipe))
+                ->assertInertia(fn ($page) => $page->where('recipe.raw_per_unit', fn ($raw) => collect($raw)->pluck('quantity', 'name')->map(fn ($q) => (float) $q)->all()
+                    === ['Shown Apples' => 125.0, 'Shown Cheese' => 250.0]));
+        });
+    });
+
     describe('recipe fill weight', function () {
         it('defaults a new recipe to a 280g fill when the form leaves it out', function () {
             $this->actingAs($this->admin)

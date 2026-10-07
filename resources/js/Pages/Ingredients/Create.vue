@@ -31,7 +31,7 @@
           <button type="button" :class="secondaryButtonClass" @click="leave">Cancel</button>
         </div>
         <p class="mb-6 text-sm text-gray-600 dark:text-gray-400">
-          Saved as you go. Sources and prices can be added once it has a name.
+          Saved as you go. Sources and prices can be added once it has a name, unless it's made in-house.
         </p>
 
         <FormErrorSummary v-if="Object.keys(form.errors).length > 0" :errors="form.errors" class="mb-6" />
@@ -39,6 +39,10 @@
 
       <template #section-details>
         <IngredientFields :form="form" :categories="categories" />
+        <div v-if="form.is_house_made" class="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+          <h3 class="text-base font-medium text-gray-900 dark:text-white mb-4">Made from</h3>
+          <HouseMadeFields :form="form" :pool="componentPool" />
+        </div>
       </template>
     </ResponsiveFormSections>
   </div>
@@ -54,6 +58,7 @@ import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
 import SaveIndicator from '@/Components/Admin/SaveIndicator.vue'
 import ResponsiveFormSections, { type FormSection } from '@/Components/Admin/ResponsiveFormSections.vue'
 import IconButton from '@/Components/IconButton.vue'
+import HouseMadeFields, { type ComponentOption } from '../Shared/HouseMadeFields.vue'
 import IngredientFields, { type IngredientFormData } from '../Shared/IngredientFields.vue'
 import { backLinkClass, iconActionClass, secondaryButtonClass } from '../Shared/formClasses'
 
@@ -61,6 +66,7 @@ defineOptions({ layout: (h, page) => h(AdminLayout, { hideBreadcrumbOnMobile: tr
 
 interface Props {
   categories: string[]
+  componentPool: ComponentOption[]
 }
 
 defineProps<Props>()
@@ -79,6 +85,9 @@ const form = usePersistedForm<IngredientFormData>({
   waste_percent: 100,
   byproduct_name: '',
   notes: '',
+  is_house_made: false,
+  yield_g: null,
+  components: [],
 }, {
   key: 'costing-ingredient-create',
   // Autosave creates the ingredient: the first save POSTs to store, whose
@@ -92,6 +101,12 @@ const form = usePersistedForm<IngredientFormData>({
     enabled: (): boolean => nameLongEnough.value,
   },
 })
+
+// Half-filled made-from rows stay on screen but aren't sent.
+form.transform((data) => ({
+  ...data,
+  components: data.components.filter((row) => row.ingredient_id !== null && row.quantity_per_jar !== null),
+}))
 
 const nameLongEnough = computed<boolean>(() => (form.name ?? '').trim().length >= 2)
 

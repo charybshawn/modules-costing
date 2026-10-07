@@ -15,6 +15,9 @@ use Cultpantry\Costing\Models\PriceHistoryEntry;
 use Cultpantry\Costing\Models\Recipe;
 use Cultpantry\Costing\Support\CostingBreadcrumbs;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -76,6 +79,7 @@ class IngredientController extends Controller implements HasMiddleware
                     'notes' => $ingredient->notes,
                     'byproduct_name' => $ingredient->byproduct_name,
                     'source_count' => $ingredient->packageSizes->count(),
+                    'is_house_made' => $ingredient->is_house_made,
                     'recipe_ids' => $ingredient->recipes->pluck('id')->all(),
                 ],
                 $calculateIngredientCosting->handle($ingredient)
@@ -89,12 +93,13 @@ class IngredientController extends Controller implements HasMiddleware
         ]);
     }
 
-    public function create(): Response
+    public function create(CalculateIngredientCosting $calculateIngredientCosting): Response
     {
         $this->authorize('create', Ingredient::class);
 
         return Inertia::render('Vendor/costing/Ingredients/Create', [
             'categories' => $this->knownCategories(),
+            'componentPool' => $this->componentPool(null, $calculateIngredientCosting),
             'breadcrumbs' => CostingBreadcrumbs::trail(
                 ['label' => 'Ingredients', 'href' => route('admin.costing.ingredients.index')],
                 ['label' => 'Add Ingredient'],
@@ -108,7 +113,8 @@ class IngredientController extends Controller implements HasMiddleware
 
         $validated = $this->validated($request);
 
-        $ingredient = Ingredient::create($validated);
+        $ingredient = Ingredient::create(Arr::except($validated, 'components'));
+        $this->syncComponents($ingredient, $validated);
 
         event(CostingRecordSaved::forCreated($ingredient, auth()->id()));
 
@@ -140,7 +146,7 @@ class IngredientController extends Controller implements HasMiddleware
         // Same eager loads as index() -- CalculateIngredientCosting reads
         // priceHistory (with its ingredient, for price_per_unit), inventory
         // and packageSizes, and lazy loading throws outside production.
-        $ingredient->load('priceHistory.ingredient', 'inventory', 'packageSizes', 'recipes:id,name,is_active');
+        $ingredient->load('priceHistory.ingredient', 'inventory', 'packageSizes', 'recipes:id,name,is_active', 'usedInHouseMade:id,name');
 
         return Inertia::render('Vendor/costing/Ingredients/Show', [
             'ingredient' => array_merge(
@@ -152,6 +158,27 @@ class IngredientController extends Controller implements HasMiddleware
                     'waste_percent' => (float) $ingredient->waste_percent,
                     'notes' => $ingredient->notes,
                     'byproduct_name' => $ingredient->byproduct_name,
+                    'is_house_made' => $ingredient->is_house_made,
+                    'yield_g' => $ingredient->yield_g !== null ? (float) $ingredient->yield_g : null,
+                    // Made-from lines, each with its own costing, for the
+                    // breakdown table (house-made only).
+                    'components' => $ingredient->is_house_made
+                        ? $ingredient->components()->with('priceHistory.ingredient', 'inventory', 'packageSizes')->orderBy('name')->get()
+                            ->map(fn (Ingredient $component) => array_merge(
+                                [
+                                    'id' => $component->id,
+                                    'name' => $component->name,
+                                    'unit_type' => $component->unit_type,
+                                    'is_house_made' => $component->is_house_made,
+                                    'quantity' => (float) $component->pivot->quantity,
+                                ],
+                                $calculateIngredientCosting->handle($component)
+                            ))->values()
+                        : [],
+                    'used_in_house_made' => $ingredient->usedInHouseMade->sortBy('name')->map(fn (Ingredient $parent) => [
+                        'id' => $parent->id,
+                        'name' => $parent->name,
+                    ])->values(),
                     'recipes' => $ingredient->recipes->sortBy('name')->map(fn (Recipe $recipe) => [
                         'id' => $recipe->id,
                         'name' => $recipe->name,
@@ -168,9 +195,11 @@ class IngredientController extends Controller implements HasMiddleware
         ]);
     }
 
-    public function edit(Ingredient $ingredient): Response
+    public function edit(Ingredient $ingredient, CalculateIngredientCosting $calculateIngredientCosting): Response
     {
         $this->authorize('update', $ingredient);
+
+        $ingredient->load('components');
 
         return Inertia::render('Vendor/costing/Ingredients/Edit', [
             'ingredient' => [
@@ -181,8 +210,15 @@ class IngredientController extends Controller implements HasMiddleware
                 'waste_percent' => (float) $ingredient->waste_percent,
                 'notes' => $ingredient->notes,
                 'byproduct_name' => $ingredient->byproduct_name,
+                'is_house_made' => $ingredient->is_house_made,
+                'yield_g' => $ingredient->yield_g !== null ? (float) $ingredient->yield_g : null,
+                'components' => $ingredient->components->map(fn (Ingredient $component) => [
+                    'ingredient_id' => $component->id,
+                    'quantity_per_jar' => (float) $component->pivot->quantity,
+                ])->values(),
             ],
             'categories' => $this->knownCategories(),
+            'componentPool' => $this->componentPool($ingredient, $calculateIngredientCosting),
             'breadcrumbs' => CostingBreadcrumbs::trail(
                 ['label' => 'Ingredients', 'href' => route('admin.costing.ingredients.index')],
                 ['label' => $ingredient->name],
@@ -196,9 +232,10 @@ class IngredientController extends Controller implements HasMiddleware
 
         $validated = $this->validated($request, $ingredient->id);
 
-        $ingredient->fill($validated);
+        $ingredient->fill(Arr::except($validated, 'components'));
         $savedEvent = CostingRecordSaved::forUpdated($ingredient, auth()->id());
         $ingredient->save();
+        $this->syncComponents($ingredient, $validated);
         event($savedEvent);
 
         // Background autosave from the Edit page: stay on it, no success
@@ -394,6 +431,12 @@ class IngredientController extends Controller implements HasMiddleware
     {
         $this->authorize('delete', $ingredient);
 
+        if ($ingredient->usedInHouseMade()->exists()) {
+            $parents = $ingredient->usedInHouseMade()->orderBy('name')->pluck('name')->implode(', ');
+
+            return redirect()->back()->with('error', "'{$ingredient->name}' is used to make {$parents} -- remove it from there first.");
+        }
+
         $name = $ingredient->name;
         $deletedEvent = CostingRecordDeleted::forModel($ingredient, auth()->id());
         $ingredient->delete();
@@ -464,7 +507,7 @@ class IngredientController extends Controller implements HasMiddleware
 
     private function validated(Request $request, ?int $ignoreId = null): array
     {
-        return $request->validate([
+        $validated = $request->validate([
             'name' => [
                 'required', 'string', 'max:255',
                 Rule::unique('costing_ingredients', 'name')->ignore($ignoreId),
@@ -474,7 +517,108 @@ class IngredientController extends Controller implements HasMiddleware
             'waste_percent' => ['required', 'numeric', 'min:1', 'max:100'],
             'notes' => ['nullable', 'string'],
             'byproduct_name' => ['nullable', 'string', 'max:100'],
+            'is_house_made' => ['boolean'],
+            // Not required: autosave fires as soon as the toggle flips, before
+            // there's a yield to enter. Without one it's simply unpriced.
+            'yield_g' => ['nullable', 'numeric', 'gt:0'],
+            'components' => ['nullable', 'array'],
+            'components.*.ingredient_id' => [
+                'required', 'distinct', 'exists:costing_ingredients,id',
+                Rule::notIn(array_filter([$ignoreId])),
+            ],
+            'components.*.quantity_per_jar' => ['required', 'numeric', 'min:0'],
+        ], [
+            'components.*.ingredient_id.not_in' => 'An ingredient can\'t be made from itself.',
         ]);
+
+        if (!empty($validated['is_house_made'])) {
+            $errors = [];
+            if ($validated['unit_type'] !== 'g') {
+                $errors['unit_type'] = 'A house-made ingredient is measured in grams.';
+            }
+            $componentIds = array_map('intval', array_column($validated['components'] ?? [], 'ingredient_id'));
+            if ($ignoreId !== null && $this->reaches($componentIds, $ignoreId)) {
+                $errors['components'] = 'That would make this ingredient part of its own recipe.';
+            }
+            if ($errors) {
+                throw ValidationException::withMessages($errors);
+            }
+        }
+
+        return $validated;
+    }
+
+    /**
+     * Saves a house-made ingredient's made-from lines (zero quantities are
+     * dropped, like recipe lines); switching it off clears them.
+     */
+    private function syncComponents(Ingredient $ingredient, array $validated): void
+    {
+        if (!array_key_exists('is_house_made', $validated) && !array_key_exists('components', $validated)) {
+            return;
+        }
+
+        $sync = [];
+        if ($ingredient->is_house_made) {
+            foreach ($validated['components'] ?? [] as $row) {
+                if ((float) $row['quantity_per_jar'] > 0) {
+                    $sync[$row['ingredient_id']] = ['quantity' => $row['quantity_per_jar']];
+                }
+            }
+        }
+
+        $ingredient->components()->sync($sync);
+    }
+
+    /**
+     * Whether $targetId is among $startIds or anything they're (transitively)
+     * made from -- i.e. adding $startIds as components of $targetId would
+     * create a loop.
+     */
+    private function reaches(array $startIds, int $targetId): bool
+    {
+        $seen = [];
+        $queue = $startIds;
+
+        while ($queue) {
+            $id = array_shift($queue);
+            if ($id === $targetId) {
+                return true;
+            }
+            if (isset($seen[$id])) {
+                continue;
+            }
+            $seen[$id] = true;
+
+            array_push($queue, ...DB::table('costing_ingredient_components')
+                ->where('ingredient_id', $id)
+                ->pluck('component_ingredient_id')
+                ->map(fn ($componentId) => (int) $componentId)
+                ->all());
+        }
+
+        return false;
+    }
+
+    /**
+     * Every ingredient a house-made one could be made from, with costing for
+     * the form's live cost readout -- all except the one being edited.
+     */
+    private function componentPool(?Ingredient $exclude, CalculateIngredientCosting $calculateIngredientCosting): Collection
+    {
+        return Ingredient::with('priceHistory.ingredient', 'inventory', 'packageSizes')
+            ->when($exclude, fn ($query) => $query->whereKeyNot($exclude->id))
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Ingredient $ingredient) => array_merge(
+                [
+                    'id' => $ingredient->id,
+                    'name' => $ingredient->name,
+                    'unit_type' => $ingredient->unit_type,
+                    'byproduct_name' => $ingredient->byproduct_name,
+                ],
+                $calculateIngredientCosting->handle($ingredient)
+            ));
     }
 
     /**

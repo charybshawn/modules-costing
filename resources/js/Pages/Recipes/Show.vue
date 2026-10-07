@@ -76,6 +76,7 @@
           >
             <template #cell-name="{ item }">
               <span class="text-sm font-medium text-gray-900 dark:text-white">{{ item.name }}</span>
+              <span v-if="item.isHouseMade" class="ml-1.5 inline-flex items-center rounded-full bg-indigo-100 dark:bg-indigo-900/40 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:text-indigo-300">In-house</span>
             </template>
             <template #cell-quantity="{ item }">
               <span class="text-sm tabular-nums text-gray-900 dark:text-white">{{ item.quantity }}{{ item.unit }}</span>
@@ -92,6 +93,28 @@
           </DataTable>
         </div>
         <p v-else class="text-sm text-gray-500 dark:text-gray-400">No ingredients yet.</p>
+
+        <div v-if="recipe.raw_per_unit.length" class="mt-4">
+          <button
+            type="button"
+            class="tap-target-touch inline-flex items-center text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300"
+            :aria-expanded="showRaw"
+            @click="showRaw = !showRaw"
+          >
+            {{ showRaw ? 'Hide' : 'Show' }} raw ingredients per unit
+          </button>
+          <div v-if="showRaw" class="mt-2">
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">
+              Everything one {{ recipe.fill_size_g ? `${recipe.fill_size_g}g ` : '' }}unit takes, with in-house ingredients broken down into what they're made from.
+            </p>
+            <ul class="divide-y divide-gray-200 dark:divide-gray-700">
+              <li v-for="raw in recipe.raw_per_unit" :key="raw.id" class="flex items-center justify-between gap-3 py-2 text-sm">
+                <span class="truncate text-gray-900 dark:text-white">{{ raw.name }}</span>
+                <span class="shrink-0 tabular-nums text-gray-500 dark:text-gray-400">{{ formatQuantity(raw.quantity) }}{{ raw.unit_type === 'unit' ? ' unit' : 'g' }}</span>
+              </li>
+            </ul>
+          </div>
+        </div>
       </div>
 
       <div v-if="recipe.byproducts.length">
@@ -113,7 +136,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
@@ -132,6 +155,7 @@ interface IngredientLine {
   id: number
   name: string
   unit_type: 'g' | 'unit'
+  is_house_made: boolean
   quantity_per_jar: number
   status: 'ok' | 'no_price_this_week'
   weekly_price: number | null
@@ -149,6 +173,7 @@ interface Recipe {
   is_active: boolean
   max_producible_units: number
   ingredients: IngredientLine[]
+  raw_per_unit: Array<{ id: number; name: string; unit_type: 'g' | 'unit'; quantity: number }>
   byproducts: Array<{ id: number; name: string; byproduct_name: string | null; unit_type: 'g' | 'unit'; quantity_per_jar: number }>
 }
 
@@ -164,6 +189,11 @@ const indexUrl = route('admin.costing.recipes.index')
 
 const belowMinimum = computed(() =>
   props.recipe.min_stock_threshold !== null && props.recipe.max_producible_units < props.recipe.min_stock_threshold)
+
+const showRaw = ref(false)
+
+// Small amounts (spices) keep their decimals; bigger ones don't need them.
+const formatQuantity = (value: number) => (value < 10 ? +value.toFixed(2) : +value.toFixed(1))
 
 const ingredientColumns: Column[] = [
   { key: 'name', label: 'Ingredient' },
@@ -190,6 +220,7 @@ const lines = computed(() => props.recipe.ingredients.map((ingredient) => {
   return {
     id: ingredient.id,
     name: ingredient.name,
+    isHouseMade: ingredient.is_house_made,
     quantity,
     unit: ingredient.unit_type === 'unit' ? ' unit' : 'g',
     percent: ingredient.unit_type === 'g' && totalGrams.value > 0

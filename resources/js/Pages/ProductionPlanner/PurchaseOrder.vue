@@ -22,6 +22,22 @@
           Production run: {{ productionRun.total_units }} units total{{ productionRun.name ? ` — ${productionRun.name}` : '' }} ({{ productionRun.run_date }})
         </p>
 
+        <div v-if="plan.prep_rows.length" class="mt-6">
+          <h2 class="text-lg font-medium text-gray-900 dark:text-white print:text-black">Prep first</h2>
+          <p class="mt-1 text-sm text-gray-600 dark:text-gray-400 print:text-black">
+            Made in-house for this run. What they're made from is already included in the list below.
+          </p>
+          <ul class="mt-2 divide-y divide-gray-200 dark:divide-gray-700">
+            <li v-for="row in plan.prep_rows" :key="row.ingredient_id" class="flex flex-wrap items-baseline justify-between gap-x-3 py-2 text-sm">
+              <span class="font-medium text-gray-900 dark:text-white print:text-black">{{ row.ingredient_name }}</span>
+              <span class="text-gray-700 dark:text-gray-300 print:text-black">
+                {{ formatQuantity(row.required, 'g') }}
+                <span v-if="row.yield_g"> · {{ row.prep_batches }} prep batch{{ row.prep_batches === 1 ? '' : 'es' }} of {{ formatQuantity(row.yield_g, 'g') }}</span>
+              </span>
+            </li>
+          </ul>
+        </div>
+
         <div v-if="plan.purchase_rows.length === 0" class="mt-8 text-center text-gray-600 dark:text-gray-400 print:text-black py-12 border border-dashed border-gray-300 dark:border-gray-600 rounded-md">
           Nothing to buy — inventory covers all requirements.
         </div>
@@ -111,8 +127,17 @@ interface PlanRow {
   est_cost: number
 }
 
+interface PrepRow {
+  ingredient_id: number
+  ingredient_name: string
+  required: number
+  yield_g: number
+  prep_batches: number
+}
+
 interface Plan {
   purchase_rows: PlanRow[]
+  prep_rows: PrepRow[]
   total_estimated_cost: number
 }
 

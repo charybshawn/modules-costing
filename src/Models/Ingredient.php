@@ -17,6 +17,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property string|null $preferred_brand
  * @property string|null $notes
  * @property string|null $byproduct_name
+ * @property bool $is_house_made
+ * @property float|null $yield_g
  */
 class Ingredient extends Model
 {
@@ -31,10 +33,14 @@ class Ingredient extends Model
         'preferred_brand',
         'notes',
         'byproduct_name',
+        'is_house_made',
+        'yield_g',
     ];
 
     protected $casts = [
         'waste_percent' => 'decimal:2',
+        'is_house_made' => 'boolean',
+        'yield_g' => 'decimal:3',
     ];
 
     protected static function booted(): void
@@ -74,6 +80,27 @@ class Ingredient extends Model
     {
         return $this->belongsToMany(Recipe::class, 'costing_ingredient_recipe', 'ingredient_id', 'recipe_id')
             ->withPivot('quantity_per_jar')
+            ->withTimestamps();
+    }
+
+    /**
+     * What a house-made ingredient is made from, per prep batch (pivot
+     * quantity, in grams or units). Empty for bought ingredients.
+     */
+    public function components(): BelongsToMany
+    {
+        return $this->belongsToMany(Ingredient::class, 'costing_ingredient_components', 'ingredient_id', 'component_ingredient_id')
+            ->withPivot('quantity')
+            ->withTimestamps();
+    }
+
+    /**
+     * House-made ingredients this one goes into.
+     */
+    public function usedInHouseMade(): BelongsToMany
+    {
+        return $this->belongsToMany(Ingredient::class, 'costing_ingredient_components', 'component_ingredient_id', 'ingredient_id')
+            ->withPivot('quantity')
             ->withTimestamps();
     }
 

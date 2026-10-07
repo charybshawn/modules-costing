@@ -15,7 +15,15 @@
       <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Pick one already in use or type a new one.</p>
     </div>
 
-    <fieldset>
+    <div class="flex items-start justify-between gap-4">
+      <div>
+        <p class="text-sm font-medium text-gray-700 dark:text-gray-300">Made in-house</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400">Something you make from other ingredients, e.g. apple butter. Its cost is worked out from what it's made of, so it has no prices of its own.</p>
+      </div>
+      <ToggleSwitch v-model="form.is_house_made" label="Made in-house" />
+    </div>
+
+    <fieldset v-if="!form.is_house_made">
       <legend class="block text-sm font-medium text-gray-700 dark:text-gray-300">Measured in *</legend>
       <div class="mt-2 space-y-2">
         <label v-for="option in unitOptions" :key="option.value" class="tap-target-touch flex items-start gap-3">
@@ -29,7 +37,7 @@
       <InputError :message="form.errors.unit_type" />
     </fieldset>
 
-    <div>
+    <div v-if="!form.is_house_made">
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Waste % *</label>
       <input v-model.number="form.waste_percent" type="number" inputmode="decimal" min="1" max="100" step="0.01" required :class="inputClass" />
       <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">The usable share after trimming: 100 = no waste, 95 = 5% trim loss.</p>
@@ -51,7 +59,9 @@
 </template>
 
 <script setup lang="ts">
+import { watch } from 'vue'
 import InputError from '@/Components/InputError.vue'
+import ToggleSwitch from '@/Components/ToggleSwitch.vue'
 import { inputClass } from './formClasses'
 
 export interface IngredientFormData {
@@ -61,13 +71,21 @@ export interface IngredientFormData {
   waste_percent: number
   byproduct_name: string
   notes: string
+  is_house_made: boolean
+  yield_g: number | null
+  components: Array<{ ingredient_id: number | null; quantity_per_jar: number | null }>
 }
 
-defineProps<{
+const props = defineProps<{
   // The page's usePersistedForm -- fields bind straight into it.
   form: any
   categories: string[]
 }>()
+
+// House-made ingredients are weighed (cost per kg over a gram yield).
+watch(() => props.form.is_house_made, (houseMade) => {
+  if (houseMade) props.form.unit_type = 'g'
+})
 
 // Two options: radios, so both are visible at a glance (FORM_DESIGN.md →
 // Input type selection).

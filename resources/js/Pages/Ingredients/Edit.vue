@@ -63,6 +63,8 @@
       </template>
 
       <template #section-sources>
+        <HouseMadeFields v-if="form.is_house_made" :form="form" :pool="componentPool" />
+        <template v-else>
         <p class="mb-4 text-sm text-gray-600 dark:text-gray-400">
           Where you buy this and what you're paying. Pick a wholesaler/brand as preferred to lock it in for recipes and the production planner, regardless of price.
         </p>
@@ -71,6 +73,7 @@
         <div class="mx-2">
           <SourcesTable :ingredient="{ id: ingredient.id, name: ingredient.name, unit_type: ingredient.unit_type }" />
         </div>
+        </template>
       </template>
     </ResponsiveFormSections>
   </div>
@@ -89,6 +92,7 @@ import FormStepNav from '@/Components/Admin/FormStepNav.vue'
 import SaveIndicator from '@/Components/Admin/SaveIndicator.vue'
 import ResponsiveFormSections, { type FormSection } from '@/Components/Admin/ResponsiveFormSections.vue'
 import IconButton from '@/Components/IconButton.vue'
+import HouseMadeFields, { type ComponentOption } from '../Shared/HouseMadeFields.vue'
 import IngredientFields, { type IngredientFormData } from '../Shared/IngredientFields.vue'
 import SourcesTable from '../Shared/SourcesTable.vue'
 import { backLinkClass, dangerIconActionClass, dangerOutlineButtonClass, iconActionClass, secondaryButtonClass } from '../Shared/formClasses'
@@ -103,20 +107,29 @@ interface Ingredient {
   waste_percent: number
   byproduct_name: string | null
   notes: string | null
+  is_house_made: boolean
+  yield_g: number | null
+  components: Array<{ ingredient_id: number; quantity_per_jar: number }>
 }
 
 interface Props {
   ingredient: Ingredient
   categories: string[]
+  componentPool: ComponentOption[]
 }
 
 const props = defineProps<Props>()
 const { confirmDialog } = useConfirmDialog()
 
-const sections: FormSection[] = [
+// The second step is Sources & Prices for a bought ingredient, or what a
+// house-made one is made from -- same key, so its open/closed state holds
+// when the toggle flips.
+const sections = computed<FormSection[]>(() => [
   { key: 'details', title: 'Details' },
-  { key: 'sources', title: 'Sources & Prices', shortTitle: 'Sources' },
-]
+  form.is_house_made
+    ? { key: 'sources', title: 'Made From', shortTitle: 'Made from' }
+    : { key: 'sources', title: 'Sources & Prices', shortTitle: 'Sources' },
+])
 
 const shellRef = ref<InstanceType<typeof ResponsiveFormSections> | null>(null)
 const indexUrl = route('admin.costing.ingredients.index')
@@ -130,6 +143,9 @@ const initialData: IngredientFormData = {
   waste_percent: props.ingredient.waste_percent,
   byproduct_name: props.ingredient.byproduct_name ?? '',
   notes: props.ingredient.notes ?? '',
+  is_house_made: props.ingredient.is_house_made,
+  yield_g: props.ingredient.yield_g,
+  components: props.ingredient.components.map((row) => ({ ...row })),
 }
 
 // What the × -> "Discard Changes" restores: the ingredient as it was when
@@ -145,6 +161,13 @@ const form = usePersistedForm<IngredientFormData>(initialData, {
     onSuccess: (): void => markSaved(),
   },
 })
+
+// Half-filled made-from rows (just added, nothing picked yet) stay on
+// screen but aren't sent.
+form.transform((data) => ({
+  ...data,
+  components: data.components.filter((row) => row.ingredient_id !== null && row.quantity_per_jar !== null),
+}))
 
 // Header × (Keep Editing / Keep … / Discard …) and session tracking.
 // Sources and prices save through their own requests, so Discard only
