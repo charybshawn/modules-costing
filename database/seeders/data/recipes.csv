@@ -1,6 +1,7 @@
-name,sell_price,fill_size_g,cost_buffer_percent,notes
-Caramelized French Onion,10,280,,
-Dangerously Dilly,10,280,,
-Jalapeno Popper,10,280,,
-Sriracha Maple Bacon,10,280,,
-Zesty Orange Cranberry,10,280,,
+name,sell_price,fill_size_g,cost_buffer_percent,notes,preferred_batch_size
+Caramelized French Onion,10,280,,,
+Dangerously Dilly,10,280,,,
+Jalapeno Popper,10,280,,,
+Sriracha Maple Bacon,10,280,,,
+Zesty Orange Cranberry,10,280,,,
+Autumn Apple Cinnamon,10,280,,,20

@@ -20,6 +20,7 @@ class RecipeSeeder extends Seeder
                 [
                     'sell_price' => $this->csvFloat($row['sell_price']),
                     'fill_size_g' => $this->csvFloat($row['fill_size_g']),
+                    'preferred_batch_size' => $this->csvInt($row['preferred_batch_size']),
                     'cost_buffer_percent' => $this->csvFloat($row['cost_buffer_percent']),
                     'notes' => $this->csvNullable($row['notes']),
                 ],

@@ -847,3 +847,34 @@ describe('house-made ingredients', function () {
         expect((float) $rows['HM Plan Sugar']['required'])->toBe(75.0);
     });
 });
+
+describe('seed data', function () {
+    it('seeds Autumn Apple Cinnamon with its house-made Apple Butter, priced and ready to plan', function () {
+        $this->seed(\Cultpantry\Costing\Database\Seeders\CostingDatabaseSeeder::class);
+
+        $butter = Ingredient::where('name', 'Apple Butter')->firstOrFail();
+        expect($butter->is_house_made)->toBeTrue();
+        expect((float) $butter->yield_g)->toBe(900.0);
+        expect($butter->components)->toHaveCount(10);
+        expect((float) $butter->components->firstWhere('name', 'Apples Pink Ladies')->pivot->quantity)->toBe(2100.0);
+
+        // Every component freshly priced, so the butter is too: $12.87 per
+        // 900g prep batch = $14.30/kg.
+        $costing = (new CalculateIngredientCosting)->handle($butter->fresh());
+        expect($costing['status'])->toBe('ok');
+        expect($costing['effective_price'])->toBe(14.3008);
+
+        $recipe = Recipe::where('name', 'Autumn Apple Cinnamon')->firstOrFail();
+        expect($recipe->preferred_batch_size)->toBe(20);
+        expect((float) $recipe->sell_price)->toBe(10.0);
+        expect($recipe->ingredients->pluck('pivot.quantity_per_jar', 'name')->map(fn ($q) => (float) $q)->sortKeys()->all())->toBe([
+            '8oz Deli Cup' => 1.0,
+            '8oz Deli Lid' => 1.0,
+            'Apple Butter' => 45.0,
+            'Apples Pink Ladies' => 40.0,
+            'Cream Cheese' => 250.0,
+        ]);
+
+        expect(round((new CalculateRecipeCost(new CalculateIngredientCosting))->handle($recipe->fresh())['actual_cost_per_jar'], 2))->toBe(3.55);
+    });
+});

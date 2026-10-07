@@ -28,6 +28,7 @@ class CostingDatabaseSeeder extends Seeder
         // ingredient+provider+brand, so it must come after both.
         $this->call([
             IngredientSeeder::class,
+            IngredientComponentSeeder::class,
             SourceSeeder::class,
             InventorySeeder::class,
             PriceHistorySeeder::class,
