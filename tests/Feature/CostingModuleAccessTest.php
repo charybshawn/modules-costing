@@ -1054,14 +1054,36 @@ describe('costing admin module', function () {
             $this->actingAs($this->admin)->get(route('admin.costing.ingredients.show', $apples))
                 ->assertInertia(fn ($page) => $page->where('ingredient.used_in_house_made.0.name', 'Shown Butter'));
 
-            // 250g cheese + 50g butter = 300g batch at a 300g fill: one unit
-            // takes 50g butter = 0.125 prep batches = 125g apples.
-            $recipe = Recipe::create(['name' => 'Shown Recipe', 'fill_size_g' => 300]);
+            // One unit takes 250g cheese + 50g butter; 50g butter = 0.125
+            // prep batches = 125g apples. The fill weight doesn't change it.
+            $recipe = Recipe::create(['name' => 'Shown Recipe', 'fill_size_g' => 280]);
             $recipe->mainIngredients()->sync([$cheese->id => ['quantity_per_jar' => 250], $butter->id => ['quantity_per_jar' => 50]]);
 
             $this->actingAs($this->admin)->get(route('admin.costing.recipes.show', $recipe))
-                ->assertInertia(fn ($page) => $page->where('recipe.raw_per_unit', fn ($raw) => collect($raw)->pluck('quantity', 'name')->map(fn ($q) => (float) $q)->all()
-                    === ['Shown Apples' => 125.0, 'Shown Cheese' => 250.0]));
+                ->assertInertia(fn ($page) => $page
+                    ->where('recipe.raw_per_unit', fn ($raw) => collect($raw)->pluck('quantity', 'name')->map(fn ($q) => (float) $q)->all()
+                        === ['Shown Apples' => 125.0, 'Shown Cheese' => 250.0])
+                    ->where('recipe.prep_per_unit.0.name', 'Shown Butter')
+                    ->where('recipe.prep_per_unit.0.quantity', 50)
+                );
+        });
+    });
+
+    describe('recipe preferred batch size', function () {
+        it('saves the preferred batch size from the recipe form and passes it to the recipe page', function () {
+            $recipe = Recipe::create(['name' => 'Batch Size Recipe']);
+
+            $this->actingAs($this->admin)
+                ->put(route('admin.costing.recipes.update', $recipe), ['name' => 'Batch Size Recipe', 'preferred_batch_size' => 20, 'ingredients' => []])
+                ->assertSessionHasNoErrors();
+            expect($recipe->fresh()->preferred_batch_size)->toBe(20);
+
+            $this->actingAs($this->admin)->get(route('admin.costing.recipes.show', $recipe))
+                ->assertInertia(fn ($page) => $page->where('recipe.preferred_batch_size', 20));
+
+            $this->actingAs($this->admin)
+                ->put(route('admin.costing.recipes.update', $recipe), ['name' => 'Batch Size Recipe', 'preferred_batch_size' => 0, 'ingredients' => []])
+                ->assertSessionHasErrors('preferred_batch_size');
         });
     });
 

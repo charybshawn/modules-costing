@@ -88,7 +88,7 @@ proof (`actingAs()` bypasses real session middleware).
   instead of the original's `#DIV/0!` for incomplete rows.
 - **Inventory** -- unit size x units on hand, auto-created for every
   ingredient.
-- **Recipes** -- flavours with grams (or units) per batch per ingredient.
+- **Recipes** -- flavours with grams (or units) per unit per ingredient.
 - **Production Planner** -- unit counts per flavour; the shopping list
   (Required / On Hand / To Purchase / Units to Buy / Est. Cost) is computed
   live via `CalculateProductionPlan`, with amber/green row highlighting.

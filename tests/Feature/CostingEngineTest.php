@@ -444,12 +444,13 @@ describe('CalculateProductionPlan', function () {
         expect((float) $rows['Beef Stock Concentrate']['est_cost'])->toBe(9.46); // $10/kg x 946g / 1000
     });
 
-    it('scales per-batch gram lines down to the fill weight, but keeps one packaging item per unit', function () {
+    it('plans the recipe amounts as-is per unit -- the fill weight only affects cost', function () {
         $base = Ingredient::create(['name' => 'Fill Plan Base', 'unit_type' => 'g', 'waste_percent' => 100]);
         $mixIn = Ingredient::create(['name' => 'Fill Plan Mix-in', 'unit_type' => 'g', 'waste_percent' => 100]);
         $cup = Ingredient::create(['name' => 'Fill Plan Cup', 'unit_type' => 'unit', 'waste_percent' => 100]);
 
-        // 250g + 70g = 320g batch, filled at 280g -> each unit takes 0.875 of every gram line.
+        // 320g of ingredients per planned unit, filled at 280g: the extra
+        // fills bonus units, so planning still needs the full 320g each.
         $recipe = Recipe::create(['name' => 'Fill Plan Flavour', 'fill_size_g' => 280]);
         $recipe->ingredients()->sync([
             $base->id => ['quantity_per_jar' => 250],
@@ -462,8 +463,8 @@ describe('CalculateProductionPlan', function () {
 
         $rows = collect((new CalculateProductionPlan(new CalculateIngredientCosting))->handle($run->fresh())['rows'])->keyBy('ingredient_name');
 
-        expect((float) $rows['Fill Plan Base']['required'])->toBe(1750.0); // 250 x 0.875 x 8
-        expect((float) $rows['Fill Plan Mix-in']['required'])->toBe(490.0); // 70 x 0.875 x 8
+        expect((float) $rows['Fill Plan Base']['required'])->toBe(2000.0); // 250 x 8
+        expect((float) $rows['Fill Plan Mix-in']['required'])->toBe(560.0); // 70 x 8
         expect((float) $rows['Fill Plan Cup']['required'])->toBe(8.0);
     });
 });
@@ -670,15 +671,15 @@ describe('CalculateMaxProducibleUnits', function () {
         expect((new CalculateMaxProducibleUnits)->handle($recipe->fresh()))->toBe(0);
     });
 
-    it('counts units at the fill weight, not whole batches', function () {
+    it('counts planned units at the recipe amounts, ignoring the fill weight', function () {
         $ingredient = Ingredient::create(['name' => 'Fill Producible', 'unit_type' => 'g', 'waste_percent' => 100]);
         $ingredient->packageSizes()->create(['provider' => 'GFS', 'package_size' => 1000, 'quantity_on_hand' => 1000]);
 
-        // A 400g batch filled at 200g: each unit uses 200g, so 1000g makes 5 units, not 2.
+        // 400g per unit: 1000g makes 2 units, whatever the fill.
         $recipe = Recipe::create(['name' => 'Fill Producible Recipe', 'fill_size_g' => 200]);
         $recipe->mainIngredients()->sync([$ingredient->id => ['quantity_per_jar' => 400]]);
 
-        expect((new CalculateMaxProducibleUnits)->handle($recipe->fresh()))->toBe(5);
+        expect((new CalculateMaxProducibleUnits)->handle($recipe->fresh()))->toBe(2);
     });
 
     it('returns zero for a recipe with no main ingredients at all', function () {

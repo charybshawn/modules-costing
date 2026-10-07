@@ -197,6 +197,7 @@ class RecipeController extends Controller implements HasMiddleware
             'product_id' => $validated['product_id'] ?? null,
             'min_stock_threshold' => $validated['min_stock_threshold'] ?? null,
             'fill_size_g' => array_key_exists('fill_size_g', $validated) ? $validated['fill_size_g'] : Recipe::DEFAULT_FILL_SIZE_G,
+            'preferred_batch_size' => $validated['preferred_batch_size'] ?? null,
             'is_active' => $validated['is_active'] ?? true,
         ]);
 
@@ -242,21 +243,25 @@ class RecipeController extends Controller implements HasMiddleware
             'byproductIngredients',
         );
 
-        // What one filled unit really takes once house-made ingredients
-        // (e.g. apple butter) are broken down -- only when there are any.
-        $rawPerUnit = [];
-        if ($recipe->mainIngredients->contains(fn (Ingredient $ingredient) => $ingredient->is_house_made)) {
-            $expanded = $expandIngredientRequirements->handle($recipe->mainIngredients->map(fn (Ingredient $ingredient) => [
-                'ingredient' => $ingredient,
-                'quantity' => $recipe->quantityPerUnit($ingredient, (float) $ingredient->pivot->quantity_per_jar),
-            ]));
-            $rawPerUnit = collect($expanded['raw'])->map(fn (array $entry) => [
-                'id' => $entry['ingredient']->id,
-                'name' => $entry['ingredient']->name,
-                'unit_type' => $entry['ingredient']->unit_type,
-                'quantity' => round($entry['quantity'], 3),
-            ])->sortBy('name')->values();
-        }
+        // What one unit's recipe really takes once house-made ingredients
+        // (e.g. apple butter) are broken down, plus how much of each
+        // house-made one to prep -- the batch calculator scales both.
+        $expanded = $expandIngredientRequirements->handle($recipe->mainIngredients->map(fn (Ingredient $ingredient) => [
+            'ingredient' => $ingredient,
+            'quantity' => (float) $ingredient->pivot->quantity_per_jar,
+        ]));
+        $rawPerUnit = collect($expanded['raw'])->map(fn (array $entry) => [
+            'id' => $entry['ingredient']->id,
+            'name' => $entry['ingredient']->name,
+            'unit_type' => $entry['ingredient']->unit_type,
+            'quantity' => round($entry['quantity'], 3),
+        ])->sortBy('name')->values();
+        $prepPerUnit = collect($expanded['prep'])->map(fn (array $entry) => [
+            'id' => $entry['ingredient']->id,
+            'name' => $entry['ingredient']->name,
+            'quantity' => round($entry['quantity'], 3),
+            'yield_g' => (float) $entry['ingredient']->yield_g,
+        ])->sortBy('name')->values();
 
         return Inertia::render('Vendor/costing/Recipes/Show', [
             'recipe' => [
@@ -265,6 +270,7 @@ class RecipeController extends Controller implements HasMiddleware
                 'notes' => $recipe->notes,
                 'min_stock_threshold' => $recipe->min_stock_threshold,
                 'fill_size_g' => $recipe->fill_size_g !== null ? (float) $recipe->fill_size_g : null,
+                'preferred_batch_size' => $recipe->preferred_batch_size,
                 'is_active' => $recipe->is_active,
                 'max_producible_units' => $calculateMaxProducibleUnits->handle($recipe),
                 'ingredients' => $recipe->mainIngredients->sortBy('name')->map(fn (Ingredient $ingredient) => array_merge(
@@ -278,6 +284,7 @@ class RecipeController extends Controller implements HasMiddleware
                     $calculateIngredientCosting->handle($ingredient)
                 ))->values(),
                 'raw_per_unit' => $rawPerUnit,
+                'prep_per_unit' => $prepPerUnit,
                 'byproducts' => $recipe->byproductIngredients->sortBy('name')->map(fn (Ingredient $ingredient) => [
                     'id' => $ingredient->id,
                     'name' => $ingredient->name,
@@ -317,6 +324,7 @@ class RecipeController extends Controller implements HasMiddleware
                 'product_id' => $recipe->product_id,
                 'min_stock_threshold' => $recipe->min_stock_threshold,
                 'fill_size_g' => $recipe->fill_size_g !== null ? (float) $recipe->fill_size_g : null,
+                'preferred_batch_size' => $recipe->preferred_batch_size,
                 'is_active' => $recipe->is_active,
                 'ingredients' => $recipe->mainIngredients->map(fn (Ingredient $ingredient) => [
                     'ingredient_id' => $ingredient->id,
@@ -357,6 +365,7 @@ class RecipeController extends Controller implements HasMiddleware
             'product_id' => $validated['product_id'] ?? null,
             'min_stock_threshold' => $validated['min_stock_threshold'] ?? null,
             'fill_size_g' => array_key_exists('fill_size_g', $validated) ? $validated['fill_size_g'] : $recipe->fill_size_g,
+            'preferred_batch_size' => array_key_exists('preferred_batch_size', $validated) ? $validated['preferred_batch_size'] : $recipe->preferred_batch_size,
             'is_active' => $validated['is_active'] ?? true,
         ]);
         $savedEvent = CostingRecordSaved::forUpdated($recipe, auth()->id());
@@ -550,6 +559,7 @@ class RecipeController extends Controller implements HasMiddleware
             }],
             'min_stock_threshold' => ['nullable', 'integer', 'min:0'],
             'fill_size_g' => ['nullable', 'numeric', 'gt:0'],
+            'preferred_batch_size' => ['nullable', 'integer', 'min:1'],
             'is_active' => ['boolean'],
             'ingredients' => ['array'],
             'ingredients.*.ingredient_id' => ['required', 'exists:costing_ingredients,id'],

@@ -30,8 +30,7 @@ class CalculateMaxProducibleUnits
         $producible = null;
 
         foreach ($recipe->mainIngredients as $ingredient) {
-            // Lines are per batch; scaled to one filled unit.
-            $qty = $recipe->quantityPerUnit($ingredient, (float) $ingredient->pivot->quantity_per_jar);
+            $qty = (float) $ingredient->pivot->quantity_per_jar;
             if ($qty <= 0) {
                 continue;
             }

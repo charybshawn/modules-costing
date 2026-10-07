@@ -1,8 +1,7 @@
-// A recipe's ingredients make one batch; each unit only holds the fill
-// weight, and the rest goes into the next unit. Prorate the batch cost to
-// what's in one unit -- same math as CalculateRecipeCost's
-// actual_cost_per_jar. No fill (or no weighed ingredients) means the whole
-// batch is costed as one unit.
+// A unit's recipe weighs more than the unit is filled with; the extra
+// fills more units. Prorate the recipe cost to what's in one filled unit --
+// same math as CalculateRecipeCost's actual_cost_per_jar. No fill (or no
+// weighed ingredients) means each unit is costed at the full recipe.
 export function costPerFilledUnit(batchCost: number, batchGrams: number, fillGrams: number | null): number {
   if (fillGrams === null || !(fillGrams > 0) || batchGrams <= 0) return batchCost
   return (batchCost / batchGrams) * fillGrams

@@ -37,7 +37,7 @@
         <div>
           <dt class="text-sm text-gray-500 dark:text-gray-400">Cost per unit<template v-if="costPerJar.prorated"> ({{ recipe.fill_size_g }}g)</template></dt>
           <dd class="text-lg font-semibold text-gray-900 dark:text-white tabular-nums">${{ costPerJar.total.toFixed(2) }}</dd>
-          <dd v-if="costPerJar.prorated" class="text-xs text-gray-500 dark:text-gray-400">Batch: ${{ costPerJar.batchCost.toFixed(2) }} for {{ +totalGrams.toFixed(2) }}g</dd>
+          <dd v-if="costPerJar.prorated" class="text-xs text-gray-500 dark:text-gray-400">Recipe: ${{ costPerJar.batchCost.toFixed(2) }} for {{ +totalGrams.toFixed(2) }}g, the extra fills more units</dd>
           <dd v-if="costPerJar.anyStale || costPerJar.anyMissing" class="text-xs text-amber-600 dark:text-amber-400">
             Estimate: {{ costPerJar.anyMissing ? 'some prices missing' : 'some prices need updating' }}
           </dd>
@@ -60,7 +60,7 @@
       </dl>
 
       <div>
-        <h2 class="text-lg font-medium text-gray-900 dark:text-white mb-2">Ingredients (per batch)</h2>
+        <h2 class="text-lg font-medium text-gray-900 dark:text-white mb-2">Ingredients (per unit)</h2>
         <!-- mx-2: DataTable's mobile rows are sized for a p-6 card; the
              shell pads p-4 on mobile, so this keeps them flush there too. -->
         <div v-if="recipe.ingredients.length" class="mx-2 md:mx-0">
@@ -93,32 +93,21 @@
           </DataTable>
         </div>
         <p v-else class="text-sm text-gray-500 dark:text-gray-400">No ingredients yet.</p>
-
-        <div v-if="recipe.raw_per_unit.length" class="mt-4">
-          <button
-            type="button"
-            class="tap-target-touch inline-flex items-center text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300"
-            :aria-expanded="showRaw"
-            @click="showRaw = !showRaw"
-          >
-            {{ showRaw ? 'Hide' : 'Show' }} raw ingredients per unit
-          </button>
-          <div v-if="showRaw" class="mt-2">
-            <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">
-              Everything one {{ recipe.fill_size_g ? `${recipe.fill_size_g}g ` : '' }}unit takes, with in-house ingredients broken down into what they're made from.
-            </p>
-            <ul class="divide-y divide-gray-200 dark:divide-gray-700">
-              <li v-for="raw in recipe.raw_per_unit" :key="raw.id" class="flex items-center justify-between gap-3 py-2 text-sm">
-                <span class="truncate text-gray-900 dark:text-white">{{ raw.name }}</span>
-                <span class="shrink-0 tabular-nums text-gray-500 dark:text-gray-400">{{ formatQuantity(raw.quantity) }}{{ raw.unit_type === 'unit' ? ' unit' : 'g' }}</span>
-              </li>
-            </ul>
-          </div>
-        </div>
       </div>
 
+      <BatchCalculator
+        v-if="recipe.ingredients.length"
+        :raw-per-unit="recipe.raw_per_unit"
+        :prep-per-unit="recipe.prep_per_unit"
+        :recipe-cost="costPerJar.batchCost"
+        :recipe-grams="totalGrams"
+        :cost-is-estimate="costPerJar.anyStale || costPerJar.anyMissing"
+        :fill-g="recipe.fill_size_g"
+        :preferred-batch-size="recipe.preferred_batch_size"
+      />
+
       <div v-if="recipe.byproducts.length">
-        <h2 class="text-lg font-medium text-gray-900 dark:text-white mb-2">Byproducts (per batch)</h2>
+        <h2 class="text-lg font-medium text-gray-900 dark:text-white mb-2">Byproducts (per unit)</h2>
         <ul class="divide-y divide-gray-200 dark:divide-gray-700">
           <li v-for="line in recipe.byproducts" :key="line.id" class="flex items-center justify-between gap-3 py-2 text-sm">
             <span class="truncate text-gray-900 dark:text-white">{{ line.name }} — {{ line.byproduct_name }}</span>
@@ -136,7 +125,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
@@ -144,6 +133,7 @@ import AdminMobileHeader from '@/Components/Admin/AdminMobileHeader.vue'
 import AdminShowShell from '@/Components/Admin/AdminShowShell.vue'
 import DataTable, { type Column } from '@/Components/Admin/DataTable.vue'
 import IconButton from '@/Components/IconButton.vue'
+import BatchCalculator from '../Shared/BatchCalculator.vue'
 import { costPerFilledUnit } from '../Shared/fillCost'
 import type { FinishedGoodOption } from '../Shared/FinishedGoodPicker.vue'
 import { backLinkClass, dangerIconActionClass, iconActionClass } from '../Shared/formClasses'
@@ -170,10 +160,12 @@ interface Recipe {
   notes: string | null
   min_stock_threshold: number | null
   fill_size_g: number | null
+  preferred_batch_size: number | null
   is_active: boolean
   max_producible_units: number
   ingredients: IngredientLine[]
   raw_per_unit: Array<{ id: number; name: string; unit_type: 'g' | 'unit'; quantity: number }>
+  prep_per_unit: Array<{ id: number; name: string; quantity: number; yield_g: number }>
   byproducts: Array<{ id: number; name: string; byproduct_name: string | null; unit_type: 'g' | 'unit'; quantity_per_jar: number }>
 }
 
@@ -190,11 +182,6 @@ const indexUrl = route('admin.costing.recipes.index')
 const belowMinimum = computed(() =>
   props.recipe.min_stock_threshold !== null && props.recipe.max_producible_units < props.recipe.min_stock_threshold)
 
-const showRaw = ref(false)
-
-// Small amounts (spices) keep their decimals; bigger ones don't need them.
-const formatQuantity = (value: number) => (value < 10 ? +value.toFixed(2) : +value.toFixed(1))
-
 const ingredientColumns: Column[] = [
   { key: 'name', label: 'Ingredient' },
   { key: 'quantity', label: 'Amount' },
@@ -203,7 +190,7 @@ const ingredientColumns: Column[] = [
   { key: 'subtotal', label: 'Cost' },
 ]
 
-// Total gram weight of the batch -- per-unit ingredients have no weight, so
+// Total gram weight of one unit's recipe -- per-unit ingredients have no weight, so
 // they're left out of the total and get no percentage.
 const totalGrams = computed(() => props.recipe.ingredients
   .filter((ingredient) => ingredient.unit_type === 'g')

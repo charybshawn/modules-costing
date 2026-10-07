@@ -122,7 +122,7 @@
             <span class="text-lg font-semibold text-gray-900 dark:text-white tabular-nums">${{ costPerJar.total.toFixed(2) }}</span>
           </div>
           <p v-if="costPerJar.prorated" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            Batch: ${{ costPerJar.batchCost.toFixed(2) }} for {{ +costPerJar.batchGrams.toFixed(2) }}g
+            Recipe: ${{ costPerJar.batchCost.toFixed(2) }} for {{ +costPerJar.batchGrams.toFixed(2) }}g, the extra fills more units
           </p>
           <p v-if="costPerJar.anyStale || costPerJar.anyMissing" class="mt-2 text-xs text-amber-600 dark:text-amber-500">
             Estimate only: {{ costPerJar.anyMissing ? 'one or more ingredients have no logged price' : 'one or more ingredients are using a price that needs updating' }}. Tap a price above to fix it.
@@ -176,6 +176,7 @@ interface Recipe {
   product_id: number | null
   min_stock_threshold: number | null
   fill_size_g: number | null
+  preferred_batch_size: number | null
   is_active: boolean
   ingredients: Array<{ ingredient_id: number; quantity_per_jar: number }>
   byproducts: Array<{ ingredient_id: number; quantity_per_jar: number }>
@@ -193,8 +194,8 @@ const { confirmDialog } = useConfirmDialog()
 
 const sections: FormSection[] = [
   { key: 'details', title: 'Details' },
-  { key: 'ingredients', title: 'Ingredients (per batch)', shortTitle: 'Ingredients' },
-  { key: 'byproducts', title: 'Byproducts (per batch)', shortTitle: 'Byproducts' },
+  { key: 'ingredients', title: 'Ingredients (per unit)', shortTitle: 'Ingredients' },
+  { key: 'byproducts', title: 'Byproducts (per unit)', shortTitle: 'Byproducts' },
   { key: 'cost', title: 'Costing Breakdown', shortTitle: 'Cost' },
 ]
 
@@ -211,6 +212,7 @@ const initialData: RecipeFormData = {
   product_id: props.recipe.product_id,
   min_stock_threshold: props.recipe.min_stock_threshold,
   fill_size_g: props.recipe.fill_size_g,
+  preferred_batch_size: props.recipe.preferred_batch_size,
   is_active: props.recipe.is_active,
   ingredients: props.recipe.ingredients.map((row) => ({ ...row })),
   byproducts: props.recipe.byproducts.map((row) => ({ ...row })),

@@ -24,8 +24,15 @@
     <div>
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Fill weight per unit (g)</label>
       <input v-model.number="form.fill_size_g" type="number" inputmode="decimal" min="0" step="0.01" :class="inputClass" placeholder="e.g. 280" />
-      <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">How much goes into each unit. The ingredients below make one batch; leftover fills the next unit, so cost per unit is the batch cost scaled to this weight. Leave blank to cost the whole batch as one unit.</p>
+      <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">How much actually goes into each unit. The ingredients below add up to more than this, and the extra fills more units, so cost per unit is the recipe cost scaled to this weight. Planning still uses the full recipe amounts. Leave blank to cost each unit at the full recipe.</p>
       <InputError :message="form.errors.fill_size_g" />
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Preferred batch size <span class="font-normal text-gray-500 dark:text-gray-400">Optional</span></label>
+      <input v-model.number="form.preferred_batch_size" type="number" inputmode="numeric" min="1" step="1" :class="inputClass" placeholder="e.g. 20" />
+      <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">How many units you usually make at a time. The batch calculator on the recipe page starts from this; each production run still sets its own batch size.</p>
+      <InputError :message="form.errors.preferred_batch_size" />
     </div>
 
     <div class="flex items-start justify-between gap-4">
@@ -57,6 +64,7 @@ export interface RecipeFormData {
   product_id: number | null
   min_stock_threshold: number | null
   fill_size_g: number | null
+  preferred_batch_size: number | null
   is_active: boolean
   ingredients: RecipeRow[]
   byproducts: RecipeRow[]
