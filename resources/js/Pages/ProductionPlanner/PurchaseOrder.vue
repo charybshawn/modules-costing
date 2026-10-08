@@ -16,7 +16,7 @@
         <ShelfAction icon="download" label="Print" @click="print" />
       </ActionShelf>
 
-      <div class="bg-white dark:bg-gray-800 print:bg-white md:shadow-sm md:rounded-lg p-4 md:p-8 -mt-4 md:mt-0 print:mt-0 print:shadow-none print:p-0">
+      <div id="purchase-order-sheet" class="bg-white dark:bg-gray-800 print:bg-white md:shadow-sm md:rounded-lg p-4 md:p-8 -mt-4 md:mt-0 print:mt-0 print:shadow-none print:p-0">
         <h1 class="text-2xl font-semibold text-gray-900 dark:text-white print:text-black">Purchase Order</h1>
         <p class="mt-1 text-sm text-gray-600 dark:text-gray-400 print:text-black">
           Production run: {{ productionRun.total_units }} units total{{ productionRun.name ? ` — ${productionRun.name}` : '' }} ({{ productionRun.run_date }})
@@ -162,3 +162,31 @@ const productionRun = computed(() => props.production_run)
 
 const print = () => window.print()
 </script>
+
+<style>
+/* Print only the purchase order -- not the admin sidebar, header,
+   breadcrumbs or environment banners the layout wraps it in. Everything
+   else is hidden (visibility, so the sheet's own descendants can opt back
+   in) and the sheet is lifted to the top-left of the page. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #purchase-order-sheet,
+  #purchase-order-sheet * {
+    visibility: visible;
+  }
+
+  #purchase-order-sheet {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+
+  @page {
+    margin: 12mm;
+  }
+}
+</style>
