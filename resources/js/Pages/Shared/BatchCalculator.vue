@@ -59,12 +59,30 @@
       </div>
 
       <div>
-        <h3 class="text-sm font-medium text-gray-900 dark:text-white">{{ prepPerUnit.length ? 'Raw ingredients' : 'Ingredients' }}</h3>
+        <div class="flex items-center justify-between gap-3">
+          <h3 class="text-sm font-medium text-gray-900 dark:text-white">{{ prepPerUnit.length ? 'Raw ingredients' : 'Ingredients' }}</h3>
+          <IconButton label="Print ingredient list" :class="iconActionClass" @click="printList">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+            </svg>
+          </IconButton>
+        </div>
         <p v-if="prepPerUnit.length" class="text-xs text-gray-500 dark:text-gray-400">In-house ingredients are broken down into what they're made from.</p>
         <ul class="mt-1 divide-y divide-gray-200 dark:divide-gray-700">
           <li v-for="raw in rawPerUnit" :key="raw.id" class="flex items-baseline justify-between gap-3 py-2 text-sm">
             <span class="truncate text-gray-900 dark:text-white">{{ raw.name }}</span>
             <span class="shrink-0 tabular-nums text-gray-700 dark:text-gray-300">{{ formatQuantity(roundQuantity(raw.quantity * units, raw.unit_type), raw.unit_type) }}</span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- What the print button prints: just the list, plain. Hidden on
+           screen; the print styles below hide everything else. -->
+      <div id="batch-ingredient-print" class="hidden print:block">
+        <p>{{ title }} -- {{ units }} units</p>
+        <ul>
+          <li v-for="raw in rawPerUnit" :key="raw.id">
+            {{ raw.name }}: {{ formatQuantity(roundQuantity(raw.quantity * units, raw.unit_type), raw.unit_type) }}
           </li>
         </ul>
       </div>
@@ -74,10 +92,13 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { inputClass } from './formClasses'
+import IconButton from '@/Components/IconButton.vue'
+import { iconActionClass, inputClass } from './formClasses'
 import { formatQuantity } from './formatWeight'
 
 const props = defineProps<{
+  // Heads the printed list, e.g. the recipe name.
+  title: string
   rawPerUnit: Array<{ id: number; name: string; unit_type: 'g' | 'unit'; quantity: number }>
   prepPerUnit: Array<{ id: number; name: string; quantity: number; yield_g: number }>
   // One unit's recipe: its ingredient cost and gram weight.
@@ -102,6 +123,47 @@ const filledUnits = computed(() => (props.fillG && props.fillG > 0 && props.reci
   ? Math.floor((units.value * props.recipeGrams) / props.fillG)
   : null))
 
+const printList = () => window.print()
+
 // Whole items for packaging; grams to two decimals.
 const roundQuantity = (value: number, unitType: 'g' | 'unit') => (unitType === 'unit' ? Math.ceil(value) : value)
 </script>
+
+<style>
+/* The print button prints only the ingredient list -- not the page,
+   the calculator's inputs or the admin layout around it. */
+@media print {
+  /* Only while this printout is on the page -- Inertia keeps a visited
+     page's styles loaded, so an unscoped rule would blank other pages'
+     printouts. Drop everything that isn't the printout or one of its
+     containers... */
+  body:has(#batch-ingredient-print) *:not(:has(#batch-ingredient-print)):not(#batch-ingredient-print):not(#batch-ingredient-print *) {
+    display: none !important;
+  }
+
+  /* ...and flatten those containers so the printout starts at the top
+     of the page with no layout padding, cards or backgrounds. */
+  body:has(#batch-ingredient-print) *:has(#batch-ingredient-print) {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    background: none !important;
+  }
+
+  #batch-ingredient-print,
+  #batch-ingredient-print * {
+    color: #000 !important;
+  }
+
+  #batch-ingredient-print {
+    font-size: 12pt;
+    line-height: 1.6;
+  }
+
+  @page {
+    margin: 12mm;
+  }
+}
+</style>

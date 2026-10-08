@@ -97,6 +97,7 @@
 
       <BatchCalculator
         v-if="recipe.ingredients.length"
+        :title="recipe.name"
         :raw-per-unit="recipe.raw_per_unit"
         :prep-per-unit="recipe.prep_per_unit"
         :recipe-cost="costPerJar.batchCost"

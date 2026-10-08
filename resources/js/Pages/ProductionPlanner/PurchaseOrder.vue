@@ -172,24 +172,30 @@ const roundNeeded = (row: PlanRow) => (row.unit_type === 'unit' ? Math.ceil(row.
 
 <style>
 /* Print only the purchase order -- not the admin sidebar, header,
-   breadcrumbs or environment banners the layout wraps it in. Everything
-   else is hidden (visibility, so the sheet's own descendants can opt back
-   in) and the sheet is lifted to the top-left of the page. */
+   breadcrumbs, buttons or environment banners around it. */
 @media print {
-  body * {
-    visibility: hidden;
+  /* Only while this printout is on the page -- Inertia keeps a visited
+     page's styles loaded, so an unscoped rule would blank other pages'
+     printouts. Drop everything that isn't the printout or one of its
+     containers... */
+  body:has(#purchase-order-sheet) *:not(:has(#purchase-order-sheet)):not(#purchase-order-sheet):not(#purchase-order-sheet *) {
+    display: none !important;
+  }
+
+  /* ...and flatten those containers so the printout starts at the top
+     of the page with no layout padding, cards or backgrounds. */
+  body:has(#purchase-order-sheet) *:has(#purchase-order-sheet) {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    background: none !important;
   }
 
   #purchase-order-sheet,
   #purchase-order-sheet * {
-    visibility: visible;
-  }
-
-  #purchase-order-sheet {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
+    color: #000 !important;
   }
 
   @page {
