@@ -1,6 +1,7 @@
 <?php
 
 use Cultpantry\Costing\Http\Controllers\Admin\DashboardController;
+use Cultpantry\Costing\Http\Controllers\Admin\DataTransferController;
 use Cultpantry\Costing\Http\Controllers\Admin\IngredientController;
 use Cultpantry\Costing\Http\Controllers\Admin\InventoryController;
 use Cultpantry\Costing\Http\Controllers\Admin\KitchenRentalController;
@@ -20,6 +21,13 @@ Route::prefix('admin')->name('admin.')->middleware(['web', 'auth', 'admin'])->gr
     Route::prefix('costing')->name('costing.')->group(function () {
 
         Route::get('/', [DashboardController::class, 'index'])->name('index');
+
+        Route::prefix('data')->name('data.')->group(function () {
+            Route::get('export', [DataTransferController::class, 'export'])->name('export');
+            Route::post('preview', [DataTransferController::class, 'preview'])->name('preview');
+            Route::post('repreview', [DataTransferController::class, 'repreview'])->name('repreview');
+            Route::post('import', [DataTransferController::class, 'import'])->name('import');
+        });
 
         Route::prefix('ingredients')->name('ingredients.')->group(function () {
             Route::get('/', [IngredientController::class, 'index'])->name('index');

@@ -72,6 +72,8 @@
       </ul>
     </section>
 
+    <DataTransferPanel class="mt-6" />
+
     <p v-if="props.module_version" class="md:hidden px-4 pt-4 text-center text-xs text-gray-400 dark:text-gray-500">
       {{ props.module_version.commit }} · {{ props.module_version.date }}
     </p>
@@ -88,6 +90,7 @@ import ShelfAction from '@/Components/Admin/ShelfAction.vue'
 import StatHero, { type HeroStat, type StatTone } from '@/Components/Admin/StatHero.vue'
 import { SHELF_ICONS, type ShelfIcon } from '@/Components/Admin/shelfIcons'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
+import DataTransferPanel from '../Shared/DataTransferPanel.vue'
 
 defineOptions({ layout: (h, page) => h(AdminLayout, { wide: true, hideBreadcrumbOnMobile: true }, () => page) })
 

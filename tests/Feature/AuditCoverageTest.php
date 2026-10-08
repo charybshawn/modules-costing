@@ -17,6 +17,11 @@ it('audits every route in this module that changes data', function () {
         'DELETE admin/costing/production-planner/{productionRun}',
         'DELETE admin/costing/recipes/{recipe}',
         'DELETE admin/costing/recipes/{recipe}/discard-draft',
+        // Import writes are audited per record; preview/repreview only read
+        // the upload and change nothing.
+        'POST admin/costing/data/import',
+        'POST admin/costing/data/preview',
+        'POST admin/costing/data/repreview',
         'POST admin/costing/ingredients',
         'POST admin/costing/ingredients/bulk-action',
         'POST admin/costing/ingredients/{ingredient}/duplicate',
