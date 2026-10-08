@@ -53,7 +53,7 @@
                 <span class="text-sm font-semibold text-gray-900 dark:text-white">${{ row.est_cost.toFixed(2) }}</span>
               </div>
               <div class="mt-0.5 text-sm text-gray-700 dark:text-gray-300">
-                {{ formatQuantity(row.purchase_qty, row.unit_type) }}
+                Need {{ formatQuantity(roundNeeded(row), row.unit_type) }} · buy {{ formatQuantity(row.purchase_qty, row.unit_type) }}
                 <span v-if="row.units_to_buy"> · {{ row.units_to_buy }} {{ row.purchase_unit ?? 'no price this week' }}</span>
               </div>
               <div class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
@@ -71,6 +71,7 @@
               <thead class="bg-gray-50 dark:bg-gray-700/50 print:bg-transparent">
                 <tr>
                   <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 print:text-black uppercase">Ingredient</th>
+                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 print:text-black uppercase">Needed</th>
                   <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 print:text-black uppercase">To Purchase</th>
                   <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 print:text-black uppercase">Units to Buy</th>
                   <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 print:text-black uppercase">Purchase Unit</th>
@@ -81,6 +82,7 @@
               <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                 <tr v-for="row in plan.purchase_rows" :key="row.ingredient_id">
                   <td class="px-4 py-2 text-sm text-gray-900 dark:text-white print:text-black">{{ row.ingredient_name }}</td>
+                  <td class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 print:text-black">{{ formatQuantity(roundNeeded(row), row.unit_type) }}</td>
                   <td class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 print:text-black">{{ formatQuantity(row.purchase_qty, row.unit_type) }}</td>
                   <td class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 print:text-black">{{ row.units_to_buy }}</td>
                   <td class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 print:text-black">{{ row.purchase_unit ?? '— no price this week' }}</td>
@@ -90,7 +92,7 @@
               </tbody>
               <tfoot>
                 <tr>
-                  <td colspan="5" class="px-4 py-3 text-sm font-semibold text-gray-900 dark:text-white print:text-black text-right">Total Estimated Purchase Cost</td>
+                  <td colspan="6" class="px-4 py-3 text-sm font-semibold text-gray-900 dark:text-white print:text-black text-right">Total Estimated Purchase Cost</td>
                   <td class="px-4 py-3 text-sm font-semibold text-gray-900 dark:text-white print:text-black">${{ plan.total_estimated_cost.toFixed(2) }}</td>
                 </tr>
               </tfoot>
@@ -161,6 +163,11 @@ const props = defineProps<Props>()
 const productionRun = computed(() => props.production_run)
 
 const print = () => window.print()
+
+// What the order actually has to cover -- required for the run (including
+// trim, e.g. apple cores) less what's already on hand -- before it's rounded
+// up to whole packages. Packaging counts are whole items.
+const roundNeeded = (row: PlanRow) => (row.unit_type === 'unit' ? Math.ceil(row.to_purchase) : row.to_purchase)
 </script>
 
 <style>
