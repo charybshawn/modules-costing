@@ -29,7 +29,7 @@ class CalculatePreparedIngredientCosting
     {
         $ingredient->loadMissing('components.priceHistory.ingredient', 'components.inventory', 'components.packageSizes');
 
-        $yield = (float) $ingredient->yield_g;
+        $yield = (float) $ingredient->yieldGrams();
         $breakdown = $this->batchCost($ingredient, $calculateIngredientCosting, $visiting + [$ingredient->id => true]);
 
         $priced = $yield > 0 && $ingredient->components->isNotEmpty() && !$breakdown['any_missing'];

@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property string|null $notes
  * @property string|null $byproduct_name
  * @property bool $is_house_made
- * @property float|null $yield_g
+ * @property float|null $cook_down_percent
  */
 class Ingredient extends Model
 {
@@ -34,13 +34,13 @@ class Ingredient extends Model
         'notes',
         'byproduct_name',
         'is_house_made',
-        'yield_g',
+        'cook_down_percent',
     ];
 
     protected $casts = [
         'waste_percent' => 'decimal:2',
         'is_house_made' => 'boolean',
-        'yield_g' => 'decimal:3',
+        'cook_down_percent' => 'decimal:2',
     ];
 
     protected static function booted(): void
@@ -92,6 +92,35 @@ class Ingredient extends Model
         return $this->belongsToMany(Ingredient::class, 'costing_ingredient_components', 'ingredient_id', 'component_ingredient_id')
             ->withPivot('quantity')
             ->withTimestamps();
+    }
+
+    /**
+     * Total weight of what goes into one prep batch -- the weighed
+     * (gram-based) components only; unit-counted ones have no weight.
+     */
+    public function batchInputGrams(): float
+    {
+        $this->loadMissing('components');
+
+        return (float) $this->components
+            ->filter(fn (Ingredient $component) => $component->isGramBased())
+            ->sum(fn (Ingredient $component) => (float) $component->pivot->quantity);
+    }
+
+    /**
+     * What one prep batch weighs once cooked: its input weight times the
+     * cook-down percentage. Null until both are known, so it's simply
+     * unpriced rather than wrong.
+     */
+    public function yieldGrams(): ?float
+    {
+        if (!$this->is_house_made || $this->cook_down_percent === null) {
+            return null;
+        }
+
+        $yield = $this->batchInputGrams() * (float) $this->cook_down_percent / 100;
+
+        return $yield > 0 ? $yield : null;
     }
 
     /**

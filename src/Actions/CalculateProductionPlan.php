@@ -87,7 +87,7 @@ class CalculateProductionPlan
             'ingredient_id' => $prep['ingredient']->id,
             'ingredient_name' => $prep['ingredient']->name,
             'required' => round($prep['quantity'], 2),
-            'yield_g' => round((float) $prep['ingredient']->yield_g, 2),
+            'yield_g' => round((float) $prep['ingredient']->yieldGrams(), 2),
             'prep_batches' => round($prep['batches'], 2),
         ], $expanded['prep']));
         usort($prepRows, fn (array $a, array $b) => strcmp($a['ingredient_name'], $b['ingredient_name']));

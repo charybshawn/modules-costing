@@ -970,7 +970,7 @@ describe('costing admin module', function () {
                     'unit_type' => 'g',
                     'waste_percent' => 100,
                     'is_house_made' => true,
-                    'yield_g' => 400,
+                    'cook_down_percent' => 37.5,
                     'components' => [
                         ['ingredient_id' => $apples->id, 'quantity_per_jar' => 1000],
                         ['ingredient_id' => $sugar->id, 'quantity_per_jar' => 60],
@@ -981,14 +981,15 @@ describe('costing admin module', function () {
 
             $butter = Ingredient::where('name', 'Form Apple Butter')->firstOrFail();
             expect($butter->is_house_made)->toBeTrue();
-            expect((float) $butter->yield_g)->toBe(400.0);
+            expect((float) $butter->cook_down_percent)->toBe(37.5);
+            expect($butter->yieldGrams())->toBe(397.5); // 1060g in x 37.5%
             expect($butter->components->pluck('pivot.quantity', 'id')->map(fn ($q) => (float) $q)->all())
                 ->toBe([$apples->id => 1000.0, $sugar->id => 60.0]);
         });
 
         it('clears the components when it is switched back to bought', function () {
             $apples = Ingredient::create(['name' => 'Switch Apples', 'unit_type' => 'g', 'waste_percent' => 100]);
-            $butter = Ingredient::create(['name' => 'Switch Butter', 'unit_type' => 'g', 'waste_percent' => 100, 'is_house_made' => true, 'yield_g' => 400]);
+            $butter = Ingredient::create(['name' => 'Switch Butter', 'unit_type' => 'g', 'waste_percent' => 100, 'is_house_made' => true, 'cook_down_percent' => 40]);
             $butter->components()->sync([$apples->id => ['quantity' => 1000]]);
 
             $this->actingAs($this->admin)
@@ -1003,11 +1004,11 @@ describe('costing admin module', function () {
         });
 
         it('rejects a house-made ingredient made from itself, in a loop, or measured in units', function () {
-            $cider = Ingredient::create(['name' => 'Loop Cider', 'unit_type' => 'g', 'waste_percent' => 100, 'is_house_made' => true, 'yield_g' => 200]);
-            $butter = Ingredient::create(['name' => 'Loop Butter', 'unit_type' => 'g', 'waste_percent' => 100, 'is_house_made' => true, 'yield_g' => 400]);
+            $cider = Ingredient::create(['name' => 'Loop Cider', 'unit_type' => 'g', 'waste_percent' => 100, 'is_house_made' => true, 'cook_down_percent' => 20]);
+            $butter = Ingredient::create(['name' => 'Loop Butter', 'unit_type' => 'g', 'waste_percent' => 100, 'is_house_made' => true, 'cook_down_percent' => 40]);
             $butter->components()->sync([$cider->id => ['quantity' => 100]]);
 
-            $payload = fn (array $overrides) => array_merge(['name' => 'Loop Cider', 'unit_type' => 'g', 'waste_percent' => 100, 'is_house_made' => true, 'yield_g' => 200], $overrides);
+            $payload = fn (array $overrides) => array_merge(['name' => 'Loop Cider', 'unit_type' => 'g', 'waste_percent' => 100, 'is_house_made' => true, 'cook_down_percent' => 20], $overrides);
 
             // Itself.
             $this->actingAs($this->admin)
@@ -1029,7 +1030,7 @@ describe('costing admin module', function () {
 
         it('will not delete an ingredient a house-made one is made from', function () {
             $apples = Ingredient::create(['name' => 'Guarded Apples', 'unit_type' => 'g', 'waste_percent' => 100]);
-            $butter = Ingredient::create(['name' => 'Guarded Butter', 'unit_type' => 'g', 'waste_percent' => 100, 'is_house_made' => true, 'yield_g' => 400]);
+            $butter = Ingredient::create(['name' => 'Guarded Butter', 'unit_type' => 'g', 'waste_percent' => 100, 'is_house_made' => true, 'cook_down_percent' => 40]);
             $butter->components()->sync([$apples->id => ['quantity' => 1000]]);
 
             $this->actingAs($this->admin)
@@ -1042,7 +1043,7 @@ describe('costing admin module', function () {
         it('shows what it is made from, and a recipe shows its raw ingredients per unit', function () {
             $apples = Ingredient::create(['name' => 'Shown Apples', 'unit_type' => 'g', 'waste_percent' => 100]);
             $cheese = Ingredient::create(['name' => 'Shown Cheese', 'unit_type' => 'g', 'waste_percent' => 100]);
-            $butter = Ingredient::create(['name' => 'Shown Butter', 'unit_type' => 'g', 'waste_percent' => 100, 'is_house_made' => true, 'yield_g' => 400]);
+            $butter = Ingredient::create(['name' => 'Shown Butter', 'unit_type' => 'g', 'waste_percent' => 100, 'is_house_made' => true, 'cook_down_percent' => 40]);
             $butter->components()->sync([$apples->id => ['quantity' => 1000]]);
 
             $this->actingAs($this->admin)->get(route('admin.costing.ingredients.show', $butter))
@@ -1105,7 +1106,7 @@ describe('costing admin module', function () {
             $apples = Ingredient::create(['name' => 'Dup Apples', 'unit_type' => 'g', 'waste_percent' => 100]);
             $butter = Ingredient::create([
                 'name' => 'Dup Butter', 'category' => 'Vegetables & Fruit', 'unit_type' => 'g', 'waste_percent' => 100,
-                'notes' => 'Spicy', 'is_house_made' => true, 'yield_g' => 900,
+                'notes' => 'Spicy', 'is_house_made' => true, 'cook_down_percent' => 42.86,
                 'preferred_source' => 'GFS', 'preferred_brand' => null,
             ]);
             $butter->components()->sync([$apples->id => ['quantity' => 2100]]);
@@ -1119,7 +1120,7 @@ describe('costing admin module', function () {
 
             expect($copy->only(['category', 'unit_type', 'notes', 'is_house_made']))
                 ->toBe(['category' => 'Vegetables & Fruit', 'unit_type' => 'g', 'notes' => 'Spicy', 'is_house_made' => true]);
-            expect((float) $copy->yield_g)->toBe(900.0);
+            expect((float) $copy->cook_down_percent)->toBe(42.86);
             expect((float) $copy->components->firstOrFail()->pivot->quantity)->toBe(2100.0);
 
             expect($copy->packageSizes)->toBeEmpty();

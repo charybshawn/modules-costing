@@ -1,4 +1,4 @@
-name,category,unit_type,waste_percent,preferred_source,preferred_brand,low_stock_threshold,byproduct_name,notes,is_house_made,yield_g
+name,category,unit_type,waste_percent,preferred_source,preferred_brand,low_stock_threshold,byproduct_name,notes,is_house_made,cook_down_percent
 8oz Deli Cup,Packaging,unit,100,,,250,,,,
 8oz Deli Lid,Packaging,unit,100,,,250,,,,
 Bacon Bits,Meat,g,96,,,,,,,
@@ -18,7 +18,7 @@ Pickles,Wet,g,100,,,,,,,
 Salt,Spices,g,100,,,,,,,
 Sriracha,Wet,g,95,,,,,,,
 Swiss Cheese,Dairy & Eggs,g,100,,,,,,,
-Apple Butter,Vegetables & Fruit,g,100,,,,,,1,900
+Apple Butter,Vegetables & Fruit,g,100,,,,,,1,36.87
 Apple Cider Vinegar,Wet,g,100,,,,,,,
 Apples Pink Ladies,Vegetables & Fruit,g,90,,,,,,,
 Black Pepper,Spices,g,100,,,,,,,

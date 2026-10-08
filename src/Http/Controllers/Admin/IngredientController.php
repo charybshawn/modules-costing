@@ -159,7 +159,9 @@ class IngredientController extends Controller implements HasMiddleware
                     'notes' => $ingredient->notes,
                     'byproduct_name' => $ingredient->byproduct_name,
                     'is_house_made' => $ingredient->is_house_made,
-                    'yield_g' => $ingredient->yield_g !== null ? (float) $ingredient->yield_g : null,
+                    'cook_down_percent' => $ingredient->cook_down_percent !== null ? (float) $ingredient->cook_down_percent : null,
+                    'batch_input_g' => $ingredient->is_house_made ? $ingredient->batchInputGrams() : null,
+                    'yield_g' => $ingredient->yieldGrams(),
                     // Made-from lines, each with its own costing, for the
                     // breakdown table (house-made only).
                     'components' => $ingredient->is_house_made
@@ -211,7 +213,7 @@ class IngredientController extends Controller implements HasMiddleware
                 'notes' => $ingredient->notes,
                 'byproduct_name' => $ingredient->byproduct_name,
                 'is_house_made' => $ingredient->is_house_made,
-                'yield_g' => $ingredient->yield_g !== null ? (float) $ingredient->yield_g : null,
+                'cook_down_percent' => $ingredient->cook_down_percent !== null ? (float) $ingredient->cook_down_percent : null,
                 'components' => $ingredient->components->map(fn (Ingredient $component) => [
                     'ingredient_id' => $component->id,
                     'quantity_per_jar' => (float) $component->pivot->quantity,
@@ -548,8 +550,9 @@ class IngredientController extends Controller implements HasMiddleware
             'byproduct_name' => ['nullable', 'string', 'max:100'],
             'is_house_made' => ['boolean'],
             // Not required: autosave fires as soon as the toggle flips, before
-            // there's a yield to enter. Without one it's simply unpriced.
-            'yield_g' => ['nullable', 'numeric', 'gt:0'],
+            // there's a figure to enter. Without one it's simply unpriced.
+            // Over 100 is allowed (unlisted water can go in).
+            'cook_down_percent' => ['nullable', 'numeric', 'gt:0', 'max:1000'],
             'components' => ['nullable', 'array'],
             'components.*.ingredient_id' => [
                 'required', 'distinct', 'exists:costing_ingredients,id',

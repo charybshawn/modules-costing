@@ -109,7 +109,7 @@ interface Ingredient {
   byproduct_name: string | null
   notes: string | null
   is_house_made: boolean
-  yield_g: number | null
+  cook_down_percent: number | null
   components: Array<{ ingredient_id: number; quantity_per_jar: number }>
 }
 
@@ -145,7 +145,7 @@ const initialData: IngredientFormData = {
   byproduct_name: props.ingredient.byproduct_name ?? '',
   notes: props.ingredient.notes ?? '',
   is_house_made: props.ingredient.is_house_made,
-  yield_g: props.ingredient.yield_g,
+  cook_down_percent: props.ingredient.cook_down_percent,
   components: props.ingredient.components.map((row) => ({ ...row })),
 }
 

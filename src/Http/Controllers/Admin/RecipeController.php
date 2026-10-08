@@ -261,7 +261,7 @@ class RecipeController extends Controller implements HasMiddleware
             'id' => $entry['ingredient']->id,
             'name' => $entry['ingredient']->name,
             'quantity' => round($entry['quantity'], 3),
-            'yield_g' => (float) $entry['ingredient']->yield_g,
+            'yield_g' => (float) $entry['ingredient']->yieldGrams(),
         ])->values();
 
         return Inertia::render('Vendor/costing/Recipes/Show', [

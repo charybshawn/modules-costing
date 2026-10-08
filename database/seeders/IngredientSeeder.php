@@ -24,7 +24,7 @@ class IngredientSeeder extends Seeder
                     'byproduct_name' => $this->csvNullable($row['byproduct_name']),
                     'notes' => $this->csvNullable($row['notes']),
                     'is_house_made' => $row['is_house_made'] === '1',
-                    'yield_g' => $this->csvFloat($row['yield_g']),
+                    'cook_down_percent' => $this->csvFloat($row['cook_down_percent']),
                 ],
             );
         }

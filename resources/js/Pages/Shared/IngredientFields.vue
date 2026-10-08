@@ -72,7 +72,7 @@ export interface IngredientFormData {
   byproduct_name: string
   notes: string
   is_house_made: boolean
-  yield_g: number | null
+  cook_down_percent: number | null
   components: Array<{ ingredient_id: number | null; quantity_per_jar: number | null }>
 }
 

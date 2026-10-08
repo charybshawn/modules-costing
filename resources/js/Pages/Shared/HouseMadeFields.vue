@@ -9,10 +9,16 @@
     <InputError :message="form.errors.components" />
 
     <div>
-      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">One prep batch makes (g)</label>
-      <input v-model.number="form.yield_g" type="number" inputmode="decimal" min="0" step="0.01" :class="inputClass" placeholder="e.g. 400" />
-      <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Weigh it after cooking -- this is what the batch cost is spread over.</p>
-      <InputError :message="form.errors.yield_g" />
+      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Cooks down to (%)</label>
+      <input v-model.number="form.cook_down_percent" type="number" inputmode="decimal" min="0" step="0.1" :class="inputClass" placeholder="e.g. 52" />
+      <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+        Finished weight as a share of everything weighed in. Weigh what goes in the pot and what comes out: out ÷ in × 100.
+      </p>
+      <p class="mt-1 text-sm text-gray-700 dark:text-gray-300">
+        <template v-if="cost.yieldG !== null">One prep batch makes about <span class="font-medium tabular-nums">{{ formatWeight(cost.yieldG) }}</span> from {{ formatWeight(cost.inputG) }}</template>
+        <template v-else-if="cost.inputG > 0">{{ formatWeight(cost.inputG) }} goes in -- add a cook-down % to see what it makes</template>
+      </p>
+      <InputError :message="form.errors.cook_down_percent" />
     </div>
 
     <dl class="grid grid-cols-2 gap-4 border-t border-gray-200 dark:border-gray-700 pt-4">
@@ -36,6 +42,7 @@ import { computed } from 'vue'
 import InputError from '@/Components/InputError.vue'
 import RecipeLinesFields from './RecipeLinesFields.vue'
 import { inputClass } from './formClasses'
+import { formatWeight } from './formatWeight'
 
 export interface ComponentOption {
   id: number
@@ -48,7 +55,7 @@ export interface ComponentOption {
 }
 
 const props = defineProps<{
-  // The page's usePersistedForm -- components and yield_g bind straight in.
+  // The page's usePersistedForm -- components and cook_down_percent bind straight in.
   form: any
   pool: ComponentOption[]
 }>()
@@ -73,7 +80,13 @@ const cost = computed(() => {
     batch += option.unit_type === 'unit' ? quantity * price : (quantity * price) / 1000
   }
 
-  const yieldG = typeof props.form.yield_g === 'number' && props.form.yield_g > 0 ? props.form.yield_g : null
-  return { batch, perKg: yieldG === null ? null : (batch / yieldG) * 1000, anyStale, anyMissing }
+  // What one batch weighs going in (weighed lines only), and coming out.
+  const inputG = (props.form.components as Array<{ ingredient_id: number | null; quantity_per_jar: number | null }>)
+    .filter((row) => props.pool.find((o) => o.id === row.ingredient_id)?.unit_type === 'g')
+    .reduce((sum, row) => sum + (row.quantity_per_jar ?? 0), 0)
+  const percent = typeof props.form.cook_down_percent === 'number' && props.form.cook_down_percent > 0 ? props.form.cook_down_percent : null
+  const yieldG = percent !== null && inputG > 0 ? (inputG * percent) / 100 : null
+
+  return { batch, inputG, yieldG, perKg: yieldG === null ? null : (batch / yieldG) * 1000, anyStale, anyMissing }
 })
 </script>

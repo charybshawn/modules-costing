@@ -87,7 +87,7 @@ const form = usePersistedForm<IngredientFormData>({
   byproduct_name: '',
   notes: '',
   is_house_made: false,
-  yield_g: null,
+  cook_down_percent: null,
   components: [],
 }, {
   key: 'costing-ingredient-create',

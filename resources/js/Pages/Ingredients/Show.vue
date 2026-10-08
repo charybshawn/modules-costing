@@ -41,8 +41,11 @@
         </div>
         <div>
           <dt class="text-sm text-gray-500 dark:text-gray-400">Made in-house</dt>
-          <dd class="text-lg text-gray-900 dark:text-white">{{ ingredient.yield_g ? `${+ingredient.yield_g.toFixed(2)}g per prep batch` : 'No yield set' }}</dd>
-          <dd class="text-xs text-gray-500 dark:text-gray-400">Batch cost ${{ madeFrom.batchCost.toFixed(2) }}</dd>
+          <dd class="text-lg text-gray-900 dark:text-white">{{ ingredient.cook_down_percent !== null ? `Cooks down to ${+ingredient.cook_down_percent.toFixed(2)}%` : 'No cook-down % set' }}</dd>
+          <dd v-if="ingredient.yield_g" class="text-xs text-gray-500 dark:text-gray-400">
+            Prep batch: {{ formatWeight(ingredient.batch_input_g ?? 0) }} in, about {{ formatWeight(ingredient.yield_g) }} out · ${{ madeFrom.batchCost.toFixed(2) }}
+          </dd>
+          <dd v-else class="text-xs text-gray-500 dark:text-gray-400">Batch cost ${{ madeFrom.batchCost.toFixed(2) }}</dd>
         </div>
       </dl>
 
@@ -191,6 +194,7 @@ import AdminShowShell from '@/Components/Admin/AdminShowShell.vue'
 import DataTable, { type Column } from '@/Components/Admin/DataTable.vue'
 import IconButton from '@/Components/IconButton.vue'
 import SourcesTable from '../Shared/SourcesTable.vue'
+import { formatWeight } from '../Shared/formatWeight'
 import { backLinkClass, dangerIconActionClass, iconActionClass } from '../Shared/formClasses'
 import { DELETE_ICON, DUPLICATE_ICON, EDIT_ICON } from '../Shared/showIcons'
 
@@ -206,6 +210,8 @@ interface Ingredient {
   byproduct_name: string | null
   recipes: Array<{ id: number; name: string; is_active: boolean }>
   is_house_made: boolean
+  cook_down_percent: number | null
+  batch_input_g: number | null
   yield_g: number | null
   components: ComponentLine[]
   used_in_house_made: Array<{ id: number; name: string }>

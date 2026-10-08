@@ -8,7 +8,7 @@ use Cultpantry\Costing\Models\Ingredient;
  * Turns "this much of each ingredient" into what actually has to be bought
  * and prepped: every house-made ingredient (e.g. apple butter) is swapped
  * for its components, scaled by how many prep batches the amount needs
- * (quantity / yield_g), recursively for components that are house-made
+ * (quantity / its cooked yield), recursively for components that are house-made
  * themselves. Bought ingredients pass straight through, merged by id.
  *
  * House-made ingredients aren't stock-tracked yet, so none of their
@@ -43,7 +43,7 @@ class ExpandIngredientRequirements
             return;
         }
 
-        $yield = (float) $ingredient->yield_g;
+        $yield = (float) $ingredient->yieldGrams();
 
         // Bought -- or a house-made one that can't be expanded (no yield,
         // a cycle, too deep), which is left as-is rather than dropped.
