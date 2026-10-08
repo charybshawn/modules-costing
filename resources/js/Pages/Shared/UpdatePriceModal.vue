@@ -110,6 +110,9 @@ watch(
   () => props.entry,
   (entry) => {
     if (entry) {
+      // Blank for each entry, not the last price typed for a different
+      // one -- Inertia keeps a successfully submitted value as the default.
+      form.defaults({ total_price: null })
       form.reset()
       form.clearErrors()
     }

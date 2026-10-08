@@ -470,14 +470,20 @@ interface BulkFormData {
 
 const showBulkModal = ref(false)
 
-const bulkForm = useForm<BulkFormData>({
+const blankBulkForm = (): BulkFormData => ({
   mode: 'adjust',
   reason: 'received',
   notes: '',
   items: [{ ingredient_id: null, package_size_id: null, packages: null }],
 })
 
+const bulkForm = useForm<BulkFormData>(blankBulkForm())
+
+// Always opens blank. Inertia makes a successfully submitted form's values
+// its new defaults, so a plain reset() would bring back the last batch --
+// and saving that again in add/remove mode would add it a second time.
 const openBulkModal = () => {
+  bulkForm.defaults(blankBulkForm())
   bulkForm.reset()
   bulkForm.clearErrors()
   showBulkModal.value = true
@@ -581,7 +587,7 @@ interface AddItemFormData {
 
 const showAddItemModal = ref(false)
 
-const addItemForm = useForm<AddItemFormData>({
+const blankAddItemForm = (): AddItemFormData => ({
   name: '',
   category: '',
   unit_type: 'g',
@@ -593,7 +599,11 @@ const addItemForm = useForm<AddItemFormData>({
   packages: null,
 })
 
+const addItemForm = useForm<AddItemFormData>(blankAddItemForm())
+
+// Opens blank, not on the last item added (see openBulkModal).
 const openAddItemModal = () => {
+  addItemForm.defaults(blankAddItemForm())
   addItemForm.reset()
   addItemForm.clearErrors()
   showAddItemModal.value = true
