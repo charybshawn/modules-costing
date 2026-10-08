@@ -59,7 +59,7 @@
 </template>
 
 <script setup lang="ts">
-import { formatQuantity } from './formatWeight'
+import { formatQuantity, formatWeight } from './formatWeight'
 
 export interface RecipeSheetData {
   name: string
@@ -91,9 +91,10 @@ const props = withDefaults(defineProps<{
 const listClass = 'mt-1 divide-y divide-gray-200 dark:divide-gray-700 print:divide-gray-300'
 const gridClass = 'grid grid-cols-[1fr_6rem_8rem] items-baseline gap-3'
 
-// Whole items for packaging and anything counted; grams to two decimals.
+// Whole items for packaging and anything counted; weights to one decimal
+// place (kg from 1,000g up).
 const amount = (value: number, unitType: 'g' | 'unit') =>
-  formatQuantity(unitType === 'unit' ? Math.ceil(value) : Math.round(value * 100) / 100, unitType)
+  unitType === 'unit' ? formatQuantity(Math.ceil(value), unitType) : formatWeight(value, 1)
 
 // The recipe weighs more than a unit is filled with; the extra fills more units.
 const fills = (batchCount: number) => (props.sheet.fill_size_g && props.sheet.fill_size_g > 0 && props.sheet.recipe_grams > 0
