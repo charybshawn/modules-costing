@@ -15,7 +15,7 @@
         <span v-if="prep.cook_down_percent !== null" class="font-normal text-gray-500 dark:text-gray-400 print:text-black">(cooks down to {{ +prep.cook_down_percent.toFixed(2) }}%)</span>
       </h4>
       <ul :class="listClass">
-        <li :class="[gridClass, 'py-1.5 font-medium']">
+        <li :class="[gridClass, 'py-2 text-base font-bold']">
           <span>Make</span>
           <span class="text-right tabular-nums">{{ amount(prep.quantity * units, 'g') }}</span>
           <span class="text-right tabular-nums">{{ amount(prep.quantity * units * batches, 'g') }}</span>
