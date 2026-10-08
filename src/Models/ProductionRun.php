@@ -21,6 +21,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property \Illuminate\Support\Carbon $run_date
  * @property string|null $notes
  * @property \Illuminate\Support\Carbon|null $completed_at
+ * @property array|null $purchase_order_record
+ * @property array|null $recipe_sheet_record
  */
 class ProductionRun extends Model
 {
@@ -44,12 +46,16 @@ class ProductionRun extends Model
         'run_date',
         'notes',
         'completed_at',
+        'purchase_order_record',
+        'recipe_sheet_record',
     ];
 
     protected $casts = [
         'batch_size' => 'integer',
         'run_date' => 'date',
         'completed_at' => 'datetime',
+        'purchase_order_record' => 'array',
+        'recipe_sheet_record' => 'array',
     ];
 
     public function recipes(): BelongsToMany

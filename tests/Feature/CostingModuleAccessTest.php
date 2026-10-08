@@ -1104,6 +1104,52 @@ describe('costing admin module', function () {
         });
     });
 
+    describe('completed run records', function () {
+        it('keeps the purchase order and recipe sheet as they stood at completion, until completion is undone', function () {
+            $cheese = Ingredient::create(['name' => 'Record Cheese', 'unit_type' => 'g', 'waste_percent' => 100]);
+            $cheese->packageSizes()->create(['provider' => 'GFS', 'package_size' => 1000, 'quantity_on_hand' => 300]);
+
+            $recipe = Recipe::create(['name' => 'Record Flavour', 'fill_size_g' => null]);
+            $recipe->ingredients()->sync([$cheese->id => ['quantity_per_jar' => 100]]);
+
+            $run = ProductionRun::create(['batch_size' => 5, 'run_date' => Carbon::now()->toDateString()]);
+            $run->recipes()->sync([$recipe->id => ['batches' => 1]]); // 500g needed, 300g on hand -> 200g short
+
+            $this->actingAs($this->admin)->post(route('admin.costing.production-planner.complete', $run->id))->assertRedirect();
+
+            // Stock and the recipe both change after completion...
+            $cheese->packageSizes()->first()->update(['quantity_on_hand' => 9000]);
+            $recipe->ingredients()->sync([$cheese->id => ['quantity_per_jar' => 999]]);
+
+            // ...but the completed run's documents don't.
+            $this->actingAs($this->admin)->get(route('admin.costing.production-planner.purchase-order', $run))
+                ->assertInertia(fn ($page) => $page
+                    ->where('is_record', true)
+                    ->where('plan.rows.0.ingredient_name', 'Record Cheese')
+                    ->where('plan.rows.0.to_purchase', 200)
+                );
+            $this->actingAs($this->admin)->get(route('admin.costing.production-planner.recipe-sheet', $run))
+                ->assertInertia(fn ($page) => $page
+                    ->where('is_record', true)
+                    ->where('sheets.0.sheet.mix.0.quantity', 100)
+                );
+
+            // Undo Completion goes back to live figures.
+            $this->actingAs($this->admin)->post(route('admin.costing.production-planner.uncomplete', $run->id))->assertRedirect();
+
+            expect($run->fresh()->purchase_order_record)->toBeNull();
+            $this->actingAs($this->admin)->get(route('admin.costing.production-planner.recipe-sheet', $run))
+                ->assertInertia(fn ($page) => $page->where('is_record', false)->where('sheets.0.sheet.mix.0.quantity', 999));
+        });
+
+        it('shows live figures, flagged as not a record, for a run completed before records were kept', function () {
+            $run = ProductionRun::create(['batch_size' => 5, 'run_date' => Carbon::now()->toDateString(), 'completed_at' => now()]);
+
+            $this->actingAs($this->admin)->get(route('admin.costing.production-planner.purchase-order', $run))
+                ->assertInertia(fn ($page) => $page->where('is_record', false)->where('production_run.completed_at', fn ($at) => $at !== null));
+        });
+    });
+
     describe('production run recipe sheet', function () {
         it('shows each flavour with batches at the run\'s size, with its house-made prep scaled', function () {
             $apples = Ingredient::create(['name' => 'Sheet Apples', 'unit_type' => 'g', 'waste_percent' => 100]);

@@ -25,6 +25,12 @@
           Production run: {{ productionRun.total_units }} units total{{ productionRun.name ? ` — ${productionRun.name}` : '' }} ({{ productionRun.run_date }})
         </p>
 
+        <div v-if="production_run.completed_at" class="mt-4 rounded-md border border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-900/30 px-4 py-3 text-sm text-emerald-900 dark:text-emerald-200 print:border-black print:bg-transparent print:text-black">
+          <p class="font-medium">Run completed {{ production_run.completed_at }}: for records only.</p>
+          <p v-if="is_record" class="mt-0.5">This purchase order is how it stood when the run was completed. It no longer changes with stock.</p>
+          <p v-else class="mt-0.5">No record was saved when this run was completed (it predates records), so this shows today's figures.</p>
+        </div>
+
         <div v-if="plan.prep_rows.length" class="mt-6">
           <h2 class="text-lg font-medium text-gray-900 dark:text-white print:text-black">Prep first</h2>
           <p class="mt-1 text-sm text-gray-600 dark:text-gray-400 print:text-black">
@@ -170,11 +176,14 @@ interface ProductionRun {
   name: string | null
   run_date: string
   total_units: number
+  completed_at: string | null
 }
 
 interface Props {
   production_run: ProductionRun
   plan: Plan
+  // A completed run's saved order rather than live figures.
+  is_record: boolean
 }
 
 const props = defineProps<Props>()

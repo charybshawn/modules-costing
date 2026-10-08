@@ -392,23 +392,17 @@ class ProductionPlannerController extends Controller implements HasMiddleware
     {
         $this->authorize('view', $productionRun);
 
-        $productionRun->load('recipes');
-
-        $sheets = $productionRun->recipes
-            ->filter(fn (Recipe $recipe) => (int) $recipe->pivot->batches > 0)
-            ->sortBy('name')
-            ->map(fn (Recipe $recipe) => [
-                'recipe_id' => $recipe->id,
-                'units' => $productionRun->batch_size * (int) $recipe->pivot->batches,
-                'batches' => (int) $recipe->pivot->batches,
-                'batch_size' => $productionRun->batch_size,
-                'sheet' => $buildRecipeSheet->handle($recipe),
-            ])
-            ->values();
+        // A completed run shows what was recorded when it was completed --
+        // later recipe edits don't rewrite its history. (Runs completed
+        // before records were kept fall back to today's recipes.)
+        $sheets = $productionRun->completed_at && $productionRun->recipe_sheet_record !== null
+            ? $productionRun->recipe_sheet_record
+            : $buildRecipeSheet->forRun($productionRun);
 
         return Inertia::render('Vendor/costing/ProductionPlanner/RecipeSheet', [
             'production_run' => $this->serializeRun($productionRun),
             'sheets' => $sheets,
+            'is_record' => $productionRun->completed_at !== null && $productionRun->recipe_sheet_record !== null,
             'breadcrumbs' => CostingBreadcrumbs::trail(
                 ['label' => 'All Runs', 'href' => route('admin.costing.production-planner.runs')],
                 ['label' => ($productionRun->name ?? $productionRun->run_date->format('Y-m-d')).' -- Recipe Sheet'],
@@ -420,11 +414,17 @@ class ProductionPlannerController extends Controller implements HasMiddleware
     {
         $this->authorize('view', $productionRun);
 
-        $plan = $calculateProductionPlan->handle($productionRun);
+        // A completed run's order is a record of what it needed when it was
+        // completed, not a recalculation against today's (already
+        // deducted) stock. Runs completed before records were kept fall
+        // back to live figures.
+        $isRecord = $productionRun->completed_at !== null && $productionRun->purchase_order_record !== null;
+        $plan = $isRecord ? $productionRun->purchase_order_record : $calculateProductionPlan->handle($productionRun);
 
         return Inertia::render('Vendor/costing/ProductionPlanner/PurchaseOrder', [
             'production_run' => $this->serializeRun($productionRun),
             'plan' => $plan,
+            'is_record' => $isRecord,
             'breadcrumbs' => CostingBreadcrumbs::trail(
                 ['label' => 'All Runs', 'href' => route('admin.costing.production-planner.runs')],
                 ['label' => ($productionRun->name ?? $productionRun->run_date->format('Y-m-d')).' -- Purchase Order'],

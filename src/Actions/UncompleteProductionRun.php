@@ -111,7 +111,8 @@ class UncompleteProductionRun
             $productionRun->recipes()->updateExistingPivot($recipe->id, ['actual_units' => null]);
         }
 
-        $productionRun->update(['completed_at' => null]);
+        // Back to a live order and sheet until it's completed again.
+        $productionRun->update(['completed_at' => null, 'purchase_order_record' => null, 'recipe_sheet_record' => null]);
 
         return $warnings;
     }

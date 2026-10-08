@@ -30,6 +30,7 @@ class CompleteProductionRun
         private readonly CalculateProductionPlan $calculateProductionPlan,
         private readonly CreateRecipeCostSnapshot $createRecipeCostSnapshot,
         private readonly RecordInventoryAdjustment $recordInventoryAdjustment,
+        private readonly BuildRecipeSheet $buildRecipeSheet = new BuildRecipeSheet,
     ) {}
 
     /**
@@ -71,6 +72,13 @@ class CompleteProductionRun
         $shortfalls = [];
 
         $plan = $this->calculateProductionPlan->handle($productionRun);
+
+        // The run's purchase order and recipe sheets as they stand right
+        // now, before its stock is deducted -- kept as the run's record.
+        $records = [
+            'purchase_order_record' => $plan,
+            'recipe_sheet_record' => $this->buildRecipeSheet->forRun($productionRun),
+        ];
 
         foreach ($plan['rows'] as $row) {
             $required = (float) $row['required'];
@@ -172,7 +180,7 @@ class CompleteProductionRun
             }
         }
 
-        $productionRun->update(['completed_at' => now()]);
+        $productionRun->update(['completed_at' => now()] + $records);
 
         return $shortfalls;
     }

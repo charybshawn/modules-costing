@@ -25,6 +25,12 @@
           Production run{{ production_run.name ? ` ${production_run.name}` : '' }} ({{ production_run.run_date }})
         </p>
 
+        <div v-if="production_run.completed_at" class="mt-4 rounded-md border border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-900/30 px-4 py-3 text-sm text-emerald-900 dark:text-emerald-200 print:border-black print:bg-transparent print:text-black">
+          <p class="font-medium">Run completed {{ production_run.completed_at }}: for records only.</p>
+          <p v-if="is_record" class="mt-0.5">This recipe sheet is how it stood when the run was completed. It no longer changes with recipe edits.</p>
+          <p v-else class="mt-0.5">No record was saved when this run was completed (it predates records), so this shows today's figures.</p>
+        </div>
+
         <p v-if="sheets.length === 0" class="mt-8 text-center text-gray-600 dark:text-gray-400 py-12 border border-dashed border-gray-300 dark:border-gray-600 rounded-md">
           No flavours in this run yet. Add batches to see their recipes.
         </p>
@@ -52,7 +58,9 @@ import RecipeSheet, { type RecipeSheetData } from '../Shared/RecipeSheet.vue'
 defineOptions({ layout: (h, page) => h(AdminLayout, { wide: true, hideBreadcrumbOnMobile: true }, () => page) })
 
 defineProps<{
-  production_run: { id: number; name: string | null; run_date: string }
+  production_run: { id: number; name: string | null; run_date: string; completed_at: string | null }
+  // A completed run's saved sheets rather than today's recipes.
+  is_record: boolean
   sheets: Array<{ recipe_id: number; units: number; batches: number; batch_size: number; sheet: RecipeSheetData }>
 }>()
 

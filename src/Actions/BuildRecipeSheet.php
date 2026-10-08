@@ -3,6 +3,7 @@
 namespace Cultpantry\Costing\Actions;
 
 use Cultpantry\Costing\Models\Ingredient;
+use Cultpantry\Costing\Models\ProductionRun;
 use Cultpantry\Costing\Models\Recipe;
 use Illuminate\Support\Collection;
 
@@ -67,6 +68,30 @@ class BuildRecipeSheet
             'mix' => $lines->reject(fn (Ingredient $ingredient) => $ingredient->isPackaging())->map($line)->values()->all(),
             'pack' => $lines->filter(fn (Ingredient $ingredient) => $ingredient->isPackaging())->map($line)->values()->all(),
         ];
+    }
+
+    /**
+     * One sheet per product in a production run that has batches, each at
+     * the run's batch size (with its batch count for the totals).
+     *
+     * @return array<int, array{recipe_id: int, units: int, batches: int, batch_size: int, sheet: array}>
+     */
+    public function forRun(ProductionRun $productionRun): array
+    {
+        $productionRun->loadMissing('recipes');
+
+        return $productionRun->recipes
+            ->filter(fn (Recipe $recipe) => (int) $recipe->pivot->batches > 0)
+            ->sortBy('name')
+            ->map(fn (Recipe $recipe) => [
+                'recipe_id' => $recipe->id,
+                'units' => $productionRun->batch_size * (int) $recipe->pivot->batches,
+                'batches' => (int) $recipe->pivot->batches,
+                'batch_size' => $productionRun->batch_size,
+                'sheet' => $this->handle($recipe),
+            ])
+            ->values()
+            ->all();
     }
 
     /**
