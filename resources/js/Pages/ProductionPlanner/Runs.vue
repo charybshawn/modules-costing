@@ -169,6 +169,7 @@ const tableActions: Action[] = [
   // should already be sitting there while a run is still being set up.
   { name: 'complete', icon: 'check', color: 'green', label: 'Complete Run & Deduct Inventory', show: (item) => !item.completed_at },
   { name: 'purchase-order', icon: 'view', color: 'gray', label: 'Purchase Order', href: (item) => route('admin.costing.production-planner.purchase-order', item.id) },
+  { name: 'recipe-sheet', icon: 'view', color: 'gray', label: 'Recipe Sheet', href: (item) => route('admin.costing.production-planner.recipe-sheet', item.id) },
   // Hidden rather than left to 422 -- a completed run's inventory
   // deduction and cost snapshots are historical fact until its completion
   // is explicitly undone (see destroy()'s guard server-side, and the

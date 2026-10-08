@@ -7,9 +7,12 @@
       <div class="md:max-w-5xl md:mx-auto md:px-6 lg:px-8">
       <div class="hidden md:flex md:items-center md:justify-between mb-6 print:hidden">
         <Link :href="route('admin.costing.production-planner.runs')" class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">&larr; Back to All Runs</Link>
-        <button @click="print" class="tap-target-touch inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
-          Print
-        </button>
+        <div class="flex items-center gap-4">
+          <Link :href="route('admin.costing.production-planner.recipe-sheet', productionRun.id)" class="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">Recipe Sheet</Link>
+          <button @click="print" class="tap-target-touch inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
+            Print
+          </button>
+        </div>
       </div>
 
       <ActionShelf class="md:hidden print:hidden" overlay="always">

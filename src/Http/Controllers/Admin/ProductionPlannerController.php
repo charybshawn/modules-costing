@@ -4,6 +4,7 @@ namespace Cultpantry\Costing\Http\Controllers\Admin;
 
 use App\Actions\GetSiteSetting;
 use App\Http\Controllers\Controller;
+use Cultpantry\Costing\Actions\BuildRecipeSheet;
 use Cultpantry\Costing\Actions\CalculateProductionPlan;
 use Cultpantry\Costing\Actions\CompleteProductionRun;
 use Cultpantry\Costing\Actions\GenerateBatchCode;
@@ -381,6 +382,40 @@ class ProductionPlannerController extends Controller implements HasMiddleware
      * replaces the original Purchase Order tab. Stays a real page (unlike
      * show() above) since it's meant to be printed.
      */
+    /**
+     * Printable recipe sheet for the run: for each product with batches,
+     * what to prep (house-made ingredients, scaled), mix and pack at the
+     * run's real size -- the same sheet the recipe page's batch calculator
+     * previews.
+     */
+    public function recipeSheet(ProductionRun $productionRun, BuildRecipeSheet $buildRecipeSheet): Response
+    {
+        $this->authorize('view', $productionRun);
+
+        $productionRun->load('recipes');
+
+        $sheets = $productionRun->recipes
+            ->filter(fn (Recipe $recipe) => (int) $recipe->pivot->batches > 0)
+            ->sortBy('name')
+            ->map(fn (Recipe $recipe) => [
+                'recipe_id' => $recipe->id,
+                'units' => $productionRun->batch_size * (int) $recipe->pivot->batches,
+                'batches' => (int) $recipe->pivot->batches,
+                'batch_size' => $productionRun->batch_size,
+                'sheet' => $buildRecipeSheet->handle($recipe),
+            ])
+            ->values();
+
+        return Inertia::render('Vendor/costing/ProductionPlanner/RecipeSheet', [
+            'production_run' => $this->serializeRun($productionRun),
+            'sheets' => $sheets,
+            'breadcrumbs' => CostingBreadcrumbs::trail(
+                ['label' => 'All Runs', 'href' => route('admin.costing.production-planner.runs')],
+                ['label' => ($productionRun->name ?? $productionRun->run_date->format('Y-m-d')).' -- Recipe Sheet'],
+            ),
+        ]);
+    }
+
     public function purchaseOrder(ProductionRun $productionRun, CalculateProductionPlan $calculateProductionPlan): Response
     {
         $this->authorize('view', $productionRun);

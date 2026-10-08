@@ -862,6 +862,51 @@ describe('house-made ingredients', function () {
     });
 });
 
+describe('BuildRecipeSheet', function () {
+    it('lays out prep (nested house-made included, per kg), mix and pack for one unit', function () {
+        $juice = Ingredient::create(['name' => 'Sheet Juice', 'unit_type' => 'g', 'waste_percent' => 100]);
+        $apples = Ingredient::create(['name' => 'Sheet Apples', 'unit_type' => 'g', 'waste_percent' => 100]);
+        $cheese = Ingredient::create(['name' => 'Sheet Cheese', 'unit_type' => 'g', 'waste_percent' => 100]);
+        $cup = Ingredient::create(['name' => 'Sheet Cup', 'category' => 'Packaging', 'unit_type' => 'unit', 'waste_percent' => 100]);
+
+        // Cider: 1000g juice -> 20% = 200g. Butter: 100g cider + 900g
+        // apples -> 50% = 500g.
+        $cider = Ingredient::create(['name' => 'Sheet Cider', 'unit_type' => 'g', 'waste_percent' => 100, 'is_house_made' => true, 'cook_down_percent' => 20]);
+        $cider->components()->sync([$juice->id => ['quantity' => 1000]]);
+        $butter = Ingredient::create(['name' => 'Sheet Butter', 'unit_type' => 'g', 'waste_percent' => 100, 'is_house_made' => true, 'cook_down_percent' => 50]);
+        $butter->components()->sync([$cider->id => ['quantity' => 100], $apples->id => ['quantity' => 900]]);
+
+        $recipe = Recipe::create(['name' => 'Sheet Recipe', 'fill_size_g' => 280]);
+        $recipe->mainIngredients()->sync([
+            $cup->id => ['quantity_per_jar' => 1],
+            $butter->id => ['quantity_per_jar' => 50],
+            $cheese->id => ['quantity_per_jar' => 250],
+        ]);
+
+        $sheet = (new \Cultpantry\Costing\Actions\BuildRecipeSheet)->handle($recipe->fresh());
+
+        expect($sheet['recipe_grams'])->toBe(300.0);
+        expect(collect($sheet['mix'])->pluck('name')->all())->toBe(['Sheet Cheese', 'Sheet Butter']);
+        expect(collect($sheet['pack'])->pluck('name')->all())->toBe(['Sheet Cup']);
+
+        // 50g butter per unit = 0.1 of a 500g batch = 10g cider.
+        $prep = collect($sheet['prep'])->keyBy('name');
+        expect((float) $prep['Sheet Butter']['quantity'])->toBe(50.0);
+        expect((float) $prep['Sheet Cider']['quantity'])->toBe(10.0);
+        expect(collect($prep['Sheet Butter']['components_per_kg'])->pluck('quantity_per_kg', 'name')->all())
+            ->toBe(['Sheet Apples' => 1800.0, 'Sheet Cider' => 200.0]);
+        expect($prep['Sheet Cider']['components_per_kg'][0]['quantity_per_kg'])->toBe(5000.0);
+    });
+
+    it('lists nothing to make from until a house-made ingredient has a cook-down %', function () {
+        $apples = Ingredient::create(['name' => 'Bare Apples', 'unit_type' => 'g', 'waste_percent' => 100]);
+        $butter = Ingredient::create(['name' => 'Bare Butter', 'unit_type' => 'g', 'waste_percent' => 100, 'is_house_made' => true]);
+        $butter->components()->sync([$apples->id => ['quantity' => 1000]]);
+
+        expect($butter->fresh()->componentsPerKg())->toBe([]);
+    });
+});
+
 describe('seed data', function () {
     it('seeds Autumn Apple Cinnamon with its house-made Apple Butter, priced and ready to plan', function () {
         $this->seed(\Cultpantry\Costing\Database\Seeders\CostingDatabaseSeeder::class);

@@ -124,6 +124,32 @@ class Ingredient extends Model
     }
 
     /**
+     * What it takes to make 1kg of this house-made ingredient once cooked:
+     * each made-from line scaled from one cook to 1kg of yield. Empty until
+     * the yield is known (no cook-down % yet).
+     *
+     * @return array<int, array{id: int, name: string, unit_type: string, quantity_per_kg: float}>
+     */
+    public function componentsPerKg(): array
+    {
+        $yield = $this->yieldGrams();
+        if ($yield === null) {
+            return [];
+        }
+
+        return $this->components
+            ->sortByDesc(fn (Ingredient $component) => (float) $component->pivot->quantity)
+            ->map(fn (Ingredient $component) => [
+                'id' => $component->id,
+                'name' => $component->name,
+                'unit_type' => $component->unit_type,
+                'quantity_per_kg' => round((float) $component->pivot->quantity * 1000 / $yield, 4),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
      * House-made ingredients this one goes into.
      */
     public function usedInHouseMade(): BelongsToMany

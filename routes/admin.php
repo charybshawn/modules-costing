@@ -92,6 +92,7 @@ Route::prefix('admin')->name('admin.')->middleware(['web', 'auth', 'admin'])->gr
             Route::post('{productionRun}/attach-rental', [ProductionPlannerController::class, 'attachRental'])->name('attach-rental');
             Route::post('{productionRun}/detach-rental', [ProductionPlannerController::class, 'detachRental'])->name('detach-rental');
             Route::get('{productionRun}/purchase-order', [ProductionPlannerController::class, 'purchaseOrder'])->name('purchase-order');
+            Route::get('{productionRun}/recipe-sheet', [ProductionPlannerController::class, 'recipeSheet'])->name('recipe-sheet');
         });
 
         Route::prefix('settings')->name('settings.')->group(function () {

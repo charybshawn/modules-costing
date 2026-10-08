@@ -97,13 +97,9 @@
 
       <BatchCalculator
         v-if="recipe.ingredients.length"
-        :title="recipe.name"
-        :raw-per-unit="recipe.raw_per_unit"
-        :prep-per-unit="recipe.prep_per_unit"
+        :sheet="recipe.sheet"
         :recipe-cost="costPerJar.batchCost"
-        :recipe-grams="totalGrams"
         :cost-is-estimate="costPerJar.anyStale || costPerJar.anyMissing"
-        :fill-g="recipe.fill_size_g"
         :preferred-batch-size="recipe.preferred_batch_size"
       />
 
@@ -135,6 +131,7 @@ import AdminShowShell from '@/Components/Admin/AdminShowShell.vue'
 import DataTable, { type Column } from '@/Components/Admin/DataTable.vue'
 import IconButton from '@/Components/IconButton.vue'
 import BatchCalculator from '../Shared/BatchCalculator.vue'
+import type { RecipeSheetData } from '../Shared/RecipeSheet.vue'
 import { costPerFilledUnit } from '../Shared/fillCost'
 import type { FinishedGoodOption } from '../Shared/FinishedGoodPicker.vue'
 import { backLinkClass, dangerIconActionClass, iconActionClass } from '../Shared/formClasses'
@@ -165,8 +162,7 @@ interface Recipe {
   is_active: boolean
   max_producible_units: number
   ingredients: IngredientLine[]
-  raw_per_unit: Array<{ id: number; name: string; unit_type: 'g' | 'unit'; quantity: number }>
-  prep_per_unit: Array<{ id: number; name: string; quantity: number; yield_g: number }>
+  sheet: RecipeSheetData
   byproducts: Array<{ id: number; name: string; byproduct_name: string | null; unit_type: 'g' | 'unit'; quantity_per_jar: number }>
 }
 

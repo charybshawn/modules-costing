@@ -1040,7 +1040,7 @@ describe('costing admin module', function () {
             expect(Ingredient::find($apples->id))->not->toBeNull();
         });
 
-        it('shows what it is made from, and a recipe shows its raw ingredients per unit', function () {
+        it('shows what it is made from, and a recipe sheet shows how to make it per unit', function () {
             $apples = Ingredient::create(['name' => 'Shown Apples', 'unit_type' => 'g', 'waste_percent' => 100]);
             $cheese = Ingredient::create(['name' => 'Shown Cheese', 'unit_type' => 'g', 'waste_percent' => 100]);
             $butter = Ingredient::create(['name' => 'Shown Butter', 'unit_type' => 'g', 'waste_percent' => 100, 'is_house_made' => true, 'cook_down_percent' => 40]);
@@ -1055,17 +1055,19 @@ describe('costing admin module', function () {
             $this->actingAs($this->admin)->get(route('admin.costing.ingredients.show', $apples))
                 ->assertInertia(fn ($page) => $page->where('ingredient.used_in_house_made.0.name', 'Shown Butter'));
 
-            // One unit takes 250g cheese + 50g butter; 50g butter = 0.125
-            // prep batches = 125g apples. The fill weight doesn't change it.
+            // One unit takes 250g cheese + 50g butter. The butter is 1000g of
+            // apples cooked down to 40% = 400g, so 1kg of it takes 2500g.
             $recipe = Recipe::create(['name' => 'Shown Recipe', 'fill_size_g' => 280]);
             $recipe->mainIngredients()->sync([$cheese->id => ['quantity_per_jar' => 250], $butter->id => ['quantity_per_jar' => 50]]);
 
             $this->actingAs($this->admin)->get(route('admin.costing.recipes.show', $recipe))
                 ->assertInertia(fn ($page) => $page
-                    ->where('recipe.raw_per_unit', fn ($raw) => collect($raw)->pluck('quantity', 'name')->map(fn ($q) => (float) $q)->all()
-                        === ['Shown Cheese' => 250.0, 'Shown Apples' => 125.0])
-                    ->where('recipe.prep_per_unit.0.name', 'Shown Butter')
-                    ->where('recipe.prep_per_unit.0.quantity', 50)
+                    ->where('recipe.sheet.prep.0.name', 'Shown Butter')
+                    ->where('recipe.sheet.prep.0.quantity', 50)
+                    ->where('recipe.sheet.prep.0.components_per_kg.0.name', 'Shown Apples')
+                    ->where('recipe.sheet.prep.0.components_per_kg.0.quantity_per_kg', 2500)
+                    ->where('recipe.sheet.mix', fn ($mix) => collect($mix)->pluck('quantity', 'name')->map(fn ($q) => (float) $q)->all()
+                        === ['Shown Cheese' => 250.0, 'Shown Butter' => 50.0])
                 );
         });
 
@@ -1090,7 +1092,8 @@ describe('costing admin module', function () {
             $this->actingAs($this->admin)->get(route('admin.costing.recipes.show', $recipe))
                 ->assertInertia(fn ($page) => $page
                     ->where('recipe.ingredients', fn ($lines) => collect($lines)->pluck('name')->all() === $expected)
-                    ->where('recipe.raw_per_unit', fn ($lines) => collect($lines)->pluck('name')->all() === $expected)
+                    ->where('recipe.sheet.mix', fn ($lines) => collect($lines)->pluck('name')->all() === array_slice($expected, 0, 3))
+                    ->where('recipe.sheet.pack', fn ($lines) => collect($lines)->pluck('name')->all() === array_slice($expected, 3))
                 );
 
             $ids = [$peppers->id, $vinegar->id, $salt->id, $jar->id, $lid->id];
@@ -1098,6 +1101,39 @@ describe('costing admin module', function () {
                 ->assertInertia(fn ($page) => $page
                     ->where('recipe.ingredients', fn ($lines) => collect($lines)->pluck('ingredient_id')->all() === $ids)
                 );
+        });
+    });
+
+    describe('production run recipe sheet', function () {
+        it('shows each flavour with batches at the run\'s size, with its house-made prep scaled', function () {
+            $apples = Ingredient::create(['name' => 'Sheet Apples', 'unit_type' => 'g', 'waste_percent' => 100]);
+            $cheese = Ingredient::create(['name' => 'Sheet Cheese', 'unit_type' => 'g', 'waste_percent' => 100]);
+            $butter = Ingredient::create(['name' => 'Sheet Butter', 'unit_type' => 'g', 'waste_percent' => 100, 'is_house_made' => true, 'cook_down_percent' => 40]);
+            $butter->components()->sync([$apples->id => ['quantity' => 1000]]);
+
+            $made = Recipe::create(['name' => 'Sheet Flavour']);
+            $made->mainIngredients()->sync([$cheese->id => ['quantity_per_jar' => 250], $butter->id => ['quantity_per_jar' => 45]]);
+            $skipped = Recipe::create(['name' => 'Sheet Skipped']);
+
+            $run = ProductionRun::create(['batch_size' => 20, 'run_date' => Carbon::now()->toDateString()]);
+            $run->recipes()->sync([$made->id => ['batches' => 4], $skipped->id => ['batches' => 0]]);
+
+            $this->actingAs($this->admin)->get(route('admin.costing.production-planner.recipe-sheet', $run))
+                ->assertOk()
+                ->assertInertia(fn ($page) => $page
+                    ->component('Vendor/costing/ProductionPlanner/RecipeSheet')
+                    ->has('sheets', 1)
+                    ->where('sheets.0.units', 80)
+                    ->where('sheets.0.sheet.name', 'Sheet Flavour')
+                    ->where('sheets.0.sheet.prep.0.quantity', 45)
+                    ->where('sheets.0.sheet.prep.0.components_per_kg.0.quantity_per_kg', 2500)
+                );
+        });
+
+        it('is not open to customers', function () {
+            $run = ProductionRun::create(['batch_size' => 20, 'run_date' => Carbon::now()->toDateString()]);
+
+            $this->actingAs($this->customer)->get(route('admin.costing.production-planner.recipe-sheet', $run))->assertForbidden();
         });
     });
 
