@@ -32,7 +32,7 @@
         <!-- One product per printed page. -->
         <div v-for="(item, index) in sheets" :key="item.recipe_id" class="mt-8" :class="index > 0 ? 'pt-8 border-t border-gray-200 dark:border-gray-700 print:border-0 print:pt-0 print:break-before-page' : ''">
           <!-- Per batch: what the kitchen makes at once, repeated `batches` times. -->
-          <RecipeSheet :sheet="item.sheet" :units="item.batch_size" :title="batchTitle(item)" />
+          <RecipeSheet :sheet="item.sheet" :units="item.batch_size" :batches="item.batches" :title="batchTitle(item)" />
         </div>
       </div>
       </div>
