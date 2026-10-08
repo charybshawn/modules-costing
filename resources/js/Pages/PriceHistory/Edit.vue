@@ -138,8 +138,9 @@ const form = usePersistedForm<PriceEntryFormData>(initialData, {
 })
 
 // Seeded from form.qty (not props.entry.qty) so a restored localStorage
-// draft is what's shown; stored in grams, so shown in g.
-const entry = usePriceEntry(form, () => props.ingredients, { initialGrams: form.qty, defaultUnit: 'g' })
+// draft is what's shown; a kilo or more is shown in kg, less in g. This
+// entry is left out of the "usual price" the new figure is checked against.
+const entry = usePriceEntry(form, () => props.ingredients, { initialGrams: form.qty, defaultUnit: 'g', editingEntryId: props.entry.id })
 
 const { initialStep, markSaved, saving, saveAndClose, closeEditor } = useAutosaveSession({
   form,

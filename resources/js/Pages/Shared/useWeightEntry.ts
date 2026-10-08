@@ -10,8 +10,12 @@ import { computed, ref, watch } from 'vue'
  * the plain weight) for a normal single-item purchase.
  */
 export function useWeightEntry(initialGrams: number | null = null, defaultUnit: 'kg' | 'g' = 'g') {
-  const weightValue = ref<number | null>(initialGrams)
-  const weightUnit = ref<'kg' | 'g'>(defaultUnit)
+  // A pre-filled weight of a kilo or more is shown in kg (2270 g -> 2.27 kg),
+  // the way bags and invoices state it -- so typing over it with the
+  // label's "2.27" means 2.27 kg, not 2.27 g.
+  const startInKg = initialGrams !== null && initialGrams >= 1000
+  const weightValue = ref<number | null>(startInKg ? Math.round((initialGrams / 1000) * 10000) / 10000 : initialGrams)
+  const weightUnit = ref<'kg' | 'g'>(initialGrams === null ? defaultUnit : (startInKg ? 'kg' : 'g'))
   const isCase = ref(false)
   const eachesPerCase = ref<number | null>(null)
 

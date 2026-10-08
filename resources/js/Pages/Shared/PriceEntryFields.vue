@@ -101,7 +101,14 @@
     <div>
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Total price ($) *</label>
       <input v-model.number="form.total_price" type="number" inputmode="decimal" min="0" step="0.01" :class="inputClass" />
-      <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">$/kg (or $/unit) is worked out from this and the quantity above.</p>
+      <p v-if="entry.livePrice === null" class="mt-1 text-xs text-gray-500 dark:text-gray-400">$/kg (or $/unit) is worked out from this and the quantity above.</p>
+      <p v-else class="mt-1 text-sm" :class="entry.priceLooksOff ? 'font-medium text-amber-700 dark:text-amber-400' : 'text-gray-600 dark:text-gray-400'">
+        = {{ money(entry.livePrice) }}{{ entry.isGramBased ? '/kg' : '/unit' }}
+        <template v-if="entry.priceLooksOff && entry.usualPrice !== null && entry.priceRatio !== null">
+          — {{ entry.priceRatio > 1 ? `about ${Math.round(entry.priceRatio)}× more than` : `about ${Math.round(1 / entry.priceRatio)}× less than` }}
+          the usual {{ money(entry.usualPrice) }}{{ entry.isGramBased ? '/kg' : '/unit' }}. Check the {{ entry.isGramBased ? 'weight and its kg/g unit' : 'quantity' }}.
+        </template>
+      </p>
       <InputError :message="form.errors.total_price" />
 
       <fieldset v-if="!entry.isGramBased && entry.selectedSource && entry.selectedSource.units_per_case > 1" class="mt-3">
@@ -136,6 +143,10 @@ import InputError from '@/Components/InputError.vue'
 import { sourceLabel } from './useIngredientSources'
 import type { PriceEntryIngredient, PriceEntryState } from './usePriceEntry'
 import { inputClass, secondaryButtonClass } from './formClasses'
+
+// Dollar figures with thousands separators, so an outlier like $3,070.48
+// reads as obviously wrong at a glance.
+const money = (value: number) => `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 // Stateless: all state lives in the page's usePriceEntry (see its docblock
 // for why) and is passed in as `entry`.

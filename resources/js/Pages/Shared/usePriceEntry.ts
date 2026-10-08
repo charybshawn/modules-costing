@@ -1,4 +1,5 @@
 import { computed, reactive, ref, watch } from 'vue'
+import axios from 'axios'
 import { useWeightEntry } from './useWeightEntry'
 import { useIngredientSources } from './useIngredientSources'
 
@@ -29,7 +30,7 @@ export type PriceEntryIngredient = { id: number; name: string; unit_type: 'g' | 
 export function usePriceEntry(
   form: any,
   ingredients: () => PriceEntryIngredient[],
-  weight: { initialGrams: number | null; defaultUnit: 'kg' | 'g' },
+  weight: { initialGrams: number | null; defaultUnit: 'kg' | 'g'; editingEntryId?: number },
 ) {
   const selectedIngredient = computed(() => ingredients().find((i) => i.id === form.ingredient_id) ?? null)
   const isGramBased = computed(() => selectedIngredient.value?.unit_type !== 'unit')
@@ -99,6 +100,48 @@ export function usePriceEntry(
     }
   })
 
+  // What this entry works out to ($/kg, or $/unit), live as it's typed,
+  // checked against the ingredient's usual price so a slipped unit
+  // (2.27 g typed for a 2.27 kg bag) shows up before it's saved.
+  const otherPrices = ref<number[]>([])
+  watch(
+    () => form.ingredient_id,
+    async (id) => {
+      otherPrices.value = []
+      if (!id) return
+      try {
+        const { data } = await axios.get(route('admin.costing.ingredients.price-options', id))
+        otherPrices.value = (data.options as Array<{ price_history_entry_id: number | null; price_per_unit: number | null }>)
+          .filter((o) => o.price_per_unit !== null && o.price_per_unit > 0 && o.price_history_entry_id !== weight.editingEntryId)
+          .map((o) => Number(o.price_per_unit))
+      } catch {
+        // No comparison then -- the live price still shows.
+      }
+    },
+    { immediate: true },
+  )
+
+  const livePrice = computed<number | null>(() => {
+    const total = Number(form.total_price)
+    const qty = Number(form.qty)
+    if (!total || !qty || total <= 0 || qty <= 0) return null
+    return isGramBased.value ? (total / qty) * 1000 : total / qty
+  })
+
+  // The median of the ingredient's other sources' latest prices.
+  const usualPrice = computed<number | null>(() => {
+    const prices = [...otherPrices.value].sort((a, b) => a - b)
+    if (!prices.length) return null
+    const mid = Math.floor(prices.length / 2)
+    return prices.length % 2 ? prices[mid] : (prices[mid - 1] + prices[mid]) / 2
+  })
+
+  // More than 5x off the usual price either way -- almost always a unit or
+  // decimal slip rather than a real price change.
+  const priceRatio = computed<number | null>(() =>
+    livePrice.value !== null && usualPrice.value !== null ? livePrice.value / usualPrice.value : null)
+  const priceLooksOff = computed(() => priceRatio.value !== null && (priceRatio.value > 5 || priceRatio.value < 0.2))
+
   // Gram-based ingredients express "priced as a case" through the weight
   // entry's own "This was a case" checkbox rather than the one-package /
   // whole-case radios (unit-type ingredients only); the form autosaves, so
@@ -128,6 +171,10 @@ export function usePriceEntry(
     weightUnit,
     isCase,
     eachesPerCase,
+    livePrice,
+    usualPrice,
+    priceRatio,
+    priceLooksOff,
   })
 }
 

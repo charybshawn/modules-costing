@@ -113,8 +113,8 @@ const form = usePersistedForm<PriceEntryFormData>({
   },
 })
 
-// A cloned gram-based entry's qty is stored in grams, so it's shown in g;
-// only a blank form defaults the weight unit to kg.
+// A cloned entry's weight is shown in kg from a kilo up, in g below that;
+// a blank form defaults the weight unit to kg.
 const entry = usePriceEntry(form, () => props.ingredients, {
   initialGrams: props.clone?.qty ?? null,
   defaultUnit: props.clone?.qty != null ? 'g' : 'kg',
