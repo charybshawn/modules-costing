@@ -1069,6 +1069,48 @@ describe('costing admin module', function () {
         });
     });
 
+    describe('duplicating an ingredient', function () {
+        it('copies the details and made-from list into "<name> 2", leaving sources, prices and stock behind', function () {
+            $apples = Ingredient::create(['name' => 'Dup Apples', 'unit_type' => 'g', 'waste_percent' => 100]);
+            $butter = Ingredient::create([
+                'name' => 'Dup Butter', 'category' => 'Vegetables & Fruit', 'unit_type' => 'g', 'waste_percent' => 100,
+                'notes' => 'Spicy', 'is_house_made' => true, 'yield_g' => 900,
+                'preferred_source' => 'GFS', 'preferred_brand' => null,
+            ]);
+            $butter->components()->sync([$apples->id => ['quantity' => 2100]]);
+            $butter->packageSizes()->create(['provider' => 'GFS', 'package_size' => 900, 'quantity_on_hand' => 1800]);
+            $butter->priceHistory()->create(['purchased_at' => Carbon::now()->toDateString(), 'provider' => 'GFS', 'qty' => 900, 'total_price' => 12]);
+
+            $response = $this->actingAs($this->admin)->post(route('admin.costing.ingredients.duplicate', $butter));
+
+            $copy = Ingredient::where('name', 'Dup Butter 2')->firstOrFail();
+            $response->assertRedirect(route('admin.costing.ingredients.edit', $copy));
+
+            expect($copy->only(['category', 'unit_type', 'notes', 'is_house_made']))
+                ->toBe(['category' => 'Vegetables & Fruit', 'unit_type' => 'g', 'notes' => 'Spicy', 'is_house_made' => true]);
+            expect((float) $copy->yield_g)->toBe(900.0);
+            expect((float) $copy->components->firstOrFail()->pivot->quantity)->toBe(2100.0);
+
+            expect($copy->packageSizes)->toBeEmpty();
+            expect($copy->priceHistory)->toBeEmpty();
+            expect($copy->preferred_source)->toBeNull();
+            expect($copy->inventory)->not->toBeNull();
+
+            // The original keeps everything.
+            expect($butter->fresh()->packageSizes)->toHaveCount(1);
+        });
+
+        it('numbers further copies 3, 4... whichever one is duplicated', function () {
+            $salt = Ingredient::create(['name' => 'Dup Salt', 'unit_type' => 'g', 'waste_percent' => 100]);
+
+            $this->actingAs($this->admin)->post(route('admin.costing.ingredients.duplicate', $salt));
+            $this->actingAs($this->admin)->post(route('admin.costing.ingredients.duplicate', Ingredient::where('name', 'Dup Salt 2')->firstOrFail()));
+
+            expect(Ingredient::where('name', 'like', 'Dup Salt%')->orderBy('name')->pluck('name')->all())
+                ->toBe(['Dup Salt', 'Dup Salt 2', 'Dup Salt 3']);
+        });
+    });
+
     describe('recipe preferred batch size', function () {
         it('saves the preferred batch size from the recipe form and passes it to the recipe page', function () {
             $recipe = Recipe::create(['name' => 'Batch Size Recipe']);

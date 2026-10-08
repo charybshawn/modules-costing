@@ -29,6 +29,7 @@ Route::prefix('admin')->name('admin.')->middleware(['web', 'auth', 'admin'])->gr
             Route::get('{ingredient}/edit', [IngredientController::class, 'edit'])->name('edit');
             Route::put('{ingredient}', [IngredientController::class, 'update'])->name('update');
             Route::get('{ingredient}/price-options', [IngredientController::class, 'priceOptions'])->name('price-options');
+            Route::post('{ingredient}/duplicate', [IngredientController::class, 'duplicate'])->name('duplicate');
             Route::post('{ingredient}/preferred', [IngredientController::class, 'setPreferred'])->name('set-preferred');
             Route::post('{ingredient}/package-size', [IngredientController::class, 'setPackageSize'])->name('set-package-size');
             Route::post('{ingredient}/sources/{packageSize}/rename', [IngredientController::class, 'renameSource'])->name('sources.rename');

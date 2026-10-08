@@ -10,6 +10,11 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" :d="EDIT_ICON" />
         </svg>
       </IconButton>
+      <IconButton label="Duplicate ingredient" :class="iconActionClass" @click="duplicate">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" :d="DUPLICATE_ICON" />
+        </svg>
+      </IconButton>
       <IconButton label="Delete ingredient" :class="dangerIconActionClass" @click="destroy">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" :d="DELETE_ICON" />
@@ -187,7 +192,7 @@ import DataTable, { type Column } from '@/Components/Admin/DataTable.vue'
 import IconButton from '@/Components/IconButton.vue'
 import SourcesTable from '../Shared/SourcesTable.vue'
 import { backLinkClass, dangerIconActionClass, iconActionClass } from '../Shared/formClasses'
-import { DELETE_ICON, EDIT_ICON } from '../Shared/showIcons'
+import { DELETE_ICON, DUPLICATE_ICON, EDIT_ICON } from '../Shared/showIcons'
 
 defineOptions({ layout: (h, page) => h(AdminLayout, { hideBreadcrumbOnMobile: true }, () => page) })
 
@@ -280,6 +285,10 @@ const madeFrom = computed(() => {
 
   return { lines, batchCost: lines.reduce((sum, line) => sum + (line.subtotal ?? 0), 0) }
 })
+
+// Copies the details (and made-from list) into "<name> 2" and opens it for
+// editing; sources, prices and stock stay with this one.
+const duplicate = () => router.post(route('admin.costing.ingredients.duplicate', props.ingredient.id))
 
 const destroy = async () => {
   const confirmed = await confirmDialog({

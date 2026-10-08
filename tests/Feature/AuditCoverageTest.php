@@ -19,6 +19,7 @@ it('audits every route in this module that changes data', function () {
         'DELETE admin/costing/recipes/{recipe}/discard-draft',
         'POST admin/costing/ingredients',
         'POST admin/costing/ingredients/bulk-action',
+        'POST admin/costing/ingredients/{ingredient}/duplicate',
         'POST admin/costing/ingredients/{ingredient}/package-size',
         'POST admin/costing/ingredients/{ingredient}/preferred',
         'POST admin/costing/ingredients/{ingredient}/sources/{packageSize}/rename',

@@ -249,6 +249,35 @@ class IngredientController extends Controller implements HasMiddleware
             ->with('success', "Ingredient '{$ingredient->name}' updated.");
     }
 
+    /**
+     * Copies an ingredient's details -- and, for a house-made one, what it's
+     * made from -- into a new ingredient named "<name> 2" (or the next free
+     * number), then opens it for editing. Sources, prices, stock and the
+     * preferred source stay with the original: they're facts about what was
+     * actually bought, not about the ingredient's definition.
+     */
+    public function duplicate(Ingredient $ingredient): RedirectResponse
+    {
+        $this->authorize('view', $ingredient);
+        $this->authorize('create', Ingredient::class);
+
+        $ingredient->load('components');
+
+        $copy = $ingredient->replicate(['preferred_source', 'preferred_brand']);
+        $copy->name = $this->nextCopyName($ingredient->name);
+        $copy->save();
+
+        $copy->components()->sync($ingredient->components->mapWithKeys(fn (Ingredient $component) => [
+            $component->id => ['quantity' => $component->pivot->quantity],
+        ])->all());
+
+        event(CostingRecordSaved::forCreated($copy, auth()->id(), ['duplicated_from' => $ingredient->id]));
+
+        return redirect()
+            ->route('admin.costing.ingredients.edit', $copy)
+            ->with('success', "Duplicated '{$ingredient->name}' as '{$copy->name}'.");
+    }
+
     public function priceOptions(Ingredient $ingredient, GetIngredientPriceOptions $getIngredientPriceOptions): JsonResponse
     {
         $this->authorize('view', $ingredient);
@@ -619,6 +648,21 @@ class IngredientController extends Controller implements HasMiddleware
                 ],
                 $calculateIngredientCosting->handle($ingredient)
             ));
+    }
+
+    /**
+     * "Apple Butter" -> "Apple Butter 2"; "Apple Butter 2" -> "Apple Butter 3"
+     * -- the first number not already taken by another ingredient.
+     */
+    private function nextCopyName(string $name): string
+    {
+        $base = preg_replace('/ \d+$/', '', $name);
+        $number = 2;
+        while (Ingredient::where('name', "{$base} {$number}")->exists()) {
+            $number++;
+        }
+
+        return "{$base} {$number}";
     }
 
     /**
