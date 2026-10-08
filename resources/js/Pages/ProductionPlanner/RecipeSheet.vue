@@ -31,7 +31,8 @@
 
         <!-- One product per printed page. -->
         <div v-for="(item, index) in sheets" :key="item.recipe_id" class="mt-8" :class="index > 0 ? 'pt-8 border-t border-gray-200 dark:border-gray-700 print:border-0 print:pt-0 print:break-before-page' : ''">
-          <RecipeSheet :sheet="item.sheet" :units="item.units" :title="`${item.sheet.name}: ${item.units} units (${item.batches} × ${item.batch_size})`" />
+          <!-- Per batch: what the kitchen makes at once, repeated `batches` times. -->
+          <RecipeSheet :sheet="item.sheet" :units="item.batch_size" :title="batchTitle(item)" />
         </div>
       </div>
       </div>
@@ -56,6 +57,9 @@ defineProps<{
 }>()
 
 const print = () => window.print()
+
+const batchTitle = (item: { batches: number; batch_size: number; sheet: RecipeSheetData }) =>
+  `${item.sheet.name}: batch of ${item.batch_size} units, make ${item.batches} batch${item.batches === 1 ? '' : 'es'}`
 </script>
 
 <style>

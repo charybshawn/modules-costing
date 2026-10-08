@@ -47,7 +47,7 @@
 
       <div>
         <div class="flex items-center justify-between gap-3">
-          <h3 class="text-sm font-medium text-gray-900 dark:text-white">Recipe for this batch</h3>
+          <h3 class="text-sm font-medium text-gray-900 dark:text-white">Recipe for one batch</h3>
           <IconButton label="Print recipe" :class="iconActionClass" @click="print">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
@@ -56,7 +56,7 @@
         </div>
         <!-- What the print button prints: this sheet and nothing else. -->
         <div id="batch-recipe-print" class="mt-3">
-          <RecipeSheet :sheet="sheet" :units="units" :title="`${sheet.name}: ${units} units (${batchLabel})`" />
+          <RecipeSheet :sheet="sheet" :units="unitsPerBatch" :title="batchTitle" />
         </div>
       </div>
     </div>
@@ -86,7 +86,11 @@ const batchSize = ref<number | ''>(props.preferredBatchSize ?? 20)
 const batches = ref<number | ''>(1)
 
 const units = computed(() => Math.max(0, Math.floor(Number(batchSize.value) || 0) * Math.floor(Number(batches.value) || 0)))
-const batchLabel = computed(() => `${Number(batches.value) || 0} × ${Number(batchSize.value) || 0}`)
+// The sheet is one batch -- what's made at once -- repeated `batches` times.
+const unitsPerBatch = computed(() => Math.max(0, Math.floor(Number(batchSize.value) || 0)))
+const batchCount = computed(() => Math.max(0, Math.floor(Number(batches.value) || 0)))
+const batchTitle = computed(() =>
+  `${props.sheet.name}: batch of ${unitsPerBatch.value} units, make ${batchCount.value} batch${batchCount.value === 1 ? '' : 'es'}`)
 
 // The recipe weighs more than a unit is filled with; the extra fills more units.
 const filledUnits = computed(() => (props.sheet.fill_size_g && props.sheet.fill_size_g > 0 && props.sheet.recipe_grams > 0
