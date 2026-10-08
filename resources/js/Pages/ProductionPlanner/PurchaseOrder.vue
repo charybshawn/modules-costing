@@ -41,16 +41,21 @@
           </ul>
         </div>
 
-        <div v-if="plan.purchase_rows.length === 0" class="mt-8 text-center text-gray-600 dark:text-gray-400 print:text-black py-12 border border-dashed border-gray-300 dark:border-gray-600 rounded-md">
-          Nothing to buy — inventory covers all requirements.
-        </div>
+        <p v-if="plan.purchase_rows.length === 0" class="mt-6 text-sm text-gray-600 dark:text-gray-400 print:text-black">
+          Nothing to buy — stock on hand covers everything below.
+        </p>
 
-        <div v-else>
+        <div v-if="orderRows.length">
           <!-- Mobile: plain stacked rows (DataTable's 'flat' treatment --
                no card chrome, this is a short homogeneous printable list,
                not a rich record browser). Desktop/print: unchanged table. -->
           <div class="md:hidden print:hidden mt-6 divide-y divide-gray-200 dark:divide-gray-700">
-            <div v-for="row in plan.purchase_rows" :key="row.ingredient_id" class="py-3">
+            <div v-for="row in orderRows" :key="row.ingredient_id" class="py-3" :class="fromStockClass(row)" :title="fromStockTitle(row)">
+              <div v-if="!row.needs_purchase" class="flex items-baseline justify-between gap-3 text-sm">
+                <span>{{ row.ingredient_name }}</span>
+                <span>{{ formatQuantity(roundRequired(row), row.unit_type) }} from stock</span>
+              </div>
+              <template v-else>
               <div class="flex items-baseline justify-between gap-3">
                 <span class="text-sm font-medium text-gray-900 dark:text-white">{{ row.ingredient_name }}</span>
                 <span class="text-sm font-semibold text-gray-900 dark:text-white">${{ row.est_cost.toFixed(2) }}</span>
@@ -62,6 +67,7 @@
               <div class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                 {{ row.best_source ?? 'No preferred source' }}
               </div>
+              </template>
             </div>
             <div class="py-3 flex items-baseline justify-between gap-3">
               <span class="text-sm font-semibold text-gray-900 dark:text-white">Total Estimated Purchase Cost</span>
@@ -83,7 +89,15 @@
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                <tr v-for="row in plan.purchase_rows" :key="row.ingredient_id">
+                <template v-for="row in orderRows" :key="row.ingredient_id">
+                <!-- Covered by stock on hand: still listed (so the order shows
+                     everything the run uses), struck through. -->
+                <tr v-if="!row.needs_purchase" :class="fromStockClass(row)" :title="fromStockTitle(row)">
+                  <td class="px-4 py-2 text-sm">{{ row.ingredient_name }}</td>
+                  <td class="px-4 py-2 text-sm">{{ formatQuantity(roundRequired(row), row.unit_type) }}</td>
+                  <td class="px-4 py-2 text-sm" colspan="5">from stock</td>
+                </tr>
+                <tr v-else>
                   <td class="px-4 py-2 text-sm text-gray-900 dark:text-white print:text-black">{{ row.ingredient_name }}</td>
                   <td class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 print:text-black">{{ formatQuantity(roundNeeded(row), row.unit_type) }}</td>
                   <td class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 print:text-black">{{ formatQuantity(row.purchase_qty, row.unit_type) }}</td>
@@ -92,6 +106,7 @@
                   <td class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 print:text-black">{{ row.best_source ?? '—' }}</td>
                   <td class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 print:text-black">${{ row.est_cost.toFixed(2) }}</td>
                 </tr>
+                </template>
               </tbody>
               <tfoot>
                 <tr>
@@ -124,6 +139,9 @@ interface PlanRow {
   ingredient_id: number
   ingredient_name: string
   unit_type: 'g' | 'unit'
+  required: number
+  on_hand: number
+  needs_purchase: boolean
   to_purchase: number
   units_to_buy: number
   purchase_qty: number
@@ -141,6 +159,7 @@ interface PrepRow {
 }
 
 interface Plan {
+  rows: PlanRow[]
   purchase_rows: PlanRow[]
   prep_rows: PrepRow[]
   total_estimated_cost: number
@@ -170,6 +189,19 @@ const print = () => window.print()
 // What the order actually has to cover -- required for the run (including
 // trim, e.g. apple cores) less what's already on hand -- before it's rounded
 // up to whole packages. Packaging counts are whole items.
+// Everything the run uses: what to buy first, then what stock already
+// covers (struck through).
+const orderRows = computed(() => [
+  ...props.plan.rows.filter((row) => row.needs_purchase),
+  ...props.plan.rows.filter((row) => !row.needs_purchase),
+])
+
+const fromStockClass = (row: PlanRow) => (row.needs_purchase ? '' : 'line-through text-gray-400 dark:text-gray-500 print:text-gray-500')
+const fromStockTitle = (row: PlanRow) => (row.needs_purchase ? undefined : 'Covered by stock on hand -- nothing to buy')
+
+// The full amount the run takes, for a row stock covers entirely.
+const roundRequired = (row: PlanRow) => (row.unit_type === 'unit' ? Math.ceil(row.required) : row.required)
+
 const roundNeeded = (row: PlanRow) => (row.unit_type === 'unit' ? Math.ceil(row.to_purchase) : row.to_purchase)
 </script>
 
