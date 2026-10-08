@@ -68,7 +68,11 @@ class IngredientController extends Controller implements HasMiddleware
         // single scalar column.
         $ingredients = Ingredient::with('priceHistory.ingredient', 'inventory', 'packageSizes', 'recipes:id,name')
             ->orderBy('name')
-            ->get()
+            ->get();
+
+        $recipeIds = $this->recipeIdsThroughHouseMade($ingredients);
+
+        $ingredients = $ingredients
             ->map(fn (Ingredient $ingredient) => array_merge(
                 [
                     'id' => $ingredient->id,
@@ -80,7 +84,10 @@ class IngredientController extends Controller implements HasMiddleware
                     'byproduct_name' => $ingredient->byproduct_name,
                     'source_count' => $ingredient->packageSizes->count(),
                     'is_house_made' => $ingredient->is_house_made,
-                    'recipe_ids' => $ingredient->recipes->pluck('id')->all(),
+                    // Including recipes it reaches through a house-made
+                    // ingredient (applesauce -> Apple Butter -> the spread),
+                    // so the Recipe filter lists everything a recipe takes.
+                    'recipe_ids' => $recipeIds[$ingredient->id] ?? [],
                 ],
                 $calculateIngredientCosting->handle($ingredient)
             ));
@@ -651,6 +658,42 @@ class IngredientController extends Controller implements HasMiddleware
                 ],
                 $calculateIngredientCosting->handle($ingredient)
             ));
+    }
+
+    /**
+     * Each ingredient's recipes -- the ones it's in directly, plus any it
+     * reaches as part of a house-made ingredient (nested ones too).
+     *
+     * @return array<int, array<int, int>> ingredient id => recipe ids
+     */
+    private function recipeIdsThroughHouseMade(Collection $ingredients): array
+    {
+        $direct = $ingredients->mapWithKeys(fn (Ingredient $ingredient) => [$ingredient->id => $ingredient->recipes->pluck('id')->all()])->all();
+
+        // component id => the house-made ingredients it goes into
+        $parents = [];
+        foreach (DB::table('costing_ingredient_components')->get(['ingredient_id', 'component_ingredient_id']) as $row) {
+            $parents[$row->component_ingredient_id][] = $row->ingredient_id;
+        }
+
+        $result = [];
+        foreach (array_keys($direct) as $id) {
+            $recipes = [];
+            $seen = [];
+            $queue = [$id];
+            while ($queue) {
+                $current = array_shift($queue);
+                if (isset($seen[$current])) {
+                    continue;
+                }
+                $seen[$current] = true;
+                array_push($recipes, ...($direct[$current] ?? []));
+                array_push($queue, ...($parents[$current] ?? []));
+            }
+            $result[$id] = array_values(array_unique($recipes));
+        }
+
+        return $result;
     }
 
     /**

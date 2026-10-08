@@ -1028,6 +1028,27 @@ describe('costing admin module', function () {
             expect($cider->fresh()->components)->toBeEmpty();
         });
 
+        it('counts what a house-made ingredient is made from towards the recipes that use it', function () {
+            $juice = Ingredient::create(['name' => 'Filter Juice', 'unit_type' => 'g', 'waste_percent' => 100]);
+            $cider = Ingredient::create(['name' => 'Filter Cider', 'unit_type' => 'g', 'waste_percent' => 100, 'is_house_made' => true, 'cook_down_percent' => 20]);
+            $cider->components()->sync([$juice->id => ['quantity' => 1000]]);
+            $butter = Ingredient::create(['name' => 'Filter Butter', 'unit_type' => 'g', 'waste_percent' => 100, 'is_house_made' => true, 'cook_down_percent' => 50]);
+            $butter->components()->sync([$cider->id => ['quantity' => 100]]);
+
+            $recipe = Recipe::create(['name' => 'Filter Recipe']);
+            $recipe->mainIngredients()->sync([$butter->id => ['quantity_per_jar' => 45]]);
+
+            $this->actingAs($this->admin)->get(route('admin.costing.ingredients.index'))
+                ->assertInertia(fn ($page) => $page->where('ingredients', function ($ingredients) use ($recipe) {
+                    $byName = collect($ingredients)->keyBy('name');
+
+                    // Direct, one level down, and two levels down.
+                    return in_array($recipe->id, $byName['Filter Butter']['recipe_ids'], true)
+                        && in_array($recipe->id, $byName['Filter Cider']['recipe_ids'], true)
+                        && in_array($recipe->id, $byName['Filter Juice']['recipe_ids'], true);
+                }));
+        });
+
         it('will not delete an ingredient a house-made one is made from', function () {
             $apples = Ingredient::create(['name' => 'Guarded Apples', 'unit_type' => 'g', 'waste_percent' => 100]);
             $butter = Ingredient::create(['name' => 'Guarded Butter', 'unit_type' => 'g', 'waste_percent' => 100, 'is_house_made' => true, 'cook_down_percent' => 40]);
