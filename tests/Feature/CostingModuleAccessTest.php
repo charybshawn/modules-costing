@@ -1062,9 +1062,40 @@ describe('costing admin module', function () {
             $this->actingAs($this->admin)->get(route('admin.costing.recipes.show', $recipe))
                 ->assertInertia(fn ($page) => $page
                     ->where('recipe.raw_per_unit', fn ($raw) => collect($raw)->pluck('quantity', 'name')->map(fn ($q) => (float) $q)->all()
-                        === ['Shown Apples' => 125.0, 'Shown Cheese' => 250.0])
+                        === ['Shown Cheese' => 250.0, 'Shown Apples' => 125.0])
                     ->where('recipe.prep_per_unit.0.name', 'Shown Butter')
                     ->where('recipe.prep_per_unit.0.quantity', 50)
+                );
+        });
+
+        it('lists recipe lines heaviest first with packaging grouped last', function () {
+            $salt = Ingredient::create(['name' => 'Order Salt', 'category' => 'Spices', 'unit_type' => 'g', 'waste_percent' => 100]);
+            $peppers = Ingredient::create(['name' => 'Order Peppers', 'category' => 'Vegetables & Fruit', 'unit_type' => 'g', 'waste_percent' => 100]);
+            $vinegar = Ingredient::create(['name' => 'Order Vinegar', 'category' => 'Wet', 'unit_type' => 'g', 'waste_percent' => 100]);
+            $jar = Ingredient::create(['name' => 'Order Jar', 'category' => 'Packaging', 'unit_type' => 'unit', 'waste_percent' => 100]);
+            $lid = Ingredient::create(['name' => 'Order Lid', 'category' => 'packaging', 'unit_type' => 'unit', 'waste_percent' => 100]);
+
+            $recipe = Recipe::create(['name' => 'Ordered Recipe']);
+            $recipe->mainIngredients()->sync([
+                $jar->id => ['quantity_per_jar' => 1],
+                $salt->id => ['quantity_per_jar' => 6],
+                $lid->id => ['quantity_per_jar' => 1],
+                $peppers->id => ['quantity_per_jar' => 180],
+                $vinegar->id => ['quantity_per_jar' => 95],
+            ]);
+
+            $expected = ['Order Peppers', 'Order Vinegar', 'Order Salt', 'Order Jar', 'Order Lid'];
+
+            $this->actingAs($this->admin)->get(route('admin.costing.recipes.show', $recipe))
+                ->assertInertia(fn ($page) => $page
+                    ->where('recipe.ingredients', fn ($lines) => collect($lines)->pluck('name')->all() === $expected)
+                    ->where('recipe.raw_per_unit', fn ($lines) => collect($lines)->pluck('name')->all() === $expected)
+                );
+
+            $ids = [$peppers->id, $vinegar->id, $salt->id, $jar->id, $lid->id];
+            $this->actingAs($this->admin)->get(route('admin.costing.recipes.edit', $recipe))
+                ->assertInertia(fn ($page) => $page
+                    ->where('recipe.ingredients', fn ($lines) => collect($lines)->pluck('ingredient_id')->all() === $ids)
                 );
         });
     });

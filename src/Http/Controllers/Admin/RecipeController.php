@@ -20,6 +20,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -250,18 +251,18 @@ class RecipeController extends Controller implements HasMiddleware
             'ingredient' => $ingredient,
             'quantity' => (float) $ingredient->pivot->quantity_per_jar,
         ]));
-        $rawPerUnit = collect($expanded['raw'])->map(fn (array $entry) => [
+        $rawPerUnit = $this->inLineOrder(collect($expanded['raw']), fn (array $entry) => [$entry['ingredient'], $entry['quantity']])->map(fn (array $entry) => [
             'id' => $entry['ingredient']->id,
             'name' => $entry['ingredient']->name,
             'unit_type' => $entry['ingredient']->unit_type,
             'quantity' => round($entry['quantity'], 3),
-        ])->sortBy('name')->values();
-        $prepPerUnit = collect($expanded['prep'])->map(fn (array $entry) => [
+        ])->values();
+        $prepPerUnit = $this->inLineOrder(collect($expanded['prep']), fn (array $entry) => [$entry['ingredient'], $entry['quantity']])->map(fn (array $entry) => [
             'id' => $entry['ingredient']->id,
             'name' => $entry['ingredient']->name,
             'quantity' => round($entry['quantity'], 3),
             'yield_g' => (float) $entry['ingredient']->yield_g,
-        ])->sortBy('name')->values();
+        ])->values();
 
         return Inertia::render('Vendor/costing/Recipes/Show', [
             'recipe' => [
@@ -273,7 +274,7 @@ class RecipeController extends Controller implements HasMiddleware
                 'preferred_batch_size' => $recipe->preferred_batch_size,
                 'is_active' => $recipe->is_active,
                 'max_producible_units' => $calculateMaxProducibleUnits->handle($recipe),
-                'ingredients' => $recipe->mainIngredients->sortBy('name')->map(fn (Ingredient $ingredient) => array_merge(
+                'ingredients' => $this->inLineOrder($recipe->mainIngredients, self::pivotLine(...))->map(fn (Ingredient $ingredient) => array_merge(
                     [
                         'id' => $ingredient->id,
                         'name' => $ingredient->name,
@@ -326,7 +327,7 @@ class RecipeController extends Controller implements HasMiddleware
                 'fill_size_g' => $recipe->fill_size_g !== null ? (float) $recipe->fill_size_g : null,
                 'preferred_batch_size' => $recipe->preferred_batch_size,
                 'is_active' => $recipe->is_active,
-                'ingredients' => $recipe->mainIngredients->map(fn (Ingredient $ingredient) => [
+                'ingredients' => $this->inLineOrder($recipe->mainIngredients, self::pivotLine(...))->map(fn (Ingredient $ingredient) => [
                     'ingredient_id' => $ingredient->id,
                     'quantity_per_jar' => (float) $ingredient->pivot->quantity_per_jar,
                 ]),
@@ -568,6 +569,30 @@ class RecipeController extends Controller implements HasMiddleware
             'byproducts.*.ingredient_id' => ['required', 'exists:costing_ingredients,id'],
             'byproducts.*.quantity_per_jar' => ['required', 'numeric', 'min:0'],
         ]);
+    }
+
+    /**
+     * Recipe line order (Show, the batch calculator, Edit's opening order):
+     * food first, heaviest per-unit quantity first, then packaging grouped
+     * at the bottom; name breaks ties.
+     *
+     * @param  callable(mixed): array{0: Ingredient, 1: float}  $line  [ingredient, quantity] for an item
+     */
+    private function inLineOrder(Collection $items, callable $line): Collection
+    {
+        return $items->sort(function ($a, $b) use ($line) {
+            [$ingredientA, $quantityA] = $line($a);
+            [$ingredientB, $quantityB] = $line($b);
+
+            return [$ingredientA->isPackaging(), (float) $quantityB, $ingredientA->name]
+                <=> [$ingredientB->isPackaging(), (float) $quantityA, $ingredientB->name];
+        })->values();
+    }
+
+    /** @return array{0: Ingredient, 1: float} */
+    private static function pivotLine(Ingredient $ingredient): array
+    {
+        return [$ingredient, (float) $ingredient->pivot->quantity_per_jar];
     }
 
     /**

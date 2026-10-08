@@ -113,6 +113,15 @@ class Ingredient extends Model
     }
 
     /**
+     * Jars, lids, labels -- the "Packaging" category (free text, so matched
+     * case-insensitively). Recipe line lists group these after the food.
+     */
+    public function isPackaging(): bool
+    {
+        return strcasecmp(trim((string) $this->category), 'Packaging') === 0;
+    }
+
+    /**
      * $/100g, for comparing against grocery store shelf tags (which
      * usually price by 100g/100mL, not by kg). Weight and volume are
      * deliberately treated as 1:1 -- no per-ingredient density conversion,
