@@ -33,10 +33,10 @@
           <dt class="text-sm text-gray-500 dark:text-gray-400">Planned units</dt>
           <dd class="text-lg font-semibold text-gray-900 dark:text-white tabular-nums">{{ units }}</dd>
         </div>
-        <div v-if="filledUnits !== null">
+        <div v-for="fill in filledUnits" :key="fill.id">
           <dt class="text-sm text-gray-500 dark:text-gray-400">Fills about</dt>
-          <dd class="text-lg font-semibold text-gray-900 dark:text-white tabular-nums">{{ filledUnits }} units</dd>
-          <dd class="text-xs text-gray-500 dark:text-gray-400">at {{ sheet.fill_size_g }}g each</dd>
+          <dd class="text-lg font-semibold text-gray-900 dark:text-white tabular-nums">{{ fill.units }} units</dd>
+          <dd class="text-xs text-gray-500 dark:text-gray-400">at {{ fill.fill_size_g }}g each</dd>
         </div>
         <div>
           <dt class="text-sm text-gray-500 dark:text-gray-400">Ingredient cost</dt>
@@ -92,10 +92,15 @@ const batchCount = computed(() => Math.max(0, Math.floor(Number(batches.value) |
 const batchTitle = computed(() =>
   `${props.sheet.name}: batch of ${unitsPerBatch.value} units, make ${batchCount.value} batch${batchCount.value === 1 ? '' : 'es'}`)
 
-// The recipe weighs more than a unit is filled with; the extra fills more units.
-const filledUnits = computed(() => (props.sheet.fill_size_g && props.sheet.fill_size_g > 0 && props.sheet.recipe_grams > 0
-  ? Math.floor((units.value * props.sheet.recipe_grams) / props.sheet.fill_size_g)
-  : null))
+// The recipe weighs more than a unit is filled with; the extra fills more
+// units -- shown for each size the recipe comes in.
+const filledUnits = computed(() => (props.sheet.sizes ?? [])
+  .filter((size) => size.fill_size_g > 0 && props.sheet.recipe_grams > 0)
+  .map((size) => ({
+    id: size.id,
+    fill_size_g: size.fill_size_g,
+    units: Math.floor((units.value * props.sheet.recipe_grams) / size.fill_size_g),
+  })))
 
 const print = () => window.print()
 </script>

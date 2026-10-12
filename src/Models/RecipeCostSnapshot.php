@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $production_run_id
  * @property int $jars_produced
  * @property float|null $sell_price
+ * @property int|null $recipe_size_id
  * @property float|null $fill_size_g
  * @property float|null $cost_buffer_percent
  * @property float $raw_cost
@@ -35,6 +36,7 @@ class RecipeCostSnapshot extends Model
 
     protected $fillable = [
         'recipe_id',
+        'recipe_size_id',
         'production_run_id',
         'jars_produced',
         'sell_price',
@@ -67,6 +69,11 @@ class RecipeCostSnapshot extends Model
     public function recipe(): BelongsTo
     {
         return $this->belongsTo(Recipe::class);
+    }
+
+    public function recipeSize(): BelongsTo
+    {
+        return $this->belongsTo(RecipeSize::class);
     }
 
     public function productionRun(): BelongsTo

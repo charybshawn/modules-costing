@@ -5,12 +5,13 @@ namespace Cultpantry\Costing\Actions;
 use Cultpantry\Costing\Models\Ingredient;
 use Cultpantry\Costing\Models\ProductionRun;
 use Cultpantry\Costing\Models\Recipe;
+use Cultpantry\Costing\Models\RecipeSize;
 use Illuminate\Support\Collection;
 
 /**
  * Everything needed to make one unit of a recipe, laid out as a production
  * sheet: the house-made ingredients to prep first (each with what one kg of
- * it is made from), then what to mix, then the packaging. All per unit --
+ * it is made from), then what to mix, then each size's packaging. All per unit --
  * the recipe page's batch calculator and a production run's recipe sheet
  * multiply by however many units they're showing.
  */
@@ -23,16 +24,15 @@ class BuildRecipeSheet
     /**
      * @return array{
      *     name: string,
-     *     fill_size_g: float|null,
      *     recipe_grams: float,
+     *     sizes: array<int, array{id: int, label: string, fill_size_g: float, pack: array<int, array{id: int, name: string, unit_type: string, quantity: float}>}>,
      *     prep: array<int, array{id: int, name: string, quantity: float, cook_down_percent: float|null, components_per_kg: array}>,
      *     mix: array<int, array{id: int, name: string, unit_type: string, is_house_made: bool, quantity: float}>,
-     *     pack: array<int, array{id: int, name: string, unit_type: string, quantity: float}>,
      * }
      */
     public function handle(Recipe $recipe): array
     {
-        $recipe->loadMissing('mainIngredients.components');
+        $recipe->loadMissing('mainIngredients.components', 'sizes.packaging');
 
         $lines = self::inLineOrder($recipe->mainIngredients, self::pivotLine(...));
 
@@ -53,10 +53,18 @@ class BuildRecipeSheet
 
         return [
             'name' => $recipe->name,
-            'fill_size_g' => $recipe->fill_size_g !== null ? (float) $recipe->fill_size_g : null,
-            'recipe_grams' => (float) $recipe->mainIngredients
-                ->filter(fn (Ingredient $ingredient) => $ingredient->isGramBased())
-                ->sum(fn (Ingredient $ingredient) => (float) $ingredient->pivot->quantity_per_jar),
+            'recipe_grams' => $recipe->yieldGrams(),
+            'sizes' => $recipe->sizes->map(fn (RecipeSize $size) => [
+                'id' => $size->id,
+                'label' => $size->label,
+                'fill_size_g' => (float) $size->fill_size_g,
+                'pack' => $size->packaging->map(fn (Ingredient $ingredient) => [
+                    'id' => $ingredient->id,
+                    'name' => $ingredient->name,
+                    'unit_type' => $ingredient->unit_type,
+                    'quantity' => (float) $ingredient->pivot->quantity_per_unit,
+                ])->sortBy('name')->values()->all(),
+            ])->values()->all(),
             'prep' => self::inLineOrder(collect($prep), fn (array $entry) => [$entry['ingredient'], $entry['quantity']])
                 ->map(fn (array $entry) => [
                     'id' => $entry['ingredient']->id,
@@ -65,20 +73,20 @@ class BuildRecipeSheet
                     'cook_down_percent' => $entry['ingredient']->cook_down_percent !== null ? (float) $entry['ingredient']->cook_down_percent : null,
                     'components_per_kg' => $entry['ingredient']->componentsPerKg(),
                 ])->values()->all(),
-            'mix' => $lines->reject(fn (Ingredient $ingredient) => $ingredient->isPackaging())->map($line)->values()->all(),
-            'pack' => $lines->filter(fn (Ingredient $ingredient) => $ingredient->isPackaging())->map($line)->values()->all(),
+            'mix' => $lines->map($line)->values()->all(),
         ];
     }
 
     /**
      * One sheet per product in a production run that has batches, each at
-     * the run's batch size (with its batch count for the totals).
+     * the run's batch size (with its batch count for the totals), plus the
+     * fills allocated from it.
      *
-     * @return array<int, array{recipe_id: int, units: int, batches: int, batch_size: int, sheet: array}>
+     * @return array<int, array{recipe_id: int, units: int, batches: int, batch_size: int, allocations: array, sheet: array}>
      */
     public function forRun(ProductionRun $productionRun): array
     {
-        $productionRun->loadMissing('recipes');
+        $productionRun->loadMissing('recipes', 'allocations.recipeSize');
 
         return $productionRun->recipes
             ->filter(fn (Recipe $recipe) => (int) $recipe->pivot->batches > 0)
@@ -88,6 +96,14 @@ class BuildRecipeSheet
                 'units' => $productionRun->batch_size * (int) $recipe->pivot->batches,
                 'batches' => (int) $recipe->pivot->batches,
                 'batch_size' => $productionRun->batch_size,
+                'allocations' => $productionRun->allocations
+                    ->filter(fn ($allocation) => $allocation->recipeSize->recipe_id === $recipe->id && $allocation->units > 0)
+                    ->map(fn ($allocation) => [
+                        'recipe_size_id' => $allocation->recipe_size_id,
+                        'label' => $allocation->recipeSize->label,
+                        'fill_size_g' => (float) $allocation->recipeSize->fill_size_g,
+                        'units' => $allocation->units,
+                    ])->values()->all(),
                 'sheet' => $this->handle($recipe),
             ])
             ->values()

@@ -38,7 +38,7 @@
         <!-- One product per printed page. -->
         <div v-for="(item, index) in sheets" :key="item.recipe_id" class="mt-8" :class="index > 0 ? 'pt-8 border-t border-gray-200 dark:border-gray-700 print:border-0 print:pt-0 print:break-before-page' : ''">
           <!-- Per batch: what the kitchen makes at once, repeated `batches` times. -->
-          <RecipeSheet :sheet="item.sheet" :units="item.batch_size" :batches="item.batches" :title="batchTitle(item)" />
+          <RecipeSheet :sheet="item.sheet" :units="item.batch_size" :batches="item.batches" :title="batchTitle(item)" :allocations="item.allocations" />
         </div>
       </div>
       </div>
@@ -53,7 +53,7 @@ import AdminMobileHeader from '@/Components/Admin/AdminMobileHeader.vue'
 import ActionShelf from '@/Components/Admin/ActionShelf.vue'
 import ShelfAction from '@/Components/Admin/ShelfAction.vue'
 import CostingModuleNav from '../Shared/CostingModuleNav.vue'
-import RecipeSheet, { type RecipeSheetData } from '../Shared/RecipeSheet.vue'
+import RecipeSheet, { type RecipeSheetAllocation, type RecipeSheetData } from '../Shared/RecipeSheet.vue'
 
 defineOptions({ layout: (h, page) => h(AdminLayout, { wide: true, hideBreadcrumbOnMobile: true }, () => page) })
 
@@ -61,7 +61,7 @@ defineProps<{
   production_run: { id: number; name: string | null; run_date: string; completed_at: string | null }
   // A completed run's saved sheets rather than today's recipes.
   is_record: boolean
-  sheets: Array<{ recipe_id: number; units: number; batches: number; batch_size: number; sheet: RecipeSheetData }>
+  sheets: Array<{ recipe_id: number; units: number; batches: number; batch_size: number; allocations: RecipeSheetAllocation[]; sheet: RecipeSheetData }>
 }>()
 
 const print = () => window.print()

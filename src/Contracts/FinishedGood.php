@@ -22,6 +22,13 @@ interface FinishedGood
     public function getSublabel(): ?string;
 
     /**
+     * The product's current selling price per unit, or null when the host
+     * has none. The package costs recipes against this rather than keeping
+     * its own copy, so a price change on the product flows straight through.
+     */
+    public function getPrice(): ?float;
+
+    /**
      * Credits (adds) $units to this finished good's on-hand stock via
      * whatever the host app's own stock-mutation funnel is -- locking,
      * audit trail, and broadcasting are entirely the host's responsibility.

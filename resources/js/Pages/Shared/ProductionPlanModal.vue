@@ -19,7 +19,7 @@
               This run's inventory has already been deducted. Batch counts can no longer be edited.
             </template>
             <template v-else-if="showBatches">
-              Enter batches per flavour. The shopping list below updates automatically against current Inventory and Ingredient pricing.
+              Enter batches per flavour, then fill the product they make into sizes.
             </template>
             <template v-else>
               No batch counts for this session type -- just a date and notes.
@@ -48,7 +48,7 @@
             <div v-if="showBatchSize">
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Batch Size *</label>
               <input v-model.number="form.batch_size" type="number" inputmode="numeric" min="1" required :disabled="isCompleted" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:opacity-60" />
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Units one batch yields, for every flavour in this run.</p>
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Units one batch yields, for every flavour in this run. With each recipe's weight, it sets how much product the batches make.</p>
             </div>
             <div :class="showBatchSize ? '' : 'md:col-span-2'">
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Notes</label>
@@ -100,14 +100,16 @@
             <div v-if="!isCompleted && showBatches" class="border border-gray-200 dark:border-gray-700 rounded-md divide-y divide-gray-200 dark:divide-gray-700">
               <div v-for="row in form.batches" :key="row.recipe_id" class="flex flex-wrap items-center justify-between px-4 py-2 gap-x-3 gap-y-2">
                 <span class="text-sm text-gray-700 dark:text-gray-300 flex-1 min-w-[8rem]">{{ recipeName(row.recipe_id) }}</span>
-                <span class="text-xs text-gray-500 dark:text-gray-400 text-right">{{ rowUnits(row) }} units</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400 text-right tabular-nums">{{ rowVolume(row) }}</span>
                 <input v-model.number="row.batches" type="number" inputmode="numeric" min="0" class="w-24 sm:w-28 tap-target rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
               </div>
               <div class="flex items-center justify-between px-4 py-2 bg-gray-50 dark:bg-gray-700/50">
-                <span class="text-sm font-semibold text-gray-900 dark:text-white">Total Units</span>
+                <span class="text-sm font-semibold text-gray-900 dark:text-white">Units filled</span>
                 <span class="text-sm font-semibold text-gray-900 dark:text-white">{{ totalUnits }}</span>
               </div>
             </div>
+
+            <RunAllocations v-if="!isCompleted && showBatches && productionRun.type === 'production'" :rows="allocationRows" :allocations="form.allocations" />
 
             <!-- Completed: planned vs. actual, not an editable batches
                  table -- the plan is fixed history at this point, and what
@@ -119,15 +121,15 @@
               <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead class="bg-gray-50 dark:bg-gray-900">
                   <tr>
-                    <th class="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Flavour</th>
+                    <th class="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Flavour &amp; size</th>
                     <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Planned</th>
                     <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actual</th>
                     <th class="px-6 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Change</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                  <tr v-for="row in completedRows" :key="row.recipe_id">
-                    <td class="px-6 py-2 text-sm text-gray-900 dark:text-white">{{ row.recipe_name }}</td>
+                  <tr v-for="row in completedRows" :key="row.key">
+                    <td class="px-6 py-2 text-sm text-gray-900 dark:text-white">{{ row.label }}</td>
                     <td class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400 text-right">{{ row.planned }}</td>
                     <td class="px-4 py-2 text-sm font-medium text-gray-900 dark:text-white text-right">{{ row.actual }}</td>
                     <td class="px-6 py-2 text-sm font-medium text-right" :class="changeClass(row.change_percent)">{{ formatChange(row.change_percent) }}</td>
@@ -167,20 +169,21 @@
                deduction above always uses the plan, regardless of these. -->
           <div v-else class="space-y-4">
             <p class="text-sm text-gray-600 dark:text-gray-400">
-              Confirm actual units produced per flavour -- defaults to the plan. Inventory is always deducted using the planned quantities, not these.
+              Confirm actual units produced per size -- defaults to the plan. Each size's units are added to its finished product's stock. Ingredients are always deducted using the planned batches; packaging follows the units filled.
             </p>
             <div class="border border-gray-200 dark:border-gray-700 rounded-md divide-y divide-gray-200 dark:divide-gray-700">
-              <div v-for="row in confirmingComplete" :key="row.recipe_id" class="flex flex-wrap items-center justify-between px-4 py-2 gap-x-3 gap-y-2">
-                <span class="text-sm text-gray-700 dark:text-gray-300 flex-1 min-w-[8rem]">{{ row.recipe_name }}</span>
+              <div v-for="row in confirmingComplete" :key="row.recipe_size_id" class="flex flex-wrap items-center justify-between px-4 py-2 gap-x-3 gap-y-2">
+                <span class="text-sm text-gray-700 dark:text-gray-300 flex-1 min-w-[8rem]">{{ row.label }}</span>
                 <span class="text-xs text-gray-500 dark:text-gray-400 text-right">planned {{ row.planned_units }}</span>
                 <input v-model.number="row.actual_units" type="number" inputmode="numeric" min="0" class="w-24 sm:w-28 tap-target rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
               </div>
             </div>
+            <p v-for="problem in allocationProblems" :key="problem" class="text-sm text-red-600 dark:text-red-400">{{ problem }}</p>
             <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
               <button type="button" @click="confirmingComplete = null" :disabled="completing" class="tap-target-touch bg-gray-200 dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50">
                 Cancel
               </button>
-              <button type="button" @click="completeRun" :disabled="completing" class="tap-target-touch bg-green-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50">
+              <button type="button" @click="completeRun" :disabled="completing || allocationProblems.length > 0" class="tap-target-touch bg-green-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50">
                 <span v-if="completing">Completing...</span>
                 <span v-else>Confirm Completion</span>
               </button>
@@ -218,7 +221,7 @@
               This run's inventory has already been deducted. Batch counts can no longer be edited.
             </template>
             <template v-else-if="showBatches">
-              Enter batches per flavour. The shopping list below updates automatically against current Inventory and Ingredient pricing.
+              Enter batches per flavour, then fill the product they make into sizes.
             </template>
             <template v-else>
               No batch counts for this session type -- just a date and notes.
@@ -240,7 +243,7 @@
                 <div v-if="showBatchSize">
                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Batch Size *</label>
                   <input v-model.number="form.batch_size" type="number" inputmode="numeric" min="1" required :disabled="isCompleted" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:opacity-60 text-base" />
-                  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Units one batch yields, for every flavour in this run.</p>
+                  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Units one batch yields, for every flavour in this run. With each recipe's weight, it sets how much product the batches make.</p>
                 </div>
                 <div>
                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Notes</label>
@@ -286,14 +289,16 @@
                 <div v-if="!isCompleted && showBatches" class="border border-gray-200 dark:border-gray-700 rounded-md divide-y divide-gray-200 dark:divide-gray-700">
                   <div v-for="row in form.batches" :key="row.recipe_id" class="flex flex-wrap items-center justify-between px-4 py-2 gap-x-3 gap-y-2">
                     <span class="text-sm text-gray-700 dark:text-gray-300 flex-1 min-w-[8rem]">{{ recipeName(row.recipe_id) }}</span>
-                    <span class="text-xs text-gray-500 dark:text-gray-400 text-right">{{ rowUnits(row) }} units</span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400 text-right tabular-nums">{{ rowVolume(row) }}</span>
                     <input v-model.number="row.batches" type="number" inputmode="numeric" min="0" class="w-24 tap-target rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
                   </div>
                   <div class="flex items-center justify-between px-4 py-2 bg-gray-50 dark:bg-gray-700/50">
-                    <span class="text-sm font-semibold text-gray-900 dark:text-white">Total Units</span>
+                    <span class="text-sm font-semibold text-gray-900 dark:text-white">Units filled</span>
                     <span class="text-sm font-semibold text-gray-900 dark:text-white">{{ totalUnits }}</span>
                   </div>
                 </div>
+
+                <RunAllocations v-if="!isCompleted && showBatches && productionRun.type === 'production'" :rows="allocationRows" :allocations="form.allocations" />
 
                 <!-- Planned-vs-actual is a genuine wide table (4 numeric
                      columns) -- kept as a horizontally-scrollable table even
@@ -305,15 +310,15 @@
                   <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                     <thead class="bg-gray-50 dark:bg-gray-900">
                       <tr>
-                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Flavour</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Flavour &amp; size</th>
                         <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Planned</th>
                         <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actual</th>
                         <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Change</th>
                       </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                      <tr v-for="row in completedRows" :key="row.recipe_id">
-                        <td class="px-4 py-2 text-sm text-gray-900 dark:text-white">{{ row.recipe_name }}</td>
+                      <tr v-for="row in completedRows" :key="row.key">
+                        <td class="px-4 py-2 text-sm text-gray-900 dark:text-white">{{ row.label }}</td>
                         <td class="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 text-right">{{ row.planned }}</td>
                         <td class="px-3 py-2 text-sm font-medium text-gray-900 dark:text-white text-right">{{ row.actual }}</td>
                         <td class="px-4 py-2 text-sm font-medium text-right" :class="changeClass(row.change_percent)">{{ formatChange(row.change_percent) }}</td>
@@ -333,15 +338,16 @@
 
               <div v-else class="space-y-4">
                 <p class="text-sm text-gray-600 dark:text-gray-400">
-                  Confirm actual units produced per flavour -- defaults to the plan. Inventory is always deducted using the planned quantities, not these.
+                  Confirm actual units produced per size -- defaults to the plan. Each size's units are added to its finished product's stock. Ingredients are always deducted using the planned batches; packaging follows the units filled.
                 </p>
                 <div class="border border-gray-200 dark:border-gray-700 rounded-md divide-y divide-gray-200 dark:divide-gray-700">
-                  <div v-for="row in confirmingComplete" :key="row.recipe_id" class="flex flex-wrap items-center justify-between px-4 py-2 gap-x-3 gap-y-2">
-                    <span class="text-sm text-gray-700 dark:text-gray-300 flex-1 min-w-[8rem]">{{ row.recipe_name }}</span>
+                  <div v-for="row in confirmingComplete" :key="row.recipe_size_id" class="flex flex-wrap items-center justify-between px-4 py-2 gap-x-3 gap-y-2">
+                    <span class="text-sm text-gray-700 dark:text-gray-300 flex-1 min-w-[8rem]">{{ row.label }}</span>
                     <span class="text-xs text-gray-500 dark:text-gray-400 text-right">planned {{ row.planned_units }}</span>
                     <input v-model.number="row.actual_units" type="number" inputmode="numeric" min="0" class="w-24 tap-target rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
                   </div>
                 </div>
+                <p v-for="problem in allocationProblems" :key="problem" class="text-sm text-red-600 dark:text-red-400">{{ problem }}</p>
               </div>
             </div>
           </template>
@@ -349,7 +355,7 @@
 
         <div v-if="productionRun && !loading" class="shrink-0 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-gray-200 dark:border-gray-700 space-y-3">
           <template v-if="confirmingComplete">
-            <button type="button" @click="completeRun" :disabled="completing" class="tap-target-touch w-full bg-green-600 py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-semibold text-white disabled:opacity-50">
+            <button type="button" @click="completeRun" :disabled="completing || allocationProblems.length > 0" class="tap-target-touch w-full bg-green-600 py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-semibold text-white disabled:opacity-50">
               <span v-if="completing">Completing...</span>
               <span v-else>Confirm Completion</span>
             </button>
@@ -388,17 +394,24 @@ import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import ResponsiveModal from '@/Components/ResponsiveModal.vue'
 import FormErrorSummary from '@/Components/Admin/FormErrorSummary.vue'
 import IconButton from '@/Components/IconButton.vue'
+import RunAllocations from './RunAllocations.vue'
+import { analyseAllocations, formatGrams, type AllocationRecipe } from './runAllocation'
 
-interface Recipe {
-  id: number
-  name: string
+type Recipe = AllocationRecipe
+
+interface RunAllocation {
+  recipe_size_id: number
+  recipe_name: string
+  size_label: string
+  fill_size_g: number
+  units: number
+  actual_units: number | null
 }
 
 interface RunBatch {
   recipe_id: number
   recipe_name: string
   batches: number
-  actual_units: number | null
 }
 
 interface RentalRef {
@@ -417,6 +430,7 @@ interface ProductionRunData {
   completed_at: string | null
   total_units: number
   batches: RunBatch[]
+  allocations: RunAllocation[]
   rental: RentalRef | null
 }
 
@@ -531,6 +545,8 @@ const form = reactive({
   batch_size: 20,
   notes: '',
   batches: [] as FormBatch[],
+  // One per size the run fills: how many units of it, from the batches above.
+  allocations: [] as Array<{ recipe_size_id: number; units: number }>,
 })
 
 const resetFormFromRun = () => {
@@ -544,6 +560,7 @@ const resetFormFromRun = () => {
   form.batches = showBatches.value
     ? recipes.value.map((recipe) => ({ recipe_id: recipe.id, batches: existing.get(recipe.id) ?? 0 }))
     : []
+  form.allocations = productionRun.value.allocations.map((row) => ({ recipe_size_id: row.recipe_size_id, units: row.units }))
 }
 
 const fetchRun = async (id: number) => {
@@ -562,8 +579,8 @@ const fetchRun = async (id: number) => {
 }
 
 interface ConfirmingRow {
-  recipe_id: number
-  recipe_name: string
+  recipe_size_id: number
+  label: string
   planned_units: number
   actual_units: number
 }
@@ -596,13 +613,27 @@ watch(
 )
 
 const recipeName = (id: number) => recipes.value.find((r) => r.id === id)?.name ?? '—'
-const rowUnits = (row: { batches: number }) => (Number(form.batch_size) || 0) * (Number(row.batches) || 0)
-const totalUnits = computed(() => form.batches.reduce((sum, row) => sum + rowUnits(row), 0))
+const recipeYield = (id: number) => recipes.value.find((r) => r.id === id)?.yield_grams ?? 0
+// What a recipe's batches make, in grams: its yield x batch size x batches.
+const rowVolume = (row: { recipe_id: number; batches: number }) =>
+  `${formatGrams(recipeYield(row.recipe_id) * (Number(form.batch_size) || 0) * (Number(row.batches) || 0))}g`
+
+const allocationRows = computed(() => analyseAllocations(
+  recipes.value,
+  form.batches,
+  form.batch_size,
+  form.allocations,
+  productionRun.value?.type === 'production',
+))
+const allocationProblems = computed(() => allocationRows.value.map((row) => row.message).filter((m): m is string => m !== null))
+
+// Units filled across every size -- what actually goes to the shelf.
+const totalUnits = computed(() => form.allocations.reduce((sum, row) => sum + (Number(row.units) || 0), 0))
 const displayTotalUnits = computed(() => (isCompleted.value && productionRun.value ? productionRun.value.total_units : totalUnits.value))
 
 interface CompletedRow {
-  recipe_id: number
-  recipe_name: string
+  key: number
+  label: string
   planned: number
   actual: number
   change_percent: number
@@ -612,11 +643,13 @@ const completedRows = computed<CompletedRow[]>(() => {
   const run = productionRun.value
   if (!run) return []
 
-  return run.batches
-    .map((row) => {
-      const planned = run.batch_size * row.batches
-      return { recipe_id: row.recipe_id, recipe_name: row.recipe_name, planned, actual: row.actual_units ?? planned }
-    })
+  return run.allocations
+    .map((row) => ({
+      key: row.recipe_size_id,
+      label: `${row.recipe_name} · ${row.size_label}`,
+      planned: row.units,
+      actual: row.actual_units ?? row.units,
+    }))
     .filter((row) => row.planned > 0)
     .map((row) => ({ ...row, change_percent: ((row.actual - row.planned) / row.planned) * 100 }))
 })
@@ -651,21 +684,25 @@ const saveChanges = () => {
 }
 
 const startCompleteRun = () => {
-  confirmingComplete.value = form.batches
-    .filter((row) => rowUnits(row) > 0)
-    .map((row) => ({
-      recipe_id: row.recipe_id,
-      recipe_name: recipeName(row.recipe_id),
-      planned_units: rowUnits(row),
-      actual_units: rowUnits(row),
-    }))
+  confirmingComplete.value = form.allocations
+    .filter((row) => row.units > 0)
+    .map((row) => {
+      const recipe = recipes.value.find((r) => r.sizes.some((size) => size.id === row.recipe_size_id))
+      const size = recipe?.sizes.find((s) => s.id === row.recipe_size_id)
+      return {
+        recipe_size_id: row.recipe_size_id,
+        label: `${recipe?.name ?? '—'} · ${size?.label ?? ''}`,
+        planned_units: row.units,
+        actual_units: row.units,
+      }
+    })
 }
 
 const completeRun = () => {
   if (!productionRun.value || !confirmingComplete.value) return
 
   const runId = productionRun.value.id
-  const actuals = confirmingComplete.value.map((row) => ({ recipe_id: row.recipe_id, actual_units: row.actual_units }))
+  const actuals = confirmingComplete.value.map((row) => ({ recipe_size_id: row.recipe_size_id, actual_units: row.actual_units }))
   completing.value = true
 
   // Save first, complete second -- completing without saving would deduct

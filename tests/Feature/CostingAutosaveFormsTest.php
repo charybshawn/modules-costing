@@ -89,7 +89,8 @@ describe('recipes', function () {
     it('hands a create autosave off to the edit page', function () {
         $response = $this->actingAs($this->admin)->post(route('admin.costing.recipes.store', ['stay' => 1, 'step' => 1]), [
             'name' => 'Autosaved Jam',
-            'is_active' => true,
+            // The Create form starts recipes inactive so autosave isn't blocked by the product rule.
+            'is_active' => false,
             'ingredients' => [],
             'byproducts' => [],
         ]);
@@ -105,6 +106,7 @@ describe('recipes', function () {
         $this->actingAs($this->admin)
             ->put(route('admin.costing.recipes.update', [$recipe, 'stay' => 1]), [
                 'name' => 'Berry Jam',
+                'is_active' => false,
                 'ingredients' => [],
             ])
             ->assertRedirect(route('admin.costing.recipes.edit', $recipe))

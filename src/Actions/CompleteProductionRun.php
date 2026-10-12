@@ -6,7 +6,6 @@ use App\Models\User;
 use Cultpantry\Costing\Models\Ingredient;
 use Cultpantry\Costing\Models\PackageSize;
 use Cultpantry\Costing\Models\ProductionRun;
-use Cultpantry\Costing\Models\Recipe;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -18,15 +17,18 @@ use Illuminate\Support\Facades\DB;
  * production, no manual snapshot path), so it belongs here rather than in
  * the controller.
  *
- * For any recipe linked to a finished good (Recipe::finishedGood()), also
- * credits that recipe's actual_units to it via the host app's own
- * stock-mutation funnel (see Cultpantry\Costing\Contracts\FinishedGood) --
- * this package never sees stock_quantity or how the host locks/audits/
- * broadcasts the write. Recipes with no linked finished good are unaffected.
+ * Each size allocated on the run (ProductionRunAllocation) gets its own cost
+ * snapshot and, when the size is linked to a finished good
+ * (RecipeSize::finishedGood()), has its actual_units credited to it via the
+ * host app's own stock-mutation funnel (see
+ * Cultpantry\Costing\Contracts\FinishedGood) -- this package never sees
+ * stock_quantity or how the host locks/audits/broadcasts the write. Sizes
+ * with no linked finished good are unaffected.
  */
 class CompleteProductionRun
 {
     public function __construct(
+        private readonly CheckRunAllocation $checkRunAllocation,
         private readonly CalculateProductionPlan $calculateProductionPlan,
         private readonly CreateRecipeCostSnapshot $createRecipeCostSnapshot,
         private readonly RecordInventoryAdjustment $recordInventoryAdjustment,
@@ -34,12 +36,12 @@ class CompleteProductionRun
     ) {}
 
     /**
-     * @param array<int, int> $actuals recipe_id => actual units produced,
-     *     for recipes where it differs from the plan. Never affects
+     * @param array<int, int> $actuals recipe_size_id => actual units produced,
+     *     for sizes where it differs from the allocation. Never affects
      *     ingredient deduction below (that's always planned quantities) --
-     *     purely overrides what gets frozen into that recipe's cost
-     *     snapshot and, from there, ProductionRun::totalUnits() -- and now
-     *     also what gets credited to a linked product's stock.
+     *     purely overrides what gets frozen into that size's cost
+     *     snapshot and, from there, ProductionRun::totalUnits() -- and also
+     *     what gets credited to a linked product's stock.
      * @param User|null $actor the user completing the run, passed straight
      *     through to the host's own audit trail for any linked finished
      *     good. Null is fine (system/unattended completion).
@@ -146,34 +148,33 @@ class CompleteProductionRun
             }
         }
 
-        /** @var Recipe $recipe */
-        foreach ($productionRun->recipes as $recipe) {
-            $plannedUnits = $productionRun->batch_size * (int) $recipe->pivot->batches;
-            if ($plannedUnits <= 0) {
-                continue;
-            }
+        // Fills must fit what the batches make -- checked here as well as
+        // on save, since batches can be edited after the allocation was.
+        $problem = $this->checkRunAllocation->firstProblem($productionRun);
+        abort_if($problem !== null, 422, $problem);
 
-            $actualUnits = $actuals[$recipe->id] ?? $plannedUnits;
+        foreach ($productionRun->allocations()->with('recipeSize.recipe')->get() as $allocation) {
+            $size = $allocation->recipeSize;
+            $actualUnits = $actuals[$size->id] ?? $allocation->units;
 
-            // Recorded on the pivot even when it equals the plan -- makes
-            // "was this ever overridden" unambiguous later, and is what
+            // Recorded even when it equals the plan -- makes "was this ever
+            // overridden" unambiguous later, and is what
             // ProductionRun::totalUnits() reads once this run is completed.
-            $productionRun->recipes()->updateExistingPivot($recipe->id, ['actual_units' => $actualUnits]);
+            $allocation->update(['actual_units' => $actualUnits]);
 
-            $this->createRecipeCostSnapshot->handle($recipe, $productionRun, $actualUnits);
+            $this->createRecipeCostSnapshot->handle($size->recipe, $productionRun, $size, $actualUnits);
 
-            // Only recipes linked to a finished good credit anything --
-            // most recipes have no product_id yet (nullable, by design),
-            // and must behave exactly as before this feature.
-            $finishedGood = $recipe->finishedGood();
-            if ($finishedGood) {
+            // Only sizes linked to a finished good credit anything.
+            $finishedGood = $size->finishedGood();
+            if ($finishedGood && $actualUnits > 0) {
                 $finishedGood->credit(
                     units: $actualUnits,
                     reason: 'production_run',
                     actor: $actor,
                     metadata: [
                         'production_run_id' => $productionRun->id,
-                        'recipe_id' => $recipe->id,
+                        'recipe_id' => $size->recipe_id,
+                        'recipe_size_id' => $size->id,
                         'units' => $actualUnits,
                     ],
                 );

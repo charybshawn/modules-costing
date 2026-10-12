@@ -61,8 +61,13 @@ class ProductionRun extends Model
     public function recipes(): BelongsToMany
     {
         return $this->belongsToMany(Recipe::class, 'costing_production_run_recipe', 'production_run_id', 'recipe_id')
-            ->withPivot('batches', 'actual_units')
+            ->withPivot('batches')
             ->withTimestamps();
+    }
+
+    public function allocations(): HasMany
+    {
+        return $this->hasMany(ProductionRunAllocation::class);
     }
 
     public function inventoryAdjustments(): HasMany
@@ -81,14 +86,12 @@ class ProductionRun extends Model
     }
 
     /**
-     * Actual units produced once known (recorded at completion, per
-     * recipe), else the planned total -- so this stays accurate for a
-     * run in progress and becomes the real figure once it's completed.
+     * Units filled across every size: the actual figure once the run is
+     * completed, else the planned allocation -- accurate for a run in
+     * progress and the real figure once it's done.
      */
     public function totalUnits(): int
     {
-        return (int) $this->recipes->sum(
-            fn (Recipe $recipe) => $recipe->pivot->actual_units ?? ($this->batch_size * $recipe->pivot->batches)
-        );
+        return (int) $this->allocations->sum(fn (ProductionRunAllocation $allocation) => $allocation->producedUnits());
     }
 }

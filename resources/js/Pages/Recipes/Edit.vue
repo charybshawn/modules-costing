@@ -73,19 +73,19 @@
       </template>
 
       <template #section-details>
-        <RecipeDetailsFields
-          :form="form"
-          :duplicate-name="isDuplicateName"
-          :finished-good-label="finishedGoodOption?.label ?? null"
-        />
+        <RecipeDetailsFields :form="form" :duplicate-name="isDuplicateName" />
       </template>
 
       <template #section-ingredients>
-        <RecipeLinesFields :rows="form.ingredients" :pool="ingredients" noun="Ingredient" />
-        <p class="mt-4 text-sm text-gray-600 dark:text-gray-400">
-          Cost per unit: <span class="font-semibold text-gray-900 dark:text-white tabular-nums">${{ costPerJar.total.toFixed(2) }}</span>
-          <span v-if="costPerJar.anyStale || costPerJar.anyMissing" class="text-amber-600 dark:text-amber-500"> (estimate)</span>
+        <RecipeLinesFields :rows="form.ingredients" :pool="mixIngredients" noun="Ingredient" />
+        <p v-if="!sizeCosts.length" class="mt-4 text-sm text-gray-600 dark:text-gray-400">
+          Cost per unit: <span class="font-semibold text-gray-900 dark:text-white tabular-nums">${{ mixCost.batchCost.toFixed(2) }}</span>
+          <span v-if="mixCost.anyStale || mixCost.anyMissing" class="text-amber-600 dark:text-amber-500"> (estimate)</span>
         </p>
+      </template>
+
+      <template #section-sizes>
+        <RecipeSizesFields :form="form" :packaging-pool="packagingIngredients" />
       </template>
 
       <template #section-byproducts>
@@ -117,16 +117,23 @@
           </div>
         </dl>
 
-        <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <div class="flex items-center justify-between">
-            <span class="text-sm font-medium text-gray-900 dark:text-white">Cost per unit<template v-if="costPerJar.prorated"> ({{ form.fill_size_g }}g)</template></span>
-            <span class="text-lg font-semibold text-gray-900 dark:text-white tabular-nums">${{ costPerJar.total.toFixed(2) }}</span>
+        <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
+          <div v-if="!sizeCosts.length" class="flex items-center justify-between">
+            <span class="text-sm font-medium text-gray-900 dark:text-white">Cost per unit</span>
+            <span class="text-lg font-semibold text-gray-900 dark:text-white tabular-nums">${{ mixCost.batchCost.toFixed(2) }}</span>
           </div>
-          <p v-if="costPerJar.prorated" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            Recipe: ${{ costPerJar.batchCost.toFixed(2) }} for {{ +costPerJar.batchGrams.toFixed(2) }}g, the extra fills more units
-          </p>
-          <p v-if="costPerJar.anyStale || costPerJar.anyMissing" class="mt-2 text-xs text-amber-600 dark:text-amber-500">
-            Estimate only: {{ costPerJar.anyMissing ? 'one or more ingredients have no logged price' : 'one or more ingredients are using a price that needs updating' }}. Tap a price above to fix it.
+          <div v-for="cost in sizeCosts" :key="cost.key ?? cost.label">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-medium text-gray-900 dark:text-white">Cost per unit ({{ cost.label }})</span>
+              <span class="text-lg font-semibold text-gray-900 dark:text-white tabular-nums">${{ cost.total.toFixed(2) }}</span>
+            </div>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Mix ${{ cost.mix.toFixed(2) }}<template v-if="cost.prorated"> (recipe ${{ mixCost.batchCost.toFixed(2) }} for {{ +mixCost.batchGrams.toFixed(2) }}g, the extra fills more units)</template>
+              <template v-if="cost.packaging"> + packaging ${{ cost.packaging.toFixed(2) }}</template>
+            </p>
+          </div>
+          <p v-if="mixCost.anyStale || mixCost.anyMissing" class="text-xs text-amber-600 dark:text-amber-500">
+            Estimate only: {{ mixCost.anyMissing ? 'one or more ingredients have no logged price' : 'one or more ingredients are using a price that needs updating' }}. Tap a price above to fix it.
           </p>
         </div>
       </template>
@@ -150,10 +157,10 @@ import SaveIndicator from '@/Components/Admin/SaveIndicator.vue'
 import ResponsiveFormSections, { type FormSection } from '@/Components/Admin/ResponsiveFormSections.vue'
 import IconButton from '@/Components/IconButton.vue'
 import AvailablePricesModal, { type PricesIngredient } from '../Shared/AvailablePricesModal.vue'
-import type { FinishedGoodOption } from '../Shared/FinishedGoodPicker.vue'
 import { costPerFilledUnit } from '../Shared/fillCost'
 import RecipeDetailsFields, { type RecipeFormData } from '../Shared/RecipeDetailsFields.vue'
 import RecipeLinesFields from '../Shared/RecipeLinesFields.vue'
+import RecipeSizesFields, { type PackagingOption } from '../Shared/RecipeSizesFields.vue'
 import { backLinkClass, dangerIconActionClass, dangerOutlineButtonClass, iconActionClass, secondaryButtonClass, primaryButtonClass } from '../Shared/formClasses'
 
 defineOptions({ layout: (h, page) => h(AdminLayout, { hideBreadcrumbOnMobile: true }, () => page) })
@@ -174,11 +181,17 @@ interface Recipe {
   id: number
   name: string
   notes: string | null
-  product_id: number | null
   min_stock_threshold: number | null
-  fill_size_g: number | null
   preferred_batch_size: number | null
   is_active: boolean
+  sizes: Array<{
+    id: number
+    label: string
+    fill_size_g: number
+    finished_good_id: number | null
+    finished_good: { id: number; label: string } | null
+    packaging: Array<{ ingredient_id: number; quantity_per_unit: number }>
+  }>
   ingredients: Array<{ ingredient_id: number; quantity_per_jar: number }>
   byproducts: Array<{ ingredient_id: number; quantity_per_jar: number }>
 }
@@ -186,7 +199,7 @@ interface Recipe {
 interface Props {
   recipe: Recipe
   ingredients: IngredientOption[]
-  finishedGoodOption: FinishedGoodOption | null
+  packagingIngredients: PackagingOption[]
   existingRecipeNames: string[]
 }
 
@@ -196,6 +209,7 @@ const { confirmDialog } = useConfirmDialog()
 const sections: FormSection[] = [
   { key: 'details', title: 'Details' },
   { key: 'ingredients', title: 'Ingredients (per unit)', shortTitle: 'Ingredients' },
+  { key: 'sizes', title: 'Sizes & Packaging', shortTitle: 'Sizes' },
   { key: 'byproducts', title: 'Byproducts (per unit)', shortTitle: 'Byproducts' },
   { key: 'cost', title: 'Costing Breakdown', shortTitle: 'Cost' },
 ]
@@ -207,14 +221,24 @@ const updateUrl = () => route('admin.costing.recipes.update', props.recipe.id)
 
 const byproductIngredients = props.ingredients.filter((i) => i.byproduct_name)
 
+// Packaging belongs to a size, not the mix.
+const packagingIds = new Set(props.packagingIngredients.map((i) => i.id))
+const mixIngredients = props.ingredients.filter((i) => !packagingIds.has(i.id))
+
 const initialData: RecipeFormData = {
   name: props.recipe.name,
   notes: props.recipe.notes ?? '',
-  product_id: props.recipe.product_id,
   min_stock_threshold: props.recipe.min_stock_threshold,
-  fill_size_g: props.recipe.fill_size_g,
   preferred_batch_size: props.recipe.preferred_batch_size,
   is_active: props.recipe.is_active,
+  sizes: props.recipe.sizes.map((size) => ({
+    id: size.id,
+    label: size.label,
+    fill_size_g: size.fill_size_g,
+    finished_good_id: size.finished_good_id,
+    finished_good_label: size.finished_good?.label ?? null,
+    packaging: size.packaging.map((line) => ({ ...line })),
+  })),
   ingredients: props.recipe.ingredients.map((row) => ({ ...row })),
   byproducts: props.recipe.byproducts.map((row) => ({ ...row })),
 }
@@ -239,6 +263,12 @@ form.transform((data) => ({
   ...data,
   ingredients: data.ingredients.filter((row) => row.ingredient_id !== null && row.quantity_per_jar !== null),
   byproducts: data.byproducts.filter((row) => row.ingredient_id !== null && row.quantity_per_jar !== null),
+  sizes: data.sizes
+    .filter((size) => size.fill_size_g !== null && size.fill_size_g !== ('' as unknown))
+    .map(({ finished_good_label, ...size }) => ({
+      ...size,
+      packaging: size.packaging.filter((line) => line.ingredient_id !== null && line.quantity_per_unit !== null),
+    })),
 }))
 
 const { initialStep, markSaved, saving, saveAndClose, closeEditor } = useAutosaveSession({
@@ -333,9 +363,9 @@ const costBreakdown = computed<CostLine[]>(() => {
   return lines
 })
 
-// Estimated cost per unit: the lines above summed into a batch cost, then
-// scaled to the fill weight, flagging any stale or missing price.
-const costPerJar = computed(() => {
+// The mix: the lines above summed into a batch cost (and its grams),
+// flagging any stale or missing price.
+const mixCost = computed(() => {
   let batchCost = 0
   let batchGrams = 0
   let anyStale = false
@@ -353,16 +383,40 @@ const costPerJar = computed(() => {
     batchCost += line.subtotal
   }
 
-  const fill = typeof form.fill_size_g === 'number' ? form.fill_size_g : null
+  return { batchCost, batchGrams, anyStale, anyMissing }
+})
+
+// Estimated cost per unit of each size: the mix scaled to the size's fill
+// weight, plus that size's packaging (not scaled -- a cup costs the same
+// whatever goes in it). Same math as CalculateRecipeCost, minus the buffer.
+const sizeCosts = computed(() => form.sizes.map((size) => {
+  const fill = typeof size.fill_size_g === 'number' ? size.fill_size_g : null
+  let packaging = 0
+  let anyMissing = mixCost.value.anyMissing
+  let anyStale = mixCost.value.anyStale
+
+  for (const line of size.packaging) {
+    const ingredient = findIngredient(line.ingredient_id)
+    if (!ingredient || !line.quantity_per_unit) continue
+    const price = ingredient.status === 'ok' ? ingredient.effective_price : ingredient.stale_effective_price
+    if (price === null) {
+      anyMissing = true
+      continue
+    }
+    if (ingredient.status !== 'ok') anyStale = true
+    packaging += ingredient.unit_type === 'unit' ? line.quantity_per_unit * price : (line.quantity_per_unit * price) / 1000
+  }
+
   return {
-    total: costPerFilledUnit(batchCost, batchGrams, fill),
-    batchCost,
-    batchGrams,
-    prorated: fill !== null && fill > 0 && batchGrams > 0,
+    key: size.id ?? size.fill_size_g,
+    label: size.label || (fill ? `${fill}g` : 'New size'),
+    mix: costPerFilledUnit(mixCost.value.batchCost, mixCost.value.batchGrams, fill),
+    packaging,
+    prorated: fill !== null && fill > 0 && mixCost.value.batchGrams > 0,
     anyStale,
     anyMissing,
   }
-})
+}).map((cost) => ({ ...cost, total: cost.mix + cost.packaging })))
 
 const destroy = async () => {
   const confirmed = await confirmDialog({

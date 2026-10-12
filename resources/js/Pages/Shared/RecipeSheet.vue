@@ -40,18 +40,20 @@
       </ul>
     </section>
 
-    <section v-if="sheet.pack.length || fills(1) !== null">
-      <h4 class="font-medium">{{ sheet.prep.length + 2 }}. Pack</h4>
+    <!-- Packing: what the run actually fills (its allocations), else, for the
+         batch calculator, what a batch of this size would fill. -->
+    <section v-for="(pack, index) in packRows" :key="pack.key">
+      <h4 class="font-medium">{{ sheet.prep.length + 2 + index }}. Pack: {{ pack.title }}</h4>
       <ul :class="listClass">
-        <li v-for="line in sheet.pack" :key="line.id" :class="[gridClass, 'py-1.5']">
-          <span>{{ line.name }}</span>
-          <span class="text-right tabular-nums">{{ amount(line.quantity * units, line.unit_type) }}</span>
-          <span class="text-right tabular-nums">{{ amount(line.quantity * units * batches, line.unit_type) }}</span>
+        <li :class="[gridClass, 'py-1.5 font-medium']">
+          <span>Fills</span>
+          <span class="text-right tabular-nums">{{ pack.perBatch === null ? '' : `${pack.perBatch} units` }}</span>
+          <span class="text-right tabular-nums">{{ pack.total }} units</span>
         </li>
-        <li v-if="fills(1) !== null" :class="[gridClass, 'py-1.5 text-gray-500 dark:text-gray-400 print:text-black']">
-          <span>Fills about (at {{ sheet.fill_size_g }}g)</span>
-          <span class="text-right tabular-nums">{{ fills(1) }} units</span>
-          <span class="text-right tabular-nums">{{ fills(batches) }} units</span>
+        <li v-for="line in pack.lines" :key="line.id" :class="[gridClass, 'py-1.5']">
+          <span>{{ line.name }}</span>
+          <span class="text-right tabular-nums">{{ pack.perBatch === null ? '' : amount(line.quantity * pack.perBatch, line.unit_type) }}</span>
+          <span class="text-right tabular-nums">{{ amount(line.quantity * pack.total, line.unit_type) }}</span>
         </li>
       </ul>
     </section>
@@ -59,12 +61,27 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { formatQuantity, formatWeight } from './formatWeight'
+
+export interface RecipeSheetSize {
+  id: number
+  label: string
+  fill_size_g: number
+  pack: Array<{ id: number; name: string; unit_type: 'g' | 'unit'; quantity: number }>
+}
+
+export interface RecipeSheetAllocation {
+  recipe_size_id: number
+  label: string
+  fill_size_g: number
+  units: number
+}
 
 export interface RecipeSheetData {
   name: string
-  fill_size_g: number | null
   recipe_grams: number
+  sizes: RecipeSheetSize[]
   prep: Array<{
     id: number
     name: string
@@ -73,7 +90,6 @@ export interface RecipeSheetData {
     components_per_kg: Array<{ id: number; name: string; unit_type: 'g' | 'unit'; quantity_per_kg: number }>
   }>
   mix: Array<{ id: number; name: string; unit_type: 'g' | 'unit'; is_house_made: boolean; quantity: number }>
-  pack: Array<{ id: number; name: string; unit_type: 'g' | 'unit'; quantity: number }>
 }
 
 // One product's production sheet -- what to prep, mix and pack -- with
@@ -86,7 +102,10 @@ const props = withDefaults(defineProps<{
   // How many batches -- the "Total" column is per batch x this.
   batches?: number
   title?: string
-}>(), { batches: 1 })
+  // The fills a production run allocated. Without them (the recipe page's
+  // calculator) each size shows what a batch of it would fill.
+  allocations?: RecipeSheetAllocation[]
+}>(), { batches: 1, allocations: undefined })
 
 const listClass = 'mt-1 divide-y divide-gray-200 dark:divide-gray-700 print:divide-gray-300'
 const gridClass = 'grid grid-cols-[1fr_6rem_8rem] items-baseline gap-3'
@@ -97,7 +116,29 @@ const amount = (value: number, unitType: 'g' | 'unit') =>
   unitType === 'unit' ? formatQuantity(Math.ceil(value), unitType) : formatWeight(value, 1)
 
 // The recipe weighs more than a unit is filled with; the extra fills more units.
-const fills = (batchCount: number) => (props.sheet.fill_size_g && props.sheet.fill_size_g > 0 && props.sheet.recipe_grams > 0
-  ? Math.floor((props.units * batchCount * props.sheet.recipe_grams) / props.sheet.fill_size_g)
-  : null)
+const fillsOf = (fillSizeG: number, batchCount: number) => (fillSizeG > 0 && props.sheet.recipe_grams > 0
+  ? Math.floor((props.units * batchCount * props.sheet.recipe_grams) / fillSizeG)
+  : 0)
+
+const packRows = computed(() => {
+  const sizes = props.sheet.sizes ?? []
+
+  if (props.allocations) {
+    return props.allocations.map((allocation) => ({
+      key: allocation.recipe_size_id,
+      title: allocation.label,
+      perBatch: null as number | null,
+      total: allocation.units,
+      lines: sizes.find((size) => size.id === allocation.recipe_size_id)?.pack ?? [],
+    }))
+  }
+
+  return sizes.map((size) => ({
+    key: size.id,
+    title: `${size.label}${size.label === `${size.fill_size_g}g` ? '' : ` (${size.fill_size_g}g)`}`,
+    perBatch: fillsOf(size.fill_size_g, 1) as number | null,
+    total: fillsOf(size.fill_size_g, props.batches),
+    lines: size.pack,
+  }))
+})
 </script>

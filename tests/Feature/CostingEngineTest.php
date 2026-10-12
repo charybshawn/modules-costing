@@ -355,6 +355,7 @@ describe('CalculateProductionPlan', function () {
 
         $run = ProductionRun::create(['batch_size' => 1, 'run_date' => Carbon::now()->toDateString()]);
         $run->recipes()->sync([$recipe->id => ['batches' => 10]]);
+        allocateFill($run, $recipe, 10);
 
         $plan = (new CalculateProductionPlan(new CalculateIngredientCosting))->handle($run->fresh());
 
@@ -399,6 +400,7 @@ describe('CalculateProductionPlan', function () {
         // 4 batches x batch_size 15 = 60 real units -> requires 600g, not 40g.
         $run = ProductionRun::create(['batch_size' => 15, 'run_date' => Carbon::now()->toDateString()]);
         $run->recipes()->sync([$recipe->id => ['batches' => 4]]);
+        allocateFill($run, $recipe, 60);
 
         $plan = (new CalculateProductionPlan(new CalculateIngredientCosting))->handle($run->fresh());
 
@@ -482,15 +484,16 @@ describe('CalculateProductionPlan', function () {
 
         // 320g of ingredients per planned unit, filled at 280g: the extra
         // fills bonus units, so planning still needs the full 320g each.
-        $recipe = Recipe::create(['name' => 'Fill Plan Flavour', 'fill_size_g' => 280]);
+        $recipe = Recipe::create(['name' => 'Fill Plan Flavour']);
         $recipe->ingredients()->sync([
             $base->id => ['quantity_per_jar' => 250],
             $mixIn->id => ['quantity_per_jar' => 70],
-            $cup->id => ['quantity_per_jar' => 1],
         ]);
 
+        // The cup belongs to the 280g size, so it follows the units filled.
         $run = ProductionRun::create(['batch_size' => 1, 'run_date' => Carbon::now()->toDateString()]);
         $run->recipes()->sync([$recipe->id => ['batches' => 8]]);
+        allocateFill($run, $recipe, 8, 280, [$cup->id => 1]);
 
         $rows = collect((new CalculateProductionPlan(new CalculateIngredientCosting))->handle($run->fresh())['rows'])->keyBy('ingredient_name');
 
@@ -501,7 +504,7 @@ describe('CalculateProductionPlan', function () {
 });
 
 describe('ProductionRun::totalUnits', function () {
-    it('sums batch_size x batches across every recipe in the run', function () {
+    it('sums the units allocated across every recipe in the run', function () {
         $flavourA = Recipe::create(['name' => 'Total Units Flavour A']);
         $flavourB = Recipe::create(['name' => 'Total Units Flavour B']);
 
@@ -510,6 +513,9 @@ describe('ProductionRun::totalUnits', function () {
             $flavourA->id => ['batches' => 3], // 60 units
             $flavourB->id => ['batches' => 2], // 40 units
         ]);
+        allocateFill($run, $flavourA, 60);
+        allocateFill($run, $flavourB, 25, 140);
+        allocateFill($run, $flavourB, 15, 280);
 
         expect($run->fresh()->totalUnits())->toBe(100);
     });
@@ -547,8 +553,6 @@ describe('CalculateRecipeCost', function () {
 
         $recipe = Recipe::create([
             'name' => 'Dangerously Dilly',
-            'sell_price' => 10.00,
-            'fill_size_g' => 285,
             'cost_buffer_percent' => 10,
         ]);
         $recipe->mainIngredients()->sync([
@@ -556,8 +560,11 @@ describe('CalculateRecipeCost', function () {
             $pickles->id => ['quantity_per_jar' => 50],
             $driedDill->id => ['quantity_per_jar' => 2.5],
             $pickleJuice->id => ['quantity_per_jar' => 10],
-            $deliCup->id => ['quantity_per_jar' => 1],
         ]);
+        // The 285g size: the cup is its packaging, and the $10 sell price is
+        // its linked product's.
+        $product = \App\Models\Product::factory()->create(['price' => 10.00]);
+        recipeSize($recipe, 285, [$deliCup->id => 1], productId: $product->defaultVariation->id);
 
         $result = (new CalculateRecipeCost(new CalculateIngredientCosting))->handle($recipe->fresh());
 
@@ -567,10 +574,14 @@ describe('CalculateRecipeCost', function () {
         expect($result['yield_grams'])->toBe(312.5);
         // Buffered: 3.1815 * 1.10 = 3.49965 -- matches the sheet's $3.50.
         expect(round($result['buffered_cost'], 2))->toBe(3.50);
-        // Actual cost/jar, prorated by real fill size: 3.49965/312.5*285 = 3.19169... -- close to but not identical to the sheet's $3.18 x (285/313.5), confirming the corrected (smaller, more accurate) yield denominator.
-        expect(round($result['actual_cost_per_jar'], 2))->toBe(3.19);
-        // Food cost %: 3.19169/10*100 = 31.92% -- close to but distinct from the sheet's 31.81%, as expected from the yield correction.
-        expect($result['food_cost_percent'])->toBe(31.92);
+        // Actual cost/jar: the mix is prorated by real fill size and the cup is added per unit, unprorated:
+        // (3.0115*1.10/312.5)*285 + 0.17*1.10 = 3.02114 + 0.187 = 3.20814.
+        expect(round($result['actual_cost_per_jar'], 2))->toBe(3.21);
+        expect($result['packaging_cost'])->toBe(0.187);
+        // Food cost % against the product's $10 price: 32.08%.
+        expect($result['sell_price'])->toBe(10.0);
+        expect($result['food_cost_percent'])->toBe(32.08);
+        expect($result['profit_per_unit'])->toBe(6.7919);
         expect($result['any_stale'])->toBeFalse();
         expect($result['any_missing'])->toBeFalse();
 
@@ -876,9 +887,9 @@ describe('BuildRecipeSheet', function () {
         $butter = Ingredient::create(['name' => 'Sheet Butter', 'unit_type' => 'g', 'waste_percent' => 100, 'is_house_made' => true, 'cook_down_percent' => 50]);
         $butter->components()->sync([$cider->id => ['quantity' => 100], $apples->id => ['quantity' => 900]]);
 
-        $recipe = Recipe::create(['name' => 'Sheet Recipe', 'fill_size_g' => 280]);
+        $recipe = Recipe::create(['name' => 'Sheet Recipe']);
+        recipeSize($recipe, 280, [$cup->id => 1]);
         $recipe->mainIngredients()->sync([
-            $cup->id => ['quantity_per_jar' => 1],
             $butter->id => ['quantity_per_jar' => 50],
             $cheese->id => ['quantity_per_jar' => 250],
         ]);
@@ -887,7 +898,8 @@ describe('BuildRecipeSheet', function () {
 
         expect($sheet['recipe_grams'])->toBe(300.0);
         expect(collect($sheet['mix'])->pluck('name')->all())->toBe(['Sheet Cheese', 'Sheet Butter']);
-        expect(collect($sheet['pack'])->pluck('name')->all())->toBe(['Sheet Cup']);
+        expect(collect($sheet['sizes'])->pluck('fill_size_g')->all())->toBe([280.0]);
+        expect(collect($sheet['sizes'][0]['pack'])->pluck('name')->all())->toBe(['Sheet Cup']);
 
         // 50g butter per unit = 0.1 of a 500g batch = 10g cider.
         $prep = collect($sheet['prep'])->keyBy('name');
@@ -925,15 +937,19 @@ describe('seed data', function () {
 
         $recipe = Recipe::where('name', 'Autumn Apple Cinnamon')->firstOrFail();
         expect($recipe->preferred_batch_size)->toBe(20);
-        expect((float) $recipe->sell_price)->toBe(10.0);
-        expect($recipe->ingredients->pluck('pivot.quantity_per_jar', 'name')->map(fn ($q) => (float) $q)->sortKeys()->all())->toBe([
+        $size = $recipe->sizes->sole();
+        expect((float) $size->fill_size_g)->toBe(280.0);
+        expect($size->packaging->pluck('pivot.quantity_per_unit', 'name')->map(fn ($q) => (float) $q)->sortKeys()->all())->toBe([
             '8oz Deli Cup' => 1.0,
             '8oz Deli Lid' => 1.0,
+        ]);
+        expect($recipe->ingredients->pluck('pivot.quantity_per_jar', 'name')->map(fn ($q) => (float) $q)->sortKeys()->all())->toBe([
             'Apple Butter' => 45.0,
             'Apples Pink Ladies' => 40.0,
             'Cream Cheese' => 250.0,
         ]);
 
-        expect(round((new CalculateRecipeCost(new CalculateIngredientCosting))->handle($recipe->fresh())['actual_cost_per_jar'], 2))->toBe(3.55);
+        // Cup and lid are added per unit, not prorated by fill weight like the mix.
+        expect(round((new CalculateRecipeCost(new CalculateIngredientCosting))->handle($recipe->fresh())['actual_cost_per_jar'], 2))->toBe(3.58);
     });
 });

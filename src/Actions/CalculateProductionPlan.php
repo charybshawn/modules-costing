@@ -44,6 +44,9 @@ class CalculateProductionPlan
             'recipes.ingredients.inventory',
             'recipes.ingredients.packageSizes',
             'recipes.ingredients.priceHistory.ingredient',
+            'allocations.recipeSize.packaging.inventory',
+            'allocations.recipeSize.packaging.packageSizes',
+            'allocations.recipeSize.packaging.priceHistory.ingredient',
         ]);
 
         /** @var array<int, array{ingredient: Ingredient, required: float}> $requiredByIngredient */
@@ -72,6 +75,24 @@ class CalculateProductionPlan
                 $id = $ingredient->id;
                 $requiredByIngredient[$id] ??= ['ingredient' => $ingredient, 'required' => 0.0];
                 $requiredByIngredient[$id]['required'] += $qtyPerJar * $units;
+            }
+        }
+
+        // Packaging follows what is actually filled, not the mix: each
+        // allocated unit of a size takes that size's packaging lines.
+        foreach ($productionRun->allocations as $allocation) {
+            if ($allocation->units <= 0) {
+                continue;
+            }
+
+            foreach ($allocation->recipeSize->packaging as $ingredient) {
+                $qtyPerUnit = (float) $ingredient->pivot->quantity_per_unit;
+                if ($qtyPerUnit <= 0) {
+                    continue;
+                }
+
+                $requiredByIngredient[$ingredient->id] ??= ['ingredient' => $ingredient, 'required' => 0.0];
+                $requiredByIngredient[$ingredient->id]['required'] += $qtyPerUnit * $allocation->units;
             }
         }
 

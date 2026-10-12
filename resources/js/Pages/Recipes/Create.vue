@@ -44,7 +44,11 @@
       </template>
 
       <template #section-ingredients>
-        <RecipeLinesFields :rows="form.ingredients" :pool="ingredients" noun="Ingredient" />
+        <RecipeLinesFields :rows="form.ingredients" :pool="mixIngredients" noun="Ingredient" />
+      </template>
+
+      <template #section-sizes>
+        <RecipeSizesFields :form="form" :packaging-pool="packagingIngredients" />
       </template>
 
       <template #section-byproducts>
@@ -73,12 +77,14 @@ import ResponsiveFormSections, { type FormSection } from '@/Components/Admin/Res
 import IconButton from '@/Components/IconButton.vue'
 import RecipeDetailsFields, { type RecipeFormData } from '../Shared/RecipeDetailsFields.vue'
 import RecipeLinesFields, { type RecipeIngredientOption } from '../Shared/RecipeLinesFields.vue'
+import RecipeSizesFields, { type PackagingOption } from '../Shared/RecipeSizesFields.vue'
 import { backLinkClass, iconActionClass, primaryButtonClass } from '../Shared/formClasses'
 
 defineOptions({ layout: (h, page) => h(AdminLayout, { hideBreadcrumbOnMobile: true }, () => page) })
 
 interface Props {
   ingredients: RecipeIngredientOption[]
+  packagingIngredients: PackagingOption[]
   existingRecipeNames: string[]
 }
 
@@ -87,6 +93,7 @@ const props = defineProps<Props>()
 const sections: FormSection[] = [
   { key: 'details', title: 'Details' },
   { key: 'ingredients', title: 'Ingredients (per unit)', shortTitle: 'Ingredients' },
+  { key: 'sizes', title: 'Sizes & Packaging', shortTitle: 'Sizes' },
   { key: 'byproducts', title: 'Byproducts (per unit)', shortTitle: 'Byproducts' },
 ]
 
@@ -95,14 +102,17 @@ const indexUrl = route('admin.costing.recipes.index')
 
 const byproductIngredients = props.ingredients.filter((i) => i.byproduct_name)
 
+// Packaging belongs to a size, not the mix.
+const packagingIds = new Set(props.packagingIngredients.map((i) => i.id))
+const mixIngredients = props.ingredients.filter((i) => !packagingIds.has(i.id))
+
 const form = usePersistedForm<RecipeFormData>({
   name: '',
   notes: '',
-  product_id: null,
   min_stock_threshold: null,
-  fill_size_g: 280,
   preferred_batch_size: null,
-  is_active: true,
+  is_active: false,
+  sizes: [{ id: null, label: '', fill_size_g: 280, finished_good_id: null, finished_good_label: null, packaging: [] }],
   ingredients: [],
   byproducts: [],
 }, {
@@ -125,6 +135,12 @@ form.transform((data) => ({
   ...data,
   ingredients: data.ingredients.filter((row) => row.ingredient_id !== null && row.quantity_per_jar !== null),
   byproducts: data.byproducts.filter((row) => row.ingredient_id !== null && row.quantity_per_jar !== null),
+  sizes: data.sizes
+    .filter((size) => size.fill_size_g !== null && size.fill_size_g !== ('' as unknown))
+    .map(({ finished_good_label, ...size }) => ({
+      ...size,
+      packaging: size.packaging.filter((line) => line.ingredient_id !== null && line.quantity_per_unit !== null),
+    })),
 }))
 
 const nameLongEnough = computed<boolean>(() => (form.name ?? '').trim().length >= 2)

@@ -7,6 +7,7 @@ use Cultpantry\Costing\Models\PackageSize;
 use Cultpantry\Costing\Models\PriceHistoryEntry;
 use Cultpantry\Costing\Models\ProductionRun;
 use Cultpantry\Costing\Models\Recipe;
+use Cultpantry\Costing\Models\RecipeSize;
 
 /**
  * The costing module's data as one portable JSON document, in whichever
@@ -19,7 +20,7 @@ class ExportCostingData
 {
     public const FORMAT = 'cultpantry-costing';
 
-    public const VERSION = 1;
+    public const VERSION = 2;
 
     /** Import order: each section only refers to the ones before it. */
     public const SECTIONS = ['ingredients', 'price_history', 'inventory', 'recipes', 'production_runs'];
@@ -114,19 +115,25 @@ class ExportCostingData
             ])->values()->all();
     }
 
-    /** Recipes and their lines. The storefront product link stays behind: it's specific to one install. */
+    /** Recipes, their lines and sizes. The storefront product links stay behind: they're specific to one install. */
     private function recipes(): array
     {
-        return Recipe::with('ingredients')->orderBy('name')->get()
+        return Recipe::with('ingredients', 'sizes.packaging')->orderBy('name')->get()
             ->map(fn (Recipe $recipe) => [
                 'name' => $recipe->name,
                 'notes' => $recipe->notes,
                 'is_active' => $recipe->is_active,
-                'sell_price' => $recipe->sell_price !== null ? (float) $recipe->sell_price : null,
-                'fill_size_g' => $recipe->fill_size_g !== null ? (float) $recipe->fill_size_g : null,
                 'preferred_batch_size' => $recipe->preferred_batch_size,
                 'cost_buffer_percent' => $recipe->cost_buffer_percent !== null ? (float) $recipe->cost_buffer_percent : null,
                 'min_stock_threshold' => $recipe->min_stock_threshold,
+                'sizes' => $recipe->sizes->map(fn (RecipeSize $size) => [
+                    'label' => $size->label,
+                    'fill_size_g' => (float) $size->fill_size_g,
+                    'packaging' => $size->packaging->sortBy('name')->map(fn (Ingredient $ingredient) => [
+                        'ingredient' => $ingredient->name,
+                        'quantity' => (float) $ingredient->pivot->quantity_per_unit,
+                    ])->values()->all(),
+                ])->values()->all(),
                 'lines' => $recipe->ingredients->sortBy('name')->map(fn (Ingredient $ingredient) => [
                     'ingredient' => $ingredient->name,
                     'quantity' => (float) $ingredient->pivot->quantity_per_jar,
@@ -138,7 +145,7 @@ class ExportCostingData
     /** Runs with their batches -- and, for completed ones, their saved records. */
     private function productionRuns(): array
     {
-        return ProductionRun::with('recipes')->orderBy('run_date')->orderBy('id')->get()
+        return ProductionRun::with('recipes', 'allocations.recipeSize.recipe')->orderBy('run_date')->orderBy('id')->get()
             ->map(fn (ProductionRun $run) => [
                 'name' => $run->name,
                 'type' => $run->type,
@@ -149,7 +156,12 @@ class ExportCostingData
                 'recipes' => $run->recipes->sortBy('name')->map(fn (Recipe $recipe) => [
                     'recipe' => $recipe->name,
                     'batches' => (int) $recipe->pivot->batches,
-                    'actual_units' => $recipe->pivot->actual_units !== null ? (int) $recipe->pivot->actual_units : null,
+                ])->values()->all(),
+                'allocations' => $run->allocations->map(fn ($allocation) => [
+                    'recipe' => $allocation->recipeSize->recipe->name,
+                    'fill_size_g' => (float) $allocation->recipeSize->fill_size_g,
+                    'units' => $allocation->units,
+                    'actual_units' => $allocation->actual_units,
                 ])->values()->all(),
                 'purchase_order_record' => $run->purchase_order_record,
                 'recipe_sheet_record' => $run->recipe_sheet_record,

@@ -123,9 +123,11 @@ describe('costing admin module', function () {
 
         $older = ProductionRun::create(['name' => 'Older Run', 'batch_size' => 1, 'run_date' => Carbon::now()->subWeek()->toDateString()]);
         $older->recipes()->sync([$recipe->id => ['batches' => 20]]);
+        allocateFill($older, $recipe, 20);
 
         $newer = ProductionRun::create(['name' => 'Newer Run', 'batch_size' => 1, 'run_date' => Carbon::now()->toDateString()]);
         $newer->recipes()->sync([$recipe->id => ['batches' => 50]]);
+        allocateFill($newer, $recipe, 50);
 
         $this->actingAs($this->admin)
             ->get(route('admin.costing.production-planner.runs'))
@@ -139,10 +141,11 @@ describe('costing admin module', function () {
             );
     });
 
-    it('lists total units as batch_size x batches, not just the batch count', function () {
+    it('lists total units as the fills allocated, not the batch count', function () {
         $recipe = Recipe::create(['name' => 'Batch Size Flavour']);
         $run = ProductionRun::create(['batch_size' => 20, 'run_date' => Carbon::now()->toDateString()]);
         $run->recipes()->sync([$recipe->id => ['batches' => 3]]);
+        allocateFill($run, $recipe, 60);
 
         $this->actingAs($this->admin)
             ->get(route('admin.costing.production-planner.runs'))
@@ -153,11 +156,13 @@ describe('costing admin module', function () {
     it('shows a specific past run, not just the latest one', function () {
         $recipe = Recipe::create(['name' => 'Past Run Flavour']);
 
-        ProductionRun::create(['name' => 'Latest Run', 'batch_size' => 1, 'run_date' => Carbon::now()->toDateString()])
-            ->recipes()->sync([$recipe->id => ['batches' => 99]]);
+        $latest = ProductionRun::create(['name' => 'Latest Run', 'batch_size' => 1, 'run_date' => Carbon::now()->toDateString()]);
+        $latest->recipes()->sync([$recipe->id => ['batches' => 99]]);
+        allocateFill($latest, $recipe, 99);
 
         $past = ProductionRun::create(['name' => 'Past Run', 'batch_size' => 1, 'run_date' => Carbon::now()->subMonth()->toDateString()]);
         $past->recipes()->sync([$recipe->id => ['batches' => 7]]);
+        allocateFill($past, $recipe, 7);
 
         // Requesting the past run by ID must return ITS data, not the
         // latest run's -- this is the whole point of adding show(). A JSON
@@ -391,6 +396,7 @@ describe('costing admin module', function () {
             $toDelete = Recipe::create(['name' => 'Bulk Delete Recipe']);
             $toDeactivate = Recipe::create(['name' => 'Bulk Deactivate Recipe', 'is_active' => true]);
             $toActivate = Recipe::create(['name' => 'Bulk Activate Recipe', 'is_active' => false]);
+            recipeSize($toActivate, 280, productId: \App\Models\Product::factory()->create()->defaultVariation->id);
 
             $this->actingAs($this->admin)
                 ->post(route('admin.costing.recipes.bulk-action'), [
@@ -415,6 +421,17 @@ describe('costing admin module', function () {
                 ])
                 ->assertRedirect();
             expect($toActivate->fresh()->is_active)->toBeTrue();
+        });
+
+        it('will not bulk activate a recipe with no finished product on any size', function () {
+            $unlinked = Recipe::create(['name' => 'Bulk Unlinked Recipe', 'is_active' => false]);
+            recipeSize($unlinked, 280);
+
+            $this->actingAs($this->admin)
+                ->post(route('admin.costing.recipes.bulk-action'), ['action' => 'activate', 'ids' => [$unlinked->id]])
+                ->assertRedirect();
+
+            expect($unlinked->fresh()->is_active)->toBeFalse();
         });
 
         it('bulk deletes production runs but skips completed ones, tallying them as failures', function () {
@@ -490,6 +507,7 @@ describe('costing admin module', function () {
 
             $run = ProductionRun::create(['batch_size' => 1, 'run_date' => Carbon::now()->toDateString()]);
             $run->recipes()->sync([$recipe->id => ['batches' => 10]]); // requires 1000g
+            allocateFill($run, $recipe, 10, 100);
 
             $this->actingAs($this->admin)
                 ->post(route('admin.costing.production-planner.complete', $run->id))
@@ -512,6 +530,7 @@ describe('costing admin module', function () {
             // 20 (batch size) x 3 (batches) = 60 real units -> requires 6000g, not 300g.
             $run = ProductionRun::create(['batch_size' => 20, 'run_date' => Carbon::now()->toDateString()]);
             $run->recipes()->sync([$recipe->id => ['batches' => 3]]);
+            allocateFill($run, $recipe, 60, 100);
 
             $this->actingAs($this->admin)
                 ->post(route('admin.costing.production-planner.complete', $run->id))
@@ -524,7 +543,7 @@ describe('costing admin module', function () {
         it('freezes a cost snapshot per recipe in the run, matching a fresh CalculateRecipeCost computation', function () {
             $freshIngredient = Ingredient::create(['name' => 'Snapshot Fresh Ingredient', 'unit_type' => 'g', 'waste_percent' => 100]);
             $freshIngredient->priceHistory()->create(['purchased_at' => Carbon::now()->subDay()->toDateString(), 'provider' => 'GFS', 'qty' => 1000, 'total_price' => 10]);
-            $freshRecipe = Recipe::create(['name' => 'Snapshot Fresh Recipe', 'sell_price' => 10, 'fill_size_g' => 100, 'cost_buffer_percent' => 10]);
+            $freshRecipe = Recipe::create(['name' => 'Snapshot Fresh Recipe', 'cost_buffer_percent' => 10]);
             $freshRecipe->mainIngredients()->sync([$freshIngredient->id => ['quantity_per_jar' => 100]]);
 
             // No price history at all -- exercises any_missing on the snapshot.
@@ -537,6 +556,9 @@ describe('costing admin module', function () {
                 $freshRecipe->id => ['batches' => 20],
                 $staleRecipe->id => ['batches' => 5],
             ]);
+            $product = \App\Models\Product::factory()->create(['price' => 10]);
+            $freshSize = allocateFill($run, $freshRecipe, 20, 100, productId: $product->defaultVariation->id);
+            allocateFill($run, $staleRecipe, 5, 50);
 
             $this->actingAs($this->admin)
                 ->post(route('admin.costing.production-planner.complete', $run->id))
@@ -545,7 +567,7 @@ describe('costing admin module', function () {
             expect(RecipeCostSnapshot::count())->toBe(2);
 
             $freshSnapshot = RecipeCostSnapshot::where('recipe_id', $freshRecipe->id)->firstOrFail();
-            $expected = (new CalculateRecipeCost(new CalculateIngredientCosting))->handle($freshRecipe->fresh());
+            $expected = (new CalculateRecipeCost(new CalculateIngredientCosting))->handle($freshRecipe->fresh(), $freshSize);
 
             expect($freshSnapshot->production_run_id)->toBe($run->id);
             expect($freshSnapshot->jars_produced)->toBe(20);
@@ -585,6 +607,7 @@ describe('costing admin module', function () {
 
             $run = ProductionRun::create(['batch_size' => 1, 'run_date' => Carbon::now()->toDateString()]);
             $run->recipes()->sync([$recipe->id => ['batches' => 10]]); // requires 1000g, only 500g on hand
+            allocateFill($run, $recipe, 10, 100);
 
             $this->actingAs($this->admin)
                 ->post(route('admin.costing.production-planner.complete', $run->id))
@@ -594,9 +617,12 @@ describe('costing admin module', function () {
         });
 
         it('cannot be completed twice, and does not create a duplicate snapshot on the second attempt', function () {
-            $recipe = Recipe::create(['name' => 'No Double Snapshot Recipe', 'fill_size_g' => null]);
+            $recipe = Recipe::create(['name' => 'No Double Snapshot Recipe']);
+            $filler = Ingredient::create(['name' => 'No Double Filler', 'unit_type' => 'g', 'waste_percent' => 100]);
+            $recipe->ingredients()->sync([$filler->id => ['quantity_per_jar' => 100]]);
             $run = ProductionRun::create(['batch_size' => 1, 'run_date' => Carbon::now()->toDateString()]);
             $run->recipes()->sync([$recipe->id => ['batches' => 3]]);
+            allocateFill($run, $recipe, 3, 100);
 
             $this->actingAs($this->admin)
                 ->post(route('admin.costing.production-planner.complete', $run->id))
@@ -612,9 +638,12 @@ describe('costing admin module', function () {
         });
 
         it('locks batch counts from further edits once completed', function () {
-            $recipe = Recipe::create(['name' => 'Locked Flavour', 'fill_size_g' => null]);
+            $recipe = Recipe::create(['name' => 'Locked Flavour']);
+            $filler = Ingredient::create(['name' => 'Locked Filler', 'unit_type' => 'g', 'waste_percent' => 100]);
+            $recipe->ingredients()->sync([$filler->id => ['quantity_per_jar' => 100]]);
             $run = ProductionRun::create(['batch_size' => 1, 'run_date' => Carbon::now()->toDateString()]);
             $run->recipes()->sync([$recipe->id => ['batches' => 5]]);
+            allocateFill($run, $recipe, 5, 100);
 
             $this->actingAs($this->admin)->post(route('admin.costing.production-planner.complete', $run->id));
 
@@ -1092,7 +1121,7 @@ describe('costing admin module', function () {
                 );
         });
 
-        it('lists recipe lines heaviest first with packaging grouped last', function () {
+        it('lists recipe lines heaviest first, with each size\'s packaging on its own', function () {
             $salt = Ingredient::create(['name' => 'Order Salt', 'category' => 'Spices', 'unit_type' => 'g', 'waste_percent' => 100]);
             $peppers = Ingredient::create(['name' => 'Order Peppers', 'category' => 'Vegetables & Fruit', 'unit_type' => 'g', 'waste_percent' => 100]);
             $vinegar = Ingredient::create(['name' => 'Order Vinegar', 'category' => 'Wet', 'unit_type' => 'g', 'waste_percent' => 100]);
@@ -1101,23 +1130,23 @@ describe('costing admin module', function () {
 
             $recipe = Recipe::create(['name' => 'Ordered Recipe']);
             $recipe->mainIngredients()->sync([
-                $jar->id => ['quantity_per_jar' => 1],
                 $salt->id => ['quantity_per_jar' => 6],
-                $lid->id => ['quantity_per_jar' => 1],
                 $peppers->id => ['quantity_per_jar' => 180],
                 $vinegar->id => ['quantity_per_jar' => 95],
             ]);
+            recipeSize($recipe, 280, [$jar->id => 1, $lid->id => 1]);
 
-            $expected = ['Order Peppers', 'Order Vinegar', 'Order Salt', 'Order Jar', 'Order Lid'];
+            $expected = ['Order Peppers', 'Order Vinegar', 'Order Salt'];
+            $packaging = ['Order Jar', 'Order Lid'];
 
             $this->actingAs($this->admin)->get(route('admin.costing.recipes.show', $recipe))
                 ->assertInertia(fn ($page) => $page
                     ->where('recipe.ingredients', fn ($lines) => collect($lines)->pluck('name')->all() === $expected)
-                    ->where('recipe.sheet.mix', fn ($lines) => collect($lines)->pluck('name')->all() === array_slice($expected, 0, 3))
-                    ->where('recipe.sheet.pack', fn ($lines) => collect($lines)->pluck('name')->all() === array_slice($expected, 3))
+                    ->where('recipe.sheet.mix', fn ($lines) => collect($lines)->pluck('name')->all() === $expected)
+                    ->where('recipe.sheet.sizes.0.pack', fn ($lines) => collect($lines)->pluck('name')->all() === $packaging)
                 );
 
-            $ids = [$peppers->id, $vinegar->id, $salt->id, $jar->id, $lid->id];
+            $ids = [$peppers->id, $vinegar->id, $salt->id];
             $this->actingAs($this->admin)->get(route('admin.costing.recipes.edit', $recipe))
                 ->assertInertia(fn ($page) => $page
                     ->where('recipe.ingredients', fn ($lines) => collect($lines)->pluck('ingredient_id')->all() === $ids)
@@ -1130,11 +1159,12 @@ describe('costing admin module', function () {
             $cheese = Ingredient::create(['name' => 'Record Cheese', 'unit_type' => 'g', 'waste_percent' => 100]);
             $cheese->packageSizes()->create(['provider' => 'GFS', 'package_size' => 1000, 'quantity_on_hand' => 300]);
 
-            $recipe = Recipe::create(['name' => 'Record Flavour', 'fill_size_g' => null]);
+            $recipe = Recipe::create(['name' => 'Record Flavour']);
             $recipe->ingredients()->sync([$cheese->id => ['quantity_per_jar' => 100]]);
 
             $run = ProductionRun::create(['batch_size' => 5, 'run_date' => Carbon::now()->toDateString()]);
             $run->recipes()->sync([$recipe->id => ['batches' => 1]]); // 500g needed, 300g on hand -> 200g short
+            allocateFill($run, $recipe, 5, 100);
 
             $this->actingAs($this->admin)->post(route('admin.costing.production-planner.complete', $run->id))->assertRedirect();
 
@@ -1251,7 +1281,7 @@ describe('costing admin module', function () {
             $recipe = Recipe::create(['name' => 'Batch Size Recipe']);
 
             $this->actingAs($this->admin)
-                ->put(route('admin.costing.recipes.update', $recipe), ['name' => 'Batch Size Recipe', 'preferred_batch_size' => 20, 'ingredients' => []])
+                ->put(route('admin.costing.recipes.update', $recipe), ['name' => 'Batch Size Recipe', 'is_active' => false, 'preferred_batch_size' => 20, 'ingredients' => []])
                 ->assertSessionHasNoErrors();
             expect($recipe->fresh()->preferred_batch_size)->toBe(20);
 
@@ -1259,59 +1289,121 @@ describe('costing admin module', function () {
                 ->assertInertia(fn ($page) => $page->where('recipe.preferred_batch_size', 20));
 
             $this->actingAs($this->admin)
-                ->put(route('admin.costing.recipes.update', $recipe), ['name' => 'Batch Size Recipe', 'preferred_batch_size' => 0, 'ingredients' => []])
+                ->put(route('admin.costing.recipes.update', $recipe), ['name' => 'Batch Size Recipe', 'is_active' => false, 'preferred_batch_size' => 0, 'ingredients' => []])
                 ->assertSessionHasErrors('preferred_batch_size');
         });
     });
 
-    describe('recipe fill weight', function () {
-        it('defaults a new recipe to a 280g fill when the form leaves it out', function () {
+    describe('recipe sizes', function () {
+        it('saves sizes with their product and packaging from the recipe form', function () {
+            $cup = Ingredient::create(['name' => 'Size Cup', 'category' => 'Packaging', 'unit_type' => 'unit', 'waste_percent' => 100]);
+            $product = \App\Models\Product::factory()->create();
+            $recipe = Recipe::create(['name' => 'Sized Recipe']);
+
             $this->actingAs($this->admin)
-                ->post(route('admin.costing.recipes.store'), ['name' => 'Default Fill Recipe', 'ingredients' => []])
+                ->put(route('admin.costing.recipes.update', $recipe), [
+                    'name' => 'Sized Recipe',
+                    'is_active' => true,
+                    'ingredients' => [],
+                    'sizes' => [
+                        ['label' => '', 'fill_size_g' => 280, 'finished_good_id' => $product->defaultVariation->id, 'packaging' => [['ingredient_id' => $cup->id, 'quantity_per_unit' => 1]]],
+                        ['label' => 'Mini', 'fill_size_g' => 140, 'finished_good_id' => $product->defaultVariation->id, 'packaging' => []],
+                    ],
+                ])
+                ->assertSessionHasNoErrors()
                 ->assertRedirect();
 
-            expect((float) Recipe::where('name', 'Default Fill Recipe')->firstOrFail()->fill_size_g)->toBe(280.0);
+            $sizes = $recipe->fresh()->load('sizes.packaging')->sizes;
+            expect($sizes->pluck('label')->all())->toBe(['280g', 'Mini']);
+            expect($sizes->pluck('fill_size_g')->map(fn ($g) => (float) $g)->all())->toBe([280.0, 140.0]);
+            expect($sizes[0]->packaging->pluck('name')->all())->toBe(['Size Cup']);
         });
 
-        it('saves the fill weight from the recipe form, and blank clears it', function () {
-            $recipe = Recipe::create(['name' => 'Form Fill Recipe']);
+        it('keeps a size\'s id when it is edited and removes sizes left out', function () {
+            $recipe = Recipe::create(['name' => 'Edited Sizes Recipe', 'is_active' => false]);
+            $keep = recipeSize($recipe, 280);
+            $drop = recipeSize($recipe, 140);
 
             $this->actingAs($this->admin)
-                ->put(route('admin.costing.recipes.update', $recipe), ['name' => 'Form Fill Recipe', 'fill_size_g' => 275, 'ingredients' => []])
-                ->assertRedirect();
-            expect((float) $recipe->fresh()->fill_size_g)->toBe(275.0);
+                ->put(route('admin.costing.recipes.update', $recipe), [
+                    'name' => 'Edited Sizes Recipe',
+                    'is_active' => false,
+                    'ingredients' => [],
+                    'sizes' => [['id' => $keep->id, 'label' => 'Standard', 'fill_size_g' => 285]],
+                ])
+                ->assertSessionHasNoErrors();
 
-            $this->actingAs($this->admin)
-                ->put(route('admin.costing.recipes.update', $recipe), ['name' => 'Form Fill Recipe', 'fill_size_g' => null, 'ingredients' => []])
-                ->assertRedirect();
-            expect($recipe->fresh()->fill_size_g)->toBeNull();
+            expect($recipe->fresh()->sizes->pluck('id')->all())->toBe([$keep->id]);
+            expect($keep->fresh()->label)->toBe('Standard');
+            expect((float) $keep->fresh()->fill_size_g)->toBe(285.0);
+            expect(\Cultpantry\Costing\Models\RecipeSize::find($drop->id))->toBeNull();
         });
 
-        it('keeps the saved fill weight when an update leaves it out', function () {
-            $recipe = Recipe::create(['name' => 'Kept Fill Recipe', 'fill_size_g' => 290]);
+        it('refuses to remove a size a production run has used', function () {
+            $recipe = Recipe::create(['name' => 'Used Size Recipe', 'is_active' => false]);
+            $run = ProductionRun::create(['batch_size' => 1, 'run_date' => Carbon::now()->toDateString()]);
+            allocateFill($run, $recipe, 5);
 
             $this->actingAs($this->admin)
-                ->put(route('admin.costing.recipes.update', $recipe), ['name' => 'Kept Fill Recipe', 'ingredients' => []])
-                ->assertRedirect();
+                ->put(route('admin.costing.recipes.update', $recipe), ['name' => 'Used Size Recipe', 'is_active' => false, 'ingredients' => [], 'sizes' => []])
+                ->assertSessionHasErrors('sizes');
 
-            expect((float) $recipe->fresh()->fill_size_g)->toBe(290.0);
+            expect($recipe->fresh()->sizes)->toHaveCount(1);
         });
 
-        it('rejects a zero fill weight', function () {
-            $recipe = Recipe::create(['name' => 'Zero Fill Recipe']);
+        it('rejects a zero fill weight and a repeated fill weight', function () {
+            $recipe = Recipe::create(['name' => 'Bad Fill Recipe']);
+            $base = ['name' => 'Bad Fill Recipe', 'is_active' => false, 'ingredients' => []];
 
             $this->actingAs($this->admin)
-                ->put(route('admin.costing.recipes.update', $recipe), ['name' => 'Zero Fill Recipe', 'fill_size_g' => 0, 'ingredients' => []])
-                ->assertSessionHasErrors('fill_size_g');
+                ->put(route('admin.costing.recipes.update', $recipe), $base + ['sizes' => [['fill_size_g' => 0]]])
+                ->assertSessionHasErrors('sizes.0.fill_size_g');
+
+            $this->actingAs($this->admin)
+                ->put(route('admin.costing.recipes.update', $recipe), $base + ['sizes' => [['fill_size_g' => 280], ['fill_size_g' => 280]]])
+                ->assertSessionHasErrors('sizes.0.fill_size_g');
         });
 
-        it('passes the fill weight to the show and edit pages', function () {
-            $recipe = Recipe::create(['name' => 'Props Fill Recipe', 'fill_size_g' => 285]);
+        it('requires an active recipe to have a size, each with a finished product', function () {
+            $recipe = Recipe::create(['name' => 'Active Rule Recipe']);
+            $product = \App\Models\Product::factory()->create();
+            $base = ['name' => 'Active Rule Recipe', 'is_active' => true, 'ingredients' => []];
+
+            $this->actingAs($this->admin)
+                ->put(route('admin.costing.recipes.update', $recipe), $base)
+                ->assertSessionHasErrors('sizes');
+
+            $this->actingAs($this->admin)
+                ->put(route('admin.costing.recipes.update', $recipe), $base + ['sizes' => [['fill_size_g' => 280, 'finished_good_id' => $product->defaultVariation->id], ['fill_size_g' => 140]]])
+                ->assertSessionHasErrors('sizes');
+
+            $this->actingAs($this->admin)
+                ->put(route('admin.costing.recipes.update', $recipe), $base + ['sizes' => [['fill_size_g' => 280, 'finished_good_id' => $product->defaultVariation->id], ['fill_size_g' => 140, 'finished_good_id' => $product->defaultVariation->id]]])
+                ->assertSessionHasNoErrors();
+        });
+
+        it('lets an inactive recipe be saved with no product', function () {
+            $recipe = Recipe::create(['name' => 'Inactive Rule Recipe']);
+
+            $this->actingAs($this->admin)
+                ->put(route('admin.costing.recipes.update', $recipe), ['name' => 'Inactive Rule Recipe', 'is_active' => false, 'ingredients' => [], 'sizes' => [['fill_size_g' => 280]]])
+                ->assertSessionHasNoErrors();
+        });
+
+        it('passes the sizes to the show and edit pages', function () {
+            $product = \App\Models\Product::factory()->create(['price' => 12]);
+            $recipe = Recipe::create(['name' => 'Props Sizes Recipe']);
+            recipeSize($recipe, 285, productId: $product->defaultVariation->id);
 
             $this->actingAs($this->admin)->get(route('admin.costing.recipes.show', $recipe))
-                ->assertInertia(fn ($page) => $page->where('recipe.fill_size_g', 285));
+                ->assertInertia(fn ($page) => $page
+                    ->where('recipe.sizes.0.fill_size_g', 285)
+                    ->where('recipe.sizes.0.sell_price', 12)
+                    ->where('recipe.sizes.0.finished_good.id', $product->defaultVariation->id));
             $this->actingAs($this->admin)->get(route('admin.costing.recipes.edit', $recipe))
-                ->assertInertia(fn ($page) => $page->where('recipe.fill_size_g', 285));
+                ->assertInertia(fn ($page) => $page
+                    ->where('recipe.sizes.0.fill_size_g', 285)
+                    ->where('recipe.sizes.0.finished_good_id', $product->defaultVariation->id));
         });
     });
 
@@ -1322,6 +1414,7 @@ describe('costing admin module', function () {
             $this->actingAs($this->admin)
                 ->post(route('admin.costing.recipes.store'), [
                     'name' => 'Byproduct Recipe',
+                    'is_active' => false,
                     'ingredients' => [['ingredient_id' => $pickles->id, 'quantity_per_jar' => 50]],
                     'byproducts' => [['ingredient_id' => $pickles->id, 'quantity_per_jar' => 15]],
                 ])
@@ -1826,18 +1919,18 @@ describe('costing admin module', function () {
 
             $recipe = Recipe::create([
                 'name' => 'Costing Page Recipe',
-                'sell_price' => 10,
-                'fill_size_g' => 100,
                 'cost_buffer_percent' => 10,
             ]);
             $recipe->mainIngredients()->sync([$ingredient->id => ['quantity_per_jar' => 100]]);
+            // The $10 price is the linked product's, not the recipe's.
+            recipeSize($recipe, 100, productId: \App\Models\Product::factory()->create(['price' => 10])->defaultVariation->id);
 
             $response = $this->actingAs($this->admin)->get(route('admin.costing.recipes.costing'));
 
             $response->assertOk()->assertInertia(fn ($page) => $page
                 ->component('Vendor/costing/Recipes/Costing')
                 ->where('recipes', function ($recipes) use ($recipe) {
-                    $row = collect($recipes)->firstWhere('id', $recipe->id);
+                    $row = collect($recipes)->firstWhere('recipe_id', $recipe->id);
 
                     // 100g * $10/kg / 1000 = $1.00 raw; buffered 10% = $1.10;
                     // fill size == yield here, so actual cost/jar == buffered;
@@ -1845,6 +1938,8 @@ describe('costing admin module', function () {
                     return $row['raw_cost'] == 1
                         && $row['buffered_cost'] == 1.1
                         && $row['food_cost_percent'] == 11
+                        && $row['sell_price'] == 10
+                        && $row['size_label'] === '100g'
                         && $row['any_stale'] === false
                         && $row['any_missing'] === false;
                 })
@@ -1857,26 +1952,22 @@ describe('costing admin module', function () {
             $this->actingAs($this->admin)
                 ->from(route('admin.costing.recipes.costing'))
                 ->put(route('admin.costing.recipes.update-costing', $recipe->id), [
-                    'sell_price' => 12.5,
-                    'fill_size_g' => 300,
                     'cost_buffer_percent' => 15,
                 ])
                 ->assertRedirect(route('admin.costing.recipes.costing'));
 
             $recipe->refresh();
-            expect((float) $recipe->sell_price)->toBe(12.5);
-            expect((float) $recipe->fill_size_g)->toBe(300.0);
             expect((float) $recipe->cost_buffer_percent)->toBe(15.0);
         });
 
         it('leaves the costing fields nullable -- a recipe with none set still renders fine', function () {
-            $recipe = Recipe::create(['name' => 'No Costing Fields Recipe', 'fill_size_g' => null]);
+            $recipe = Recipe::create(['name' => 'No Costing Fields Recipe']);
 
             $response = $this->actingAs($this->admin)->get(route('admin.costing.recipes.costing'));
 
             $response->assertOk()->assertInertia(fn ($page) => $page
                 ->where('recipes', function ($recipes) use ($recipe) {
-                    $row = collect($recipes)->firstWhere('id', $recipe->id);
+                    $row = collect($recipes)->firstWhere('recipe_id', $recipe->id);
 
                     return $row['sell_price'] === null
                         && $row['fill_size_g'] === null
@@ -1894,10 +1985,10 @@ describe('costing admin module', function () {
                 ->assertForbidden();
 
             $this->actingAs($this->customer)
-                ->put(route('admin.costing.recipes.update-costing', $recipe->id), ['sell_price' => 5])
+                ->put(route('admin.costing.recipes.update-costing', $recipe->id), ['cost_buffer_percent' => 5])
                 ->assertForbidden();
 
-            expect($recipe->fresh()->sell_price)->toBeNull();
+            expect($recipe->fresh()->cost_buffer_percent)->toBeNull();
         });
 
         it('guest cannot view recipe costing', function () {
@@ -1911,11 +2002,12 @@ describe('costing admin module', function () {
             $ingredient = Ingredient::create(['name' => 'History Ingredient', 'unit_type' => 'g', 'waste_percent' => 100]);
             $ingredient->priceHistory()->create(['purchased_at' => Carbon::now()->subDay()->toDateString(), 'provider' => 'GFS', 'qty' => 1000, 'total_price' => 10]);
 
-            $recipe = Recipe::create(['name' => 'History Recipe', 'sell_price' => 10, 'fill_size_g' => 100]);
+            $recipe = Recipe::create(['name' => 'History Recipe']);
             $recipe->mainIngredients()->sync([$ingredient->id => ['quantity_per_jar' => 100]]);
 
             $run = ProductionRun::create(['batch_size' => 1, 'run_date' => Carbon::now()->toDateString()]);
             $run->recipes()->sync([$recipe->id => ['batches' => 4]]);
+            allocateFill($run, $recipe, 4, 100);
 
             $this->actingAs($this->admin)->post(route('admin.costing.production-planner.complete', $run->id));
 
@@ -1943,6 +2035,162 @@ describe('costing admin module', function () {
         it('guest cannot view cost history', function () {
             $this->get(route('admin.costing.recipes.cost-history'))
                 ->assertRedirect(route('login'));
+        });
+    });
+    describe('fill sizes on a production run', function () {
+        /** A 100g/unit mix with 1000g stock, run at batch size 10 x 2 batches = 2000g of product. */
+        $makeRun = function () {
+            $mix = Ingredient::create(['name' => 'Fill Run Mix', 'unit_type' => 'g', 'waste_percent' => 100]);
+            $mix->packageSizes()->create(['provider' => 'Unspecified', 'package_size' => 1000, 'quantity_on_hand' => 100000]);
+            $cup = Ingredient::create(['name' => 'Fill Run Cup', 'category' => 'Packaging', 'unit_type' => 'unit', 'waste_percent' => 100]);
+            $cup->packageSizes()->create(['provider' => 'Unspecified', 'package_size' => 50, 'quantity_on_hand' => 500]);
+            $tub = Ingredient::create(['name' => 'Fill Run Tub', 'category' => 'Packaging', 'unit_type' => 'unit', 'waste_percent' => 100]);
+            $tub->packageSizes()->create(['provider' => 'Unspecified', 'package_size' => 50, 'quantity_on_hand' => 500]);
+
+            $recipe = Recipe::create(['name' => 'Fill Run Flavour']);
+            $recipe->ingredients()->sync([$mix->id => ['quantity_per_jar' => 100]]);
+
+            $run = ProductionRun::create(['batch_size' => 10, 'run_date' => Carbon::now()->toDateString()]);
+            $run->recipes()->sync([$recipe->id => ['batches' => 2]]);
+
+            return [$run, $recipe, $cup, $tub];
+        };
+
+        it('reports a recipe\'s volume, what the fills use and what is left', function () use ($makeRun) {
+            [$run, $recipe, $cup] = $makeRun();
+            allocateFill($run, $recipe, 4, 280); // 1120g
+            allocateFill($run, $recipe, 6, 140); // 840g -> 1960g of 2000g
+
+            $result = app(\Cultpantry\Costing\Actions\CheckRunAllocation::class)->handle($run->fresh())[$recipe->id];
+
+            expect($result['volume_g'])->toBe(2000.0);
+            expect($result['allocated_g'])->toBe(1960.0);
+            expect($result['remaining_g'])->toBe(40.0);
+            expect($result['fits'])->toBeTrue();
+            expect($result['message'])->toBeNull();
+        });
+
+        it('explains how short the batches are when the fills ask for more than they make', function () use ($makeRun) {
+            [$run, $recipe] = $makeRun();
+            allocateFill($run, $recipe, 5, 280); // 1400g
+            allocateFill($run, $recipe, 6, 140); // 840g -> 2240g of 2000g
+
+            $result = app(\Cultpantry\Costing\Actions\CheckRunAllocation::class)->handle($run->fresh())[$recipe->id];
+
+            expect($result['fits'])->toBeFalse();
+            expect($result['remaining_g'])->toBe(-240.0);
+            expect($result['message'])->toContain('5 x 280g + 6 x 140g needs 2,240g')->toContain('make 2,000g')->toContain('short by 240g');
+        });
+
+        it('saves the allocations from the run form even while they do not fit, and returns them', function () use ($makeRun) {
+            [$run, $recipe] = $makeRun();
+            $small = recipeSize($recipe, 140);
+            $big = recipeSize($recipe, 280);
+
+            $this->actingAs($this->admin)
+                ->put(route('admin.costing.production-planner.update', $run->id), [
+                    'run_date' => Carbon::now()->toDateString(),
+                    'batch_size' => 10,
+                    'batches' => [['recipe_id' => $recipe->id, 'batches' => 2]],
+                    'allocations' => [
+                        ['recipe_size_id' => $big->id, 'units' => 100],
+                        ['recipe_size_id' => $small->id, 'units' => 0],
+                    ],
+                ])
+                ->assertSessionHasNoErrors();
+
+            expect($run->allocations()->pluck('units', 'recipe_size_id')->all())->toBe([$big->id => 100]);
+
+            $this->actingAs($this->admin)->getJson(route('admin.costing.production-planner.show', $run->id))
+                ->assertJsonPath('production_run.allocations.0.units', 100)
+                ->assertJsonPath('recipes.0.yield_grams', 100)
+                ->assertJsonPath('recipes.0.sizes.0.fill_size_g', 140);
+        });
+
+        it('will not complete a run whose fills do not fit the volume', function () use ($makeRun) {
+            [$run, $recipe] = $makeRun();
+            allocateFill($run, $recipe, 8, 280); // 2240g of 2000g
+
+            $this->actingAs($this->admin)
+                ->post(route('admin.costing.production-planner.complete', $run->id))
+                ->assertStatus(422);
+
+            expect($run->fresh()->completed_at)->toBeNull();
+        });
+
+        it('will not complete a production run with batches but no fills', function () use ($makeRun) {
+            [$run] = $makeRun();
+
+            $this->actingAs($this->admin)
+                ->post(route('admin.costing.production-planner.complete', $run->id))
+                ->assertStatus(422);
+
+            expect($run->fresh()->completed_at)->toBeNull();
+        });
+
+        it('draws each size\'s packaging from stock by the units filled, and credits each size\'s product', function () use ($makeRun) {
+            [$run, $recipe, $cup, $tub] = $makeRun();
+            $bigProduct = \App\Models\Product::factory()->create(['stock_quantity' => 0]);
+            $smallProduct = \App\Models\Product::factory()->create(['stock_quantity' => 10]);
+            allocateFill($run, $recipe, 4, 280, [$cup->id => 1], $bigProduct->defaultVariation->id);
+            allocateFill($run, $recipe, 6, 140, [$tub->id => 2], $smallProduct->defaultVariation->id);
+
+            $this->actingAs($this->admin)
+                ->post(route('admin.costing.production-planner.complete', $run->id))
+                ->assertSessionHasNoErrors();
+
+            // Mix follows the batches (2 x 10 x 100g); packaging follows the units filled.
+            expect((float) $run->recipes()->first()->ingredients()->first()->inventory->fresh()->on_hand)->toBe(98000.0);
+            expect((float) $cup->inventory->fresh()->on_hand)->toBe(496.0);  // 4 x 1
+            expect((float) $tub->inventory->fresh()->on_hand)->toBe(488.0);  // 6 x 2
+            expect($bigProduct->fresh()->stock_quantity)->toBe(4);
+            expect($smallProduct->fresh()->stock_quantity)->toBe(16);
+            expect(RecipeCostSnapshot::where('production_run_id', $run->id)->count())->toBe(2);
+            expect($run->fresh()->load('allocations')->totalUnits())->toBe(10);
+        });
+
+        it('credits the entered actual units rather than the plan, and uncompleting reverses it', function () use ($makeRun) {
+            [$run, $recipe] = $makeRun();
+            $product = \App\Models\Product::factory()->create(['stock_quantity' => 0]);
+            $size = allocateFill($run, $recipe, 10, 140, productId: $product->defaultVariation->id);
+
+            $this->actingAs($this->admin)
+                ->post(route('admin.costing.production-planner.complete', $run->id), [
+                    'actuals' => [['recipe_size_id' => $size->id, 'actual_units' => 9]],
+                ])
+                ->assertSessionHasNoErrors();
+
+            expect($product->fresh()->stock_quantity)->toBe(9);
+            expect($run->allocations()->first()->actual_units)->toBe(9);
+
+            $this->actingAs($this->admin)
+                ->post(route('admin.costing.production-planner.uncomplete', $run->id))
+                ->assertSessionHasNoErrors();
+
+            expect($product->fresh()->stock_quantity)->toBe(0);
+            expect($run->allocations()->first()->actual_units)->toBeNull();
+            expect($run->allocations()->first()->units)->toBe(10);
+        });
+
+        it('leaves a size with no linked product alone', function () use ($makeRun) {
+            [$run, $recipe] = $makeRun();
+            allocateFill($run, $recipe, 10, 140);
+
+            $this->actingAs($this->admin)
+                ->post(route('admin.costing.production-planner.complete', $run->id))
+                ->assertSessionHasNoErrors();
+
+            expect($run->fresh()->completed_at)->not->toBeNull();
+        });
+
+        it('plans packaging purchases from the fills allocated', function () use ($makeRun) {
+            [$run, $recipe, $cup] = $makeRun();
+            allocateFill($run, $recipe, 10, 140, [$cup->id => 3]);
+
+            $plan = (new \Cultpantry\Costing\Actions\CalculateProductionPlan(new CalculateIngredientCosting))->handle($run->fresh());
+
+            expect((float) collect($plan['rows'])->firstWhere('ingredient_name', 'Fill Run Cup')['required'])->toBe(30.0);
+            expect($plan['total_units'])->toBe(10);
         });
     });
 });

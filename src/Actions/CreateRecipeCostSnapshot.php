@@ -5,6 +5,7 @@ namespace Cultpantry\Costing\Actions;
 use Cultpantry\Costing\Models\ProductionRun;
 use Cultpantry\Costing\Models\Recipe;
 use Cultpantry\Costing\Models\RecipeCostSnapshot;
+use Cultpantry\Costing\Models\RecipeSize;
 
 /**
  * Freezes a recipe's currently-computed cost into a permanent record, tied
@@ -12,6 +13,8 @@ use Cultpantry\Costing\Models\RecipeCostSnapshot;
  * recomputes live from current ingredient prices on every page load, so
  * without this, an old cost figure is simply unrecoverable once a price
  * changes -- this Action is what makes historical cost tracking possible.
+ * One snapshot per size, since each size has its own fill weight, packaging
+ * and price.
  */
 class CreateRecipeCostSnapshot
 {
@@ -19,16 +22,17 @@ class CreateRecipeCostSnapshot
         private readonly CalculateRecipeCost $calculateRecipeCost,
     ) {}
 
-    public function handle(Recipe $recipe, ProductionRun $productionRun, int $jarsProduced): RecipeCostSnapshot
+    public function handle(Recipe $recipe, ProductionRun $productionRun, RecipeSize $size, int $jarsProduced): RecipeCostSnapshot
     {
-        $cost = $this->calculateRecipeCost->handle($recipe);
+        $cost = $this->calculateRecipeCost->handle($recipe, $size);
 
         return RecipeCostSnapshot::create([
             'recipe_id' => $recipe->id,
+            'recipe_size_id' => $size->id,
             'production_run_id' => $productionRun->id,
             'jars_produced' => $jarsProduced,
-            'sell_price' => $recipe->sell_price,
-            'fill_size_g' => $recipe->fill_size_g,
+            'sell_price' => $cost['sell_price'],
+            'fill_size_g' => $size->fill_size_g,
             'cost_buffer_percent' => $recipe->cost_buffer_percent,
             'raw_cost' => $cost['raw_cost'],
             'yield_grams' => $cost['yield_grams'],

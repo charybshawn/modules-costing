@@ -89,26 +89,27 @@ class UncompleteProductionRun
 
         RecipeCostSnapshot::where('production_run_id', $productionRun->id)->delete();
 
-        foreach ($productionRun->recipes as $recipe) {
+        foreach ($productionRun->allocations()->with('recipeSize')->get() as $allocation) {
             // Reverses exactly what CompleteProductionRun credited -- must
             // run before actual_units is nulled out below, since that's the
-            // only record of how many units this recipe actually credited.
-            if ($recipe->product_id && $recipe->pivot->actual_units !== null) {
-                $finishedGood = $recipe->finishedGood();
+            // only record of how many units this size actually credited.
+            if ($allocation->actual_units !== null) {
+                $finishedGood = $allocation->recipeSize->finishedGood();
                 if ($finishedGood) {
                     $finishedGood->debit(
-                        units: (int) $recipe->pivot->actual_units,
+                        units: (int) $allocation->actual_units,
                         reason: 'production_run_reversal',
                         metadata: [
                             'production_run_id' => $productionRun->id,
-                            'recipe_id' => $recipe->id,
-                            'units' => (int) $recipe->pivot->actual_units,
+                            'recipe_id' => $allocation->recipeSize->recipe_id,
+                            'recipe_size_id' => $allocation->recipe_size_id,
+                            'units' => (int) $allocation->actual_units,
                         ],
                     );
                 }
             }
 
-            $productionRun->recipes()->updateExistingPivot($recipe->id, ['actual_units' => null]);
+            $allocation->update(['actual_units' => null]);
         }
 
         // Back to a live order and sheet until it's completed again.

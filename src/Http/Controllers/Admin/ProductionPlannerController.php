@@ -49,7 +49,7 @@ class ProductionPlannerController extends Controller implements HasMiddleware
     {
         $this->authorize('viewAny', ProductionRun::class);
 
-        $runs = ProductionRun::with('recipes')->orderByDesc('run_date')->orderByDesc('id')->get();
+        $runs = ProductionRun::with('recipes', 'allocations')->orderByDesc('run_date')->orderByDesc('id')->get();
 
         return Inertia::render('Vendor/costing/ProductionPlanner/Runs', [
             'runs' => $runs->map(fn (ProductionRun $run) => [
@@ -178,7 +178,19 @@ class ProductionPlannerController extends Controller implements HasMiddleware
     {
         $this->authorize('view', $productionRun);
 
-        $recipes = Recipe::active()->orderBy('name')->get(['id', 'name']);
+        // Sizes and mix yield so the modal can show each recipe's volume and
+        // let the user allocate it across fill sizes.
+        $recipes = Recipe::active()->with('mainIngredients', 'sizes')->orderBy('name')->get()
+            ->map(fn (Recipe $recipe) => [
+                'id' => $recipe->id,
+                'name' => $recipe->name,
+                'yield_grams' => $recipe->yieldGrams(),
+                'sizes' => $recipe->sizes->map(fn ($size) => [
+                    'id' => $size->id,
+                    'label' => $size->label,
+                    'fill_size_g' => (float) $size->fill_size_g,
+                ])->values(),
+            ]);
 
         return response()->json([
             'recipes' => $recipes,
@@ -211,6 +223,7 @@ class ProductionPlannerController extends Controller implements HasMiddleware
         $productionRun->save();
 
         $productionRun->recipes()->sync($this->syncData($validated['batches']));
+        $this->syncAllocations($productionRun, $validated['allocations'] ?? []);
 
         event($savedEvent);
 
@@ -243,13 +256,13 @@ class ProductionPlannerController extends Controller implements HasMiddleware
 
         $validated = $request->validate([
             'actuals' => ['array'],
-            'actuals.*.recipe_id' => ['required', 'integer'],
+            'actuals.*.recipe_size_id' => ['required', 'integer'],
             'actuals.*.actual_units' => ['nullable', 'integer', 'min:0'],
         ]);
 
         $actuals = collect($validated['actuals'] ?? [])
             ->filter(fn (array $row) => $row['actual_units'] !== null)
-            ->pluck('actual_units', 'recipe_id')
+            ->pluck('actual_units', 'recipe_size_id')
             ->all();
 
         $shortfalls = $completeProductionRun->handle($productionRun, $actuals, $request->user());
@@ -434,7 +447,7 @@ class ProductionPlannerController extends Controller implements HasMiddleware
 
     private function serializeRun(ProductionRun $productionRun): array
     {
-        $productionRun->loadMissing('recipes', 'rentals');
+        $productionRun->loadMissing('recipes', 'rentals', 'allocations.recipeSize.recipe');
         $rental = $productionRun->rentals->first();
 
         return [
@@ -450,8 +463,15 @@ class ProductionPlannerController extends Controller implements HasMiddleware
                 'recipe_id' => $recipe->id,
                 'recipe_name' => $recipe->name,
                 'batches' => (int) $recipe->pivot->batches,
-                'actual_units' => $recipe->pivot->actual_units !== null ? (int) $recipe->pivot->actual_units : null,
             ]),
+            'allocations' => $productionRun->allocations->map(fn ($allocation) => [
+                'recipe_size_id' => $allocation->recipe_size_id,
+                'recipe_name' => $allocation->recipeSize->recipe->name,
+                'size_label' => $allocation->recipeSize->label,
+                'fill_size_g' => (float) $allocation->recipeSize->fill_size_g,
+                'units' => $allocation->units,
+                'actual_units' => $allocation->actual_units,
+            ])->values(),
             'rental' => $rental ? [
                 'id' => $rental->id,
                 'booking_title' => $rental->booking_title,
@@ -470,7 +490,32 @@ class ProductionPlannerController extends Controller implements HasMiddleware
             'batches' => ['array'],
             'batches.*.recipe_id' => ['required', 'exists:costing_recipes,id'],
             'batches.*.batches' => ['required', 'integer', 'min:0'],
+            // Saved even while the fills don't fit the volume yet -- the
+            // modal shows the shortfall as the user works, and only
+            // completing the run requires it to fit.
+            'allocations' => ['array'],
+            'allocations.*.recipe_size_id' => ['required', 'exists:costing_recipe_sizes,id'],
+            'allocations.*.units' => ['required', 'integer', 'min:0'],
         ]);
+    }
+
+    /**
+     * Makes the run's allocations match the submitted fills (zero-unit rows
+     * are dropped).
+     *
+     * @param array<int, array{recipe_size_id: int, units: int}> $allocations
+     */
+    private function syncAllocations(ProductionRun $productionRun, array $allocations): void
+    {
+        $units = collect($allocations)
+            ->filter(fn (array $row) => (int) $row['units'] > 0)
+            ->mapWithKeys(fn (array $row) => [(int) $row['recipe_size_id'] => (int) $row['units']]);
+
+        $productionRun->allocations()->whereNotIn('recipe_size_id', $units->keys())->delete();
+
+        foreach ($units as $sizeId => $count) {
+            $productionRun->allocations()->updateOrCreate(['recipe_size_id' => $sizeId], ['units' => $count]);
+        }
     }
 
     /**

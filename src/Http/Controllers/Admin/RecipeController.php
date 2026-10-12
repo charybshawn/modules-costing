@@ -14,6 +14,7 @@ use Cultpantry\Costing\Events\CostingRecordSaved;
 use Cultpantry\Costing\Models\Ingredient;
 use Cultpantry\Costing\Models\Recipe;
 use Cultpantry\Costing\Models\RecipeCostSnapshot;
+use Cultpantry\Costing\Models\RecipeSize;
 use Cultpantry\Costing\Support\CostingBreadcrumbs;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -21,6 +22,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -111,19 +113,30 @@ class RecipeController extends Controller implements HasMiddleware
         // $entry->ingredient per price history row. 'mainIngredients.inventory'
         // and 'mainIngredients.packageSizes' avoid the same N+1 for
         // purchase_size/purchase_unit.
-        $recipes = Recipe::with('mainIngredients.priceHistory.ingredient', 'mainIngredients.inventory', 'mainIngredients.packageSizes')->orderBy('name')->get();
+        $recipes = Recipe::with('mainIngredients.priceHistory.ingredient', 'mainIngredients.inventory', 'mainIngredients.packageSizes', 'sizes')->orderBy('name')->get();
+
+        // One row per size -- each has its own fill weight, packaging and
+        // price (read from its linked product, so not editable here). A
+        // recipe with no sizes yet still gets one row, costed as the bare mix.
+        $rows = $recipes->flatMap(function (Recipe $recipe) use ($calculateRecipeCost) {
+            $base = [
+                'recipe_id' => $recipe->id,
+                'cost_buffer_percent' => $recipe->cost_buffer_percent !== null ? (float) $recipe->cost_buffer_percent : null,
+            ];
+
+            if ($recipe->sizes->isEmpty()) {
+                return [array_merge($base, ['id' => "r{$recipe->id}", 'name' => $recipe->name, 'size_label' => null], $calculateRecipeCost->handle($recipe))];
+            }
+
+            return $recipe->sizes->map(fn (RecipeSize $size) => array_merge(
+                $base,
+                ['id' => "s{$size->id}", 'name' => $recipe->name, 'size_label' => $size->label],
+                $calculateRecipeCost->handle($recipe, $size),
+            ));
+        })->values();
 
         return Inertia::render('Vendor/costing/Recipes/Costing', [
-            'recipes' => $recipes->map(fn (Recipe $recipe) => array_merge(
-                [
-                    'id' => $recipe->id,
-                    'name' => $recipe->name,
-                    'sell_price' => $recipe->sell_price !== null ? (float) $recipe->sell_price : null,
-                    'fill_size_g' => $recipe->fill_size_g !== null ? (float) $recipe->fill_size_g : null,
-                    'cost_buffer_percent' => $recipe->cost_buffer_percent !== null ? (float) $recipe->cost_buffer_percent : null,
-                ],
-                $calculateRecipeCost->handle($recipe)
-            )),
+            'recipes' => $rows,
             'breadcrumbs' => CostingBreadcrumbs::trail(
                 ['label' => 'Recipes', 'href' => route('admin.costing.recipes.index')],
                 ['label' => 'Costing'],
@@ -144,13 +157,15 @@ class RecipeController extends Controller implements HasMiddleware
     {
         $this->authorize('viewAny', Recipe::class);
 
-        $snapshots = RecipeCostSnapshot::with('recipe:id,name')
+        $snapshots = RecipeCostSnapshot::with('recipe:id,name', 'recipeSize:id,label')
             ->orderBy('created_at')
             ->get()
             ->map(fn (RecipeCostSnapshot $snapshot) => [
                 'id' => $snapshot->id,
                 'recipe_id' => $snapshot->recipe_id,
                 'recipe_name' => $snapshot->recipe?->name,
+                'recipe_size_id' => $snapshot->recipe_size_id,
+                'size_label' => $snapshot->recipeSize?->label,
                 'jars_produced' => $snapshot->jars_produced,
                 'created_at' => $snapshot->created_at->toIso8601String(),
                 'raw_cost' => (float) $snapshot->raw_cost,
@@ -177,6 +192,7 @@ class RecipeController extends Controller implements HasMiddleware
 
         return Inertia::render('Vendor/costing/Recipes/Create', [
             'ingredients' => Ingredient::orderBy('name')->get(['id', 'name', 'unit_type', 'byproduct_name']),
+            'packagingIngredients' => $this->packagingIngredients(),
             'existingRecipeNames' => Recipe::orderBy('name')->pluck('name'),
             'breadcrumbs' => CostingBreadcrumbs::trail(
                 ['label' => 'Recipes', 'href' => route('admin.costing.recipes.index')],
@@ -194,15 +210,14 @@ class RecipeController extends Controller implements HasMiddleware
         $recipe = Recipe::create([
             'name' => $validated['name'],
             'notes' => $validated['notes'] ?? null,
-            'product_id' => $validated['product_id'] ?? null,
             'min_stock_threshold' => $validated['min_stock_threshold'] ?? null,
-            'fill_size_g' => array_key_exists('fill_size_g', $validated) ? $validated['fill_size_g'] : Recipe::DEFAULT_FILL_SIZE_G,
             'preferred_batch_size' => $validated['preferred_batch_size'] ?? null,
             'is_active' => $validated['is_active'] ?? true,
         ]);
 
         $recipe->mainIngredients()->sync($this->syncData($validated['ingredients']));
         $recipe->byproductIngredients()->sync($this->syncData($validated['byproducts'] ?? []));
+        $this->syncSizes($recipe, $validated['sizes'] ?? []);
 
         event(CostingRecordSaved::forCreated($recipe, auth()->id()));
 
@@ -230,6 +245,7 @@ class RecipeController extends Controller implements HasMiddleware
         Recipe $recipe,
         CalculateIngredientCosting $calculateIngredientCosting,
         CalculateMaxProducibleUnits $calculateMaxProducibleUnits,
+        CalculateRecipeCost $calculateRecipeCost,
         BuildRecipeSheet $buildRecipeSheet,
     ): Response {
         $this->authorize('view', $recipe);
@@ -241,6 +257,7 @@ class RecipeController extends Controller implements HasMiddleware
             'mainIngredients.inventory',
             'mainIngredients.packageSizes',
             'byproductIngredients',
+            'sizes.packaging',
         );
 
         return Inertia::render('Vendor/costing/Recipes/Show', [
@@ -249,9 +266,22 @@ class RecipeController extends Controller implements HasMiddleware
                 'name' => $recipe->name,
                 'notes' => $recipe->notes,
                 'min_stock_threshold' => $recipe->min_stock_threshold,
-                'fill_size_g' => $recipe->fill_size_g !== null ? (float) $recipe->fill_size_g : null,
                 'preferred_batch_size' => $recipe->preferred_batch_size,
                 'is_active' => $recipe->is_active,
+                'sizes' => $recipe->sizes->map(function (RecipeSize $size) use ($recipe, $calculateRecipeCost) {
+                    $cost = $calculateRecipeCost->handle($recipe, $size);
+
+                    return [
+                        'id' => $size->id,
+                        'label' => $size->label,
+                        'fill_size_g' => (float) $size->fill_size_g,
+                        'finished_good' => $this->finishedGoodOption($size->finished_good_id),
+                        'sell_price' => $cost['sell_price'],
+                        'cost_per_unit' => $cost['actual_cost_per_jar'],
+                        'profit_per_unit' => $cost['profit_per_unit'],
+                        'food_cost_percent' => $cost['food_cost_percent'],
+                    ];
+                })->values(),
                 'max_producible_units' => $calculateMaxProducibleUnits->handle($recipe),
                 'ingredients' => BuildRecipeSheet::inLineOrder($recipe->mainIngredients, BuildRecipeSheet::pivotLine(...))->map(fn (Ingredient $ingredient) => array_merge(
                     [
@@ -274,7 +304,6 @@ class RecipeController extends Controller implements HasMiddleware
                     'quantity_per_jar' => (float) $ingredient->pivot->quantity_per_jar,
                 ])->values(),
             ],
-            'finishedGoodOption' => $this->currentFinishedGoodOption($recipe),
             'breadcrumbs' => CostingBreadcrumbs::trail(
                 ['label' => 'Recipes', 'href' => route('admin.costing.recipes.index')],
                 ['label' => $recipe->name],
@@ -286,7 +315,7 @@ class RecipeController extends Controller implements HasMiddleware
     {
         $this->authorize('update', $recipe);
 
-        $recipe->load('mainIngredients', 'byproductIngredients');
+        $recipe->load('mainIngredients', 'byproductIngredients', 'sizes.packaging');
 
         // 'priceHistory.ingredient' required: PriceHistoryEntry::price_per_unit
         // (and price_per_100g) reads $this->ingredient, and without this
@@ -302,9 +331,18 @@ class RecipeController extends Controller implements HasMiddleware
                 'id' => $recipe->id,
                 'name' => $recipe->name,
                 'notes' => $recipe->notes,
-                'product_id' => $recipe->product_id,
                 'min_stock_threshold' => $recipe->min_stock_threshold,
-                'fill_size_g' => $recipe->fill_size_g !== null ? (float) $recipe->fill_size_g : null,
+                'sizes' => $recipe->sizes->map(fn (RecipeSize $size) => [
+                    'id' => $size->id,
+                    'label' => $size->label,
+                    'fill_size_g' => (float) $size->fill_size_g,
+                    'finished_good_id' => $size->finished_good_id,
+                    'finished_good' => $this->finishedGoodOption($size->finished_good_id),
+                    'packaging' => $size->packaging->map(fn (Ingredient $ingredient) => [
+                        'ingredient_id' => $ingredient->id,
+                        'quantity_per_unit' => (float) $ingredient->pivot->quantity_per_unit,
+                    ])->values(),
+                ])->values(),
                 'preferred_batch_size' => $recipe->preferred_batch_size,
                 'is_active' => $recipe->is_active,
                 'ingredients' => BuildRecipeSheet::inLineOrder($recipe->mainIngredients, BuildRecipeSheet::pivotLine(...))->map(fn (Ingredient $ingredient) => [
@@ -325,7 +363,7 @@ class RecipeController extends Controller implements HasMiddleware
                 ],
                 $calculateIngredientCosting->handle($ingredient)
             )),
-            'finishedGoodOption' => $this->currentFinishedGoodOption($recipe),
+            'packagingIngredients' => $this->packagingIngredients(),
             'existingRecipeNames' => Recipe::where('id', '!=', $recipe->id)->orderBy('name')->pluck('name'),
             'breadcrumbs' => CostingBreadcrumbs::trail(
                 ['label' => 'Recipes', 'href' => route('admin.costing.recipes.index')],
@@ -343,9 +381,7 @@ class RecipeController extends Controller implements HasMiddleware
         $recipe->fill([
             'name' => $validated['name'],
             'notes' => $validated['notes'] ?? null,
-            'product_id' => $validated['product_id'] ?? null,
             'min_stock_threshold' => $validated['min_stock_threshold'] ?? null,
-            'fill_size_g' => array_key_exists('fill_size_g', $validated) ? $validated['fill_size_g'] : $recipe->fill_size_g,
             'preferred_batch_size' => array_key_exists('preferred_batch_size', $validated) ? $validated['preferred_batch_size'] : $recipe->preferred_batch_size,
             'is_active' => $validated['is_active'] ?? true,
         ]);
@@ -354,6 +390,7 @@ class RecipeController extends Controller implements HasMiddleware
 
         $recipe->mainIngredients()->sync($this->syncData($validated['ingredients']));
         $recipe->byproductIngredients()->sync($this->syncData($validated['byproducts'] ?? []));
+        $this->syncSizes($recipe, $validated['sizes'] ?? []);
 
         event($savedEvent);
 
@@ -369,7 +406,8 @@ class RecipeController extends Controller implements HasMiddleware
     }
 
     /**
-     * Narrow, single-purpose update for just the costing fields -- mirrors
+     * Narrow, single-purpose update for just the costing field (the cost buffer -- the
+     * price comes from the linked product and the fill weight from each size) -- mirrors
      * PriceHistoryController::updatePrice() / IngredientController::setPreferred(),
      * deliberately separate from the full update() action (which requires
      * the whole ingredients payload).
@@ -379,8 +417,6 @@ class RecipeController extends Controller implements HasMiddleware
         $this->authorize('update', $recipe);
 
         $validated = $request->validate([
-            'sell_price' => ['nullable', 'numeric', 'min:0'],
-            'fill_size_g' => ['nullable', 'numeric', 'min:0'],
             'cost_buffer_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ]);
 
@@ -457,6 +493,10 @@ class RecipeController extends Controller implements HasMiddleware
                     event($deletedEvent);
                 } else {
                     $this->authorize('update', $recipe);
+                    // Same rule as the form: an active recipe needs a finished product.
+                    if ($validated['action'] === 'activate' && !$this->hasLinkedProduct($recipe)) {
+                        throw new \RuntimeException('Active recipes need a finished product.');
+                    }
                     $recipe->fill(['is_active' => $validated['action'] === 'activate']);
                     $savedEvent = CostingRecordSaved::forUpdated($recipe, auth()->id(), $context);
                     $recipe->save();
@@ -483,26 +523,87 @@ class RecipeController extends Controller implements HasMiddleware
     }
 
     /**
-     * The currently-linked finished good's id/label only (never a raw
-     * Eloquent model passed to Vue -- see .claude/CLAUDE.md), for the
-     * picker's initial display. null when unlinked, or when the linked id
-     * no longer resolves (e.g. deleted on the host side).
+     * A linked finished good's id/label only (never a raw Eloquent model
+     * passed to Vue -- see .claude/CLAUDE.md), for the picker's initial
+     * display. null when unlinked, or when the linked id no longer resolves
+     * (e.g. deleted on the host side).
      *
      * @return array{id: int, label: string, sublabel: string|null}|null
      */
-    private function currentFinishedGoodOption(Recipe $recipe): ?array
+    private function finishedGoodOption(?int $productId): ?array
     {
-        if ($recipe->product_id === null) {
+        if ($productId === null) {
             return null;
         }
 
-        $finishedGood = app(FinishedGoodRepository::class)->find($recipe->product_id);
+        $finishedGood = app(FinishedGoodRepository::class)->find($productId);
 
         return $finishedGood ? [
             'id' => $finishedGood->getId(),
             'label' => $finishedGood->getLabel(),
             'sublabel' => $finishedGood->getSublabel(),
         ] : null;
+    }
+
+    /** Active recipes need at least one size with a product to credit. */
+    private function hasLinkedProduct(Recipe $recipe): bool
+    {
+        return $recipe->sizes()->whereNotNull('finished_good_id')->exists();
+    }
+
+    /** Ingredients that can be attached to a size as packaging. */
+    private function packagingIngredients()
+    {
+        return Ingredient::orderBy('name')->get(['id', 'name', 'unit_type', 'category'])
+            ->filter(fn (Ingredient $ingredient) => $ingredient->isPackaging())
+            ->map(fn (Ingredient $ingredient) => [
+                'id' => $ingredient->id,
+                'name' => $ingredient->name,
+                'unit_type' => $ingredient->unit_type,
+            ])->values();
+    }
+
+    /**
+     * Makes the recipe's sizes match the submitted list: rows with an id
+     * are updated, rows without are created, and sizes left out are removed
+     * -- unless a production run has used them, which would erase that
+     * run's record, so that is refused instead.
+     *
+     * @param  array<int, array>  $sizes
+     */
+    private function syncSizes(Recipe $recipe, array $sizes): void
+    {
+        $existing = $recipe->sizes()->get()->keyBy('id');
+        $keep = [];
+
+        foreach (array_values($sizes) as $index => $row) {
+            $size = isset($row['id']) ? $existing->get((int) $row['id']) : null;
+            $fill = (float) $row['fill_size_g'];
+
+            $attributes = [
+                'label' => ($row['label'] ?? '') !== '' ? $row['label'] : rtrim(rtrim(number_format($fill, 2, '.', ''), '0'), '.').'g',
+                'fill_size_g' => $fill,
+                'finished_good_id' => $row['finished_good_id'] ?? null,
+                'sort_order' => $index,
+            ];
+
+            $size = $size ?? new RecipeSize(['recipe_id' => $recipe->id]);
+            $size->fill($attributes)->save();
+            $keep[] = $size->id;
+
+            $size->packaging()->sync(collect($row['packaging'] ?? [])
+                ->mapWithKeys(fn (array $line) => [(int) $line['ingredient_id'] => ['quantity_per_unit' => $line['quantity_per_unit']]])
+                ->all());
+        }
+
+        foreach ($existing->except($keep) as $removed) {
+            if ($removed->allocations()->exists()) {
+                throw ValidationException::withMessages([
+                    'sizes' => "The {$removed->label} size has been used in a production run and can't be removed.",
+                ]);
+            }
+            $removed->delete();
+        }
     }
 
     /**
@@ -533,13 +634,34 @@ class RecipeController extends Controller implements HasMiddleware
                 Rule::unique('costing_recipes', 'name')->ignore($ignoreId),
             ],
             'notes' => ['nullable', 'string'],
-            'product_id' => ['nullable', 'integer', function ($attribute, $value, $fail) {
+            'sizes' => [
+                'array',
+                // Active recipes must be able to credit a product when a run
+                // completes: at least one size, and a product on every size.
+                Rule::requiredIf(fn () => $request->boolean('is_active', true)),
+                function ($attribute, $value, $fail) use ($request) {
+                    if (!$request->boolean('is_active', true)) {
+                        return;
+                    }
+                    if (collect($value)->isEmpty()) {
+                        $fail('An active recipe needs at least one size.');
+                    } elseif (collect($value)->contains(fn ($row) => empty($row['finished_good_id']))) {
+                        $fail('Every size of an active recipe needs a finished product.');
+                    }
+                },
+            ],
+            'sizes.*.id' => ['nullable', 'integer'],
+            'sizes.*.label' => ['nullable', 'string', 'max:255'],
+            'sizes.*.fill_size_g' => ['required', 'numeric', 'gt:0', 'distinct'],
+            'sizes.*.finished_good_id' => ['nullable', 'integer', function ($attribute, $value, $fail) {
                 if ($value !== null && app(FinishedGoodRepository::class)->find((int) $value) === null) {
                     $fail('The selected finished product is invalid.');
                 }
             }],
+            'sizes.*.packaging' => ['nullable', 'array'],
+            'sizes.*.packaging.*.ingredient_id' => ['required', 'exists:costing_ingredients,id'],
+            'sizes.*.packaging.*.quantity_per_unit' => ['required', 'numeric', 'min:0'],
             'min_stock_threshold' => ['nullable', 'integer', 'min:0'],
-            'fill_size_g' => ['nullable', 'numeric', 'gt:0'],
             'preferred_batch_size' => ['nullable', 'integer', 'min:1'],
             'is_active' => ['boolean'],
             'ingredients' => ['array'],
@@ -548,6 +670,8 @@ class RecipeController extends Controller implements HasMiddleware
             'byproducts' => ['nullable', 'array'],
             'byproducts.*.ingredient_id' => ['required', 'exists:costing_ingredients,id'],
             'byproducts.*.quantity_per_jar' => ['required', 'numeric', 'min:0'],
+        ], [
+            'sizes.required' => 'An active recipe needs at least one size.',
         ]);
     }
 

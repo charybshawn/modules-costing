@@ -8,7 +8,7 @@
         <div>
           <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Recipe Costing</h1>
           <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            Food Cost % per flavour -- ingredient cost, an optional contingency buffer, prorated by actual fill size, against your sell price.
+            Food Cost % per flavour and size -- ingredient cost, an optional contingency buffer, prorated by the size's fill weight and added to its packaging, against its product's price.
           </p>
         </div>
         <div class="flex flex-wrap gap-2">
@@ -26,10 +26,10 @@
       </ActionShelf>
       <StatHero
         class="md:hidden -mt-4"
-        :headline="{ label: 'Average food cost', value: averageFoodCost === null ? '—' : `${averageFoodCost.toFixed(1)}%`, hint: 'Across recipes with a sell price' }"
+        :headline="{ label: 'Average food cost', value: averageFoodCost === null ? '—' : `${averageFoodCost.toFixed(1)}%`, hint: 'Across sizes with a product price' }"
         :stats="[
           { label: 'At or over 35%', value: overTargetCount, tone: overTargetCount > 0 ? 'danger' : 'default' },
-          { label: 'No sell price', value: props.recipes.length - pricedRecipes.length, tone: props.recipes.length - pricedRecipes.length > 0 ? 'warning' : 'default' },
+          { label: 'No product price', value: props.recipes.length - pricedRecipes.length, tone: props.recipes.length - pricedRecipes.length > 0 ? 'warning' : 'default' },
         ]"
       />
       <hr class="md:hidden border-gray-200 dark:border-gray-700" />
@@ -50,7 +50,9 @@
           @action="handleAction"
         >
           <template #cell-name="{ item }">
-            <div class="text-sm font-medium text-gray-900 dark:text-white">{{ item.name }}</div>
+            <div class="text-sm font-medium text-gray-900 dark:text-white">
+              {{ item.name }}<span v-if="item.size_label" class="font-normal text-gray-500 dark:text-gray-400"> · {{ item.size_label }}</span>
+            </div>
             <div v-if="item.any_stale || item.any_missing" class="mt-0.5 inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-300">
               estimate -- {{ item.any_missing ? 'missing price(s)' : 'stale price(s)' }}
             </div>
@@ -84,7 +86,12 @@
             <span v-if="item.food_cost_percent !== null" class="text-sm font-medium" :class="foodCostClass(item.food_cost_percent)">
               {{ item.food_cost_percent.toFixed(2) }}%
             </span>
-            <span v-else class="text-sm text-gray-400 dark:text-gray-500 italic">no sell price</span>
+            <span v-else class="text-sm text-gray-400 dark:text-gray-500 italic">no product price</span>
+          </template>
+
+          <template #cell-profit_per_unit="{ item }">
+            <span v-if="item.profit_per_unit !== null" class="text-sm text-gray-900 dark:text-white">${{ item.profit_per_unit.toFixed(2) }}</span>
+            <span v-else class="text-sm text-gray-400 dark:text-gray-500">—</span>
           </template>
         </DataTable>
       </div>
@@ -95,17 +102,7 @@
           <h2 class="text-lg font-medium text-gray-900 dark:text-white">Edit Costing -- {{ editingRecipe.name }}</h2>
 
           <FormErrorSummary :errors="editForm.errors" class="mt-4" />
-
-          <div class="mt-4">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Sell Price ($)</label>
-            <input v-model.number="editForm.sell_price" type="number" inputmode="decimal" min="0" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
-          </div>
-
-          <div class="mt-4">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Fill Size (g)</label>
-            <input v-model.number="editForm.fill_size_g" type="number" inputmode="decimal" min="0" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm" />
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Actual measured fill weight per unit, from production. Leave blank to use the theoretical ingredient-weight total instead.</p>
-          </div>
+          <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">The sell price comes from each size's finished product and the fill weight from the recipe's sizes: edit them on the recipe.</p>
 
           <div class="mt-4">
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Cost Buffer (%)</label>
@@ -144,9 +141,12 @@ import CostingModuleNav from '../Shared/CostingModuleNav.vue'
 defineOptions({ layout: (h, page) => h(AdminLayout, { wide: true, hideBreadcrumbOnMobile: true }, () => page) })
 
 interface RecipeCostRow {
-  id: number
+  id: string
+  recipe_id: number
   name: string
+  size_label: string | null
   sell_price: number | null
+  profit_per_unit: number | null
   fill_size_g: number | null
   cost_buffer_percent: number | null
   raw_cost: number
@@ -178,7 +178,8 @@ const columns: Column[] = [
   { key: 'cost_buffer_percent', label: 'Buffer %', hideable: true },
   { key: 'buffered_cost', label: 'Buffered Cost', hideable: true },
   { key: 'fill_size_g', label: 'Fill Size', hideable: true },
-  { key: 'sell_price', label: 'Sell Price', hideable: true },
+  { key: 'sell_price', label: 'Product Price', hideable: true },
+  { key: 'profit_per_unit', label: 'Profit / Unit', sortable: true, hideable: true },
   { key: 'food_cost_percent', label: 'Food Cost %', sortable: true },
 ]
 
@@ -196,17 +197,13 @@ const foodCostClass = (percent: number): string => {
 
 const editingRecipe = ref<RecipeCostRow | null>(null)
 
-const editForm = useForm<{ sell_price: number | null; fill_size_g: number | null; cost_buffer_percent: number | null }>({
-  sell_price: null,
-  fill_size_g: null,
+const editForm = useForm<{ cost_buffer_percent: number | null }>({
   cost_buffer_percent: null,
 })
 
 const handleAction = (action: string, item: RecipeCostRow) => {
   if (action === 'edit-costing') {
     editingRecipe.value = item
-    editForm.sell_price = item.sell_price
-    editForm.fill_size_g = item.fill_size_g
     editForm.cost_buffer_percent = item.cost_buffer_percent
     editForm.clearErrors()
   }
@@ -218,7 +215,7 @@ const closeEditModal = () => {
 
 const submitEdit = () => {
   if (!editingRecipe.value) return
-  editForm.put(route('admin.costing.recipes.update-costing', editingRecipe.value.id), {
+  editForm.put(route('admin.costing.recipes.update-costing', editingRecipe.value.recipe_id), {
     preserveScroll: true,
     onSuccess: () => closeEditModal(),
   })

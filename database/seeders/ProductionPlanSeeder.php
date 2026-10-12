@@ -5,6 +5,7 @@ namespace Cultpantry\Costing\Database\Seeders;
 use Cultpantry\Costing\Database\Seeders\Concerns\ReadsCsv;
 use Cultpantry\Costing\Models\ProductionRun;
 use Cultpantry\Costing\Models\Recipe;
+use Cultpantry\Costing\Models\RecipeSize;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 
@@ -52,6 +53,7 @@ class ProductionPlanSeeder extends Seeder
         $recipeIds = Recipe::pluck('id', 'name');
 
         $batchesByRun = [];
+        $actualByRun = [];
         foreach ($this->readCsv('production_run_recipes.csv') as $row) {
             $recipeId = $recipeIds[$row['recipe_name']] ?? null;
             if ($recipeId === null) {
@@ -59,8 +61,8 @@ class ProductionPlanSeeder extends Seeder
             }
             $batchesByRun[$row['run_key']][$recipeId] = [
                 'batches' => (int) $row['batches'],
-                'actual_units' => $this->csvInt($row['actual_units']),
             ];
+            $actualByRun[$row['run_key']][$recipeId] = $this->csvInt($row['actual_units']);
         }
 
         foreach ($batchesByRun as $runKey => $syncData) {
@@ -68,7 +70,20 @@ class ProductionPlanSeeder extends Seeder
             if ($runId === null) {
                 continue;
             }
-            ProductionRun::find($runId)->recipes()->sync($syncData);
+            $run = ProductionRun::find($runId);
+            $run->recipes()->sync($syncData);
+
+            // The whole batch is filled into each recipe's first size; the
+            // CSV's actual_units, where given, is what was really made.
+            foreach ($syncData as $recipeId => $pivot) {
+                $size = RecipeSize::where('recipe_id', $recipeId)->orderBy('sort_order')->first();
+                if ($size && $pivot['batches'] > 0) {
+                    $run->allocations()->updateOrCreate(['recipe_size_id' => $size->id], [
+                        'units' => $run->batch_size * $pivot['batches'],
+                        'actual_units' => $actualByRun[$runKey][$recipeId] ?? null,
+                    ]);
+                }
+            }
         }
     }
 }

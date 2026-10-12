@@ -35,14 +35,6 @@
     <div class="space-y-8">
       <dl class="grid grid-cols-2 gap-4">
         <div>
-          <dt class="text-sm text-gray-500 dark:text-gray-400">Cost per unit<template v-if="costPerJar.prorated"> ({{ recipe.fill_size_g }}g)</template></dt>
-          <dd class="text-lg font-semibold text-gray-900 dark:text-white tabular-nums">${{ costPerJar.total.toFixed(2) }}</dd>
-          <dd v-if="costPerJar.prorated" class="text-xs text-gray-500 dark:text-gray-400">Recipe: ${{ costPerJar.batchCost.toFixed(2) }} for {{ +totalGrams.toFixed(2) }}g, the extra fills more units</dd>
-          <dd v-if="costPerJar.anyStale || costPerJar.anyMissing" class="text-xs text-amber-600 dark:text-amber-400">
-            Estimate: {{ costPerJar.anyMissing ? 'some prices missing' : 'some prices need updating' }}
-          </dd>
-        </div>
-        <div>
           <dt class="text-sm text-gray-500 dark:text-gray-400">Stock can make</dt>
           <dd class="text-lg font-semibold" :class="belowMinimum ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-white'">
             {{ recipe.max_producible_units }} unit{{ recipe.max_producible_units !== 1 ? 's' : '' }}
@@ -53,11 +45,41 @@
           <dt class="text-sm text-gray-500 dark:text-gray-400">Status</dt>
           <dd class="text-lg text-gray-900 dark:text-white">{{ recipe.is_active ? 'Active' : 'Inactive' }}</dd>
         </div>
-        <div>
-          <dt class="text-sm text-gray-500 dark:text-gray-400">Finished product</dt>
-          <dd class="text-lg text-gray-900 dark:text-white truncate">{{ finishedGoodOption?.label ?? 'Not linked' }}</dd>
-        </div>
       </dl>
+
+      <div>
+        <h2 class="text-lg font-medium text-gray-900 dark:text-white mb-2">Sizes</h2>
+        <p v-if="!recipe.sizes.length" class="text-sm text-gray-500 dark:text-gray-400">No sizes yet. Add one when editing the recipe.</p>
+        <div v-else class="divide-y divide-gray-100 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 rounded-md">
+          <div v-for="size in recipe.sizes" :key="size.id" class="px-4 py-3">
+            <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+              <p class="font-medium text-gray-900 dark:text-white">
+                {{ size.label }}
+                <span v-if="size.label !== `${size.fill_size_g}g`" class="font-normal text-gray-500 dark:text-gray-400">({{ size.fill_size_g }}g)</span>
+              </p>
+              <p class="text-sm text-gray-600 dark:text-gray-300 truncate">{{ size.finished_good?.label ?? 'No finished product' }}</p>
+            </div>
+            <dl class="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2 text-sm">
+              <div>
+                <dt class="text-xs text-gray-500 dark:text-gray-400">Cost per unit</dt>
+                <dd class="tabular-nums text-gray-900 dark:text-white">${{ size.cost_per_unit.toFixed(2) }}</dd>
+              </div>
+              <div>
+                <dt class="text-xs text-gray-500 dark:text-gray-400">Sell price</dt>
+                <dd class="tabular-nums text-gray-900 dark:text-white">{{ size.sell_price === null ? '—' : `$${size.sell_price.toFixed(2)}` }}</dd>
+              </div>
+              <div>
+                <dt class="text-xs text-gray-500 dark:text-gray-400">Profit per unit</dt>
+                <dd class="tabular-nums text-gray-900 dark:text-white">{{ size.profit_per_unit === null ? '—' : `$${size.profit_per_unit.toFixed(2)}` }}</dd>
+              </div>
+              <div>
+                <dt class="text-xs text-gray-500 dark:text-gray-400">Food cost</dt>
+                <dd class="tabular-nums text-gray-900 dark:text-white">{{ size.food_cost_percent === null ? '—' : `${size.food_cost_percent.toFixed(1)}%` }}</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+      </div>
 
       <div>
         <h2 class="text-lg font-medium text-gray-900 dark:text-white mb-2">Ingredients (per unit)</h2>
@@ -98,8 +120,8 @@
       <BatchCalculator
         v-if="recipe.ingredients.length"
         :sheet="recipe.sheet"
-        :recipe-cost="costPerJar.batchCost"
-        :cost-is-estimate="costPerJar.anyStale || costPerJar.anyMissing"
+        :recipe-cost="mixCost.batchCost"
+        :cost-is-estimate="mixCost.anyStale || mixCost.anyMissing"
         :preferred-batch-size="recipe.preferred_batch_size"
       />
 
@@ -132,8 +154,6 @@ import DataTable, { type Column } from '@/Components/Admin/DataTable.vue'
 import IconButton from '@/Components/IconButton.vue'
 import BatchCalculator from '../Shared/BatchCalculator.vue'
 import type { RecipeSheetData } from '../Shared/RecipeSheet.vue'
-import { costPerFilledUnit } from '../Shared/fillCost'
-import type { FinishedGoodOption } from '../Shared/FinishedGoodPicker.vue'
 import { backLinkClass, dangerIconActionClass, iconActionClass } from '../Shared/formClasses'
 import { DELETE_ICON, EDIT_ICON } from '../Shared/showIcons'
 
@@ -157,7 +177,16 @@ interface Recipe {
   name: string
   notes: string | null
   min_stock_threshold: number | null
-  fill_size_g: number | null
+  sizes: Array<{
+    id: number
+    label: string
+    fill_size_g: number
+    finished_good: { id: number; label: string } | null
+    sell_price: number | null
+    cost_per_unit: number
+    profit_per_unit: number | null
+    food_cost_percent: number | null
+  }>
   preferred_batch_size: number | null
   is_active: boolean
   max_producible_units: number
@@ -168,7 +197,6 @@ interface Recipe {
 
 interface Props {
   recipe: Recipe
-  finishedGoodOption: FinishedGoodOption | null
 }
 
 const props = defineProps<Props>()
@@ -218,17 +246,12 @@ const lines = computed(() => props.recipe.ingredients.map((ingredient) => {
   }
 }))
 
-const costPerJar = computed(() => {
-  const batchCost = lines.value.reduce((sum, line) => sum + (line.subtotal ?? 0), 0)
-  const fill = props.recipe.fill_size_g
-  return {
-    total: costPerFilledUnit(batchCost, totalGrams.value, fill),
-    batchCost,
-    prorated: fill !== null && fill > 0 && totalGrams.value > 0,
-    anyStale: lines.value.some((line) => line.stale && line.subtotal !== null),
-    anyMissing: lines.value.some((line) => line.subtotal === null && line.quantity > 0),
-  }
-})
+// The recipe's mix summed into a batch cost, for the batch calculator.
+const mixCost = computed(() => ({
+  batchCost: lines.value.reduce((sum, line) => sum + (line.subtotal ?? 0), 0),
+  anyStale: lines.value.some((line) => line.stale && line.subtotal !== null),
+  anyMissing: lines.value.some((line) => line.subtotal === null && line.quantity > 0),
+}))
 
 const destroy = async () => {
   const confirmed = await confirmDialog({

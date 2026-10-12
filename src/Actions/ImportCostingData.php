@@ -9,6 +9,7 @@ use Cultpantry\Costing\Models\PackageSize;
 use Cultpantry\Costing\Models\PriceHistoryEntry;
 use Cultpantry\Costing\Models\ProductionRun;
 use Cultpantry\Costing\Models\Recipe;
+use Cultpantry\Costing\Models\RecipeSize;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -428,8 +429,6 @@ class ImportCostingData
             $recipe->fill([
                 'notes' => $row['notes'] ?? null,
                 'is_active' => (bool) ($row['is_active'] ?? true),
-                'sell_price' => $row['sell_price'] ?? null,
-                'fill_size_g' => $row['fill_size_g'] ?? null,
                 'preferred_batch_size' => $row['preferred_batch_size'] ?? null,
                 'cost_buffer_percent' => $row['cost_buffer_percent'] ?? null,
                 'min_stock_threshold' => $row['min_stock_threshold'] ?? null,
@@ -445,12 +444,42 @@ class ImportCostingData
                 }
             }
             $recipe->ingredients()->sync($sync);
+            $this->importSizes($recipe, $row['sizes'] ?? [], $ids);
 
             event($event ?? CostingRecordSaved::forCreated($recipe, $actorId, ['source' => 'import']));
             $isNew ? $created++ : $updated++;
         }
 
         return ['created' => $created, 'updated' => $updated, 'skipped' => $skipped];
+    }
+
+    /**
+     * Sizes are matched on fill weight, so an existing size keeps its
+     * storefront product link; sizes missing from the file are left alone.
+     *
+     * @param  array<int, array>  $sizes
+     * @param  array<string, int>  $ingredientIds
+     */
+    private function importSizes(Recipe $recipe, array $sizes, array $ingredientIds): void
+    {
+        foreach (array_values($sizes) as $index => $row) {
+            $fill = (float) ($row['fill_size_g'] ?? 0);
+            if ($fill <= 0) {
+                continue;
+            }
+
+            $size = $recipe->sizes()->where('fill_size_g', $fill)->first() ?? new RecipeSize(['recipe_id' => $recipe->id, 'fill_size_g' => $fill]);
+            $size->fill(['label' => $row['label'] ?? (rtrim(rtrim(number_format($fill, 2, '.', ''), '0'), '.').'g'), 'sort_order' => $index])->save();
+
+            $packaging = [];
+            foreach ($row['packaging'] ?? [] as $line) {
+                $ingredientId = $ingredientIds[mb_strtolower($line['ingredient'])] ?? null;
+                if ($ingredientId !== null) {
+                    $packaging[$ingredientId] = ['quantity_per_unit' => $line['quantity']];
+                }
+            }
+            $size->packaging()->sync($packaging);
+        }
     }
 
     /** Runs come in as they were -- completed ones as records, with no stock deducted. */
@@ -481,10 +510,23 @@ class ImportCostingData
             foreach ($row['recipes'] ?? [] as $line) {
                 $recipeId = $recipeIds[mb_strtolower($line['recipe'])] ?? null;
                 if ($recipeId !== null) {
-                    $sync[$recipeId] = ['batches' => (int) ($line['batches'] ?? 0), 'actual_units' => $line['actual_units'] ?? null];
+                    $sync[$recipeId] = ['batches' => (int) ($line['batches'] ?? 0)];
                 }
             }
             $run->recipes()->sync($sync);
+
+            $allocations = [];
+            foreach ($row['allocations'] ?? [] as $line) {
+                $recipeId = $recipeIds[mb_strtolower($line['recipe'])] ?? null;
+                $size = $recipeId ? RecipeSize::where('recipe_id', $recipeId)->where('fill_size_g', $line['fill_size_g'] ?? 0)->first() : null;
+                if ($size) {
+                    $allocations[$size->id] = ['units' => (int) ($line['units'] ?? 0), 'actual_units' => $line['actual_units'] ?? null];
+                }
+            }
+            $run->allocations()->whereNotIn('recipe_size_id', array_keys($allocations))->delete();
+            foreach ($allocations as $sizeId => $values) {
+                $run->allocations()->updateOrCreate(['recipe_size_id' => $sizeId], $values);
+            }
 
             event($event ?? CostingRecordSaved::forCreated($run, $actorId, ['source' => 'import']));
             $isNew ? $created++ : $updated++;

@@ -2,58 +2,44 @@
 
 namespace Cultpantry\Costing\Models;
 
-use Cultpantry\Costing\Contracts\FinishedGood;
-use Cultpantry\Costing\Contracts\FinishedGoodRepository;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * A "recipe" is a flavour (e.g. "Sriracha Maple Bacon") -- one row per
  * flavour, with ingredient quantities-per-jar attached via the pivot.
  *
- * Optionally linked to a host-app finished good (e.g. a storefront product)
- * via the nullable `product_id` column -- most recipes won't have one, but
- * when set, completing a production run for this recipe credits that many
- * units to the linked finished good's stock (see CompleteProductionRun /
- * UncompleteProductionRun), on top of the existing cost-snapshot/ingredient
- * bookkeeping. The link is what turns a production run from a pure
- * costing/inventory-deduction exercise into one that also stocks the shelf.
- * The host app owns what "product_id" actually points to -- resolved
- * through Cultpantry\Costing\Contracts\FinishedGoodRepository, never a
- * direct Eloquent relation into a host model, so this package has no
- * dependency on any specific host app's schema.
+ * What it is filled into lives on its sizes (RecipeSize): each size has a
+ * fill weight, its own packaging and an optional host-app finished good
+ * (e.g. a storefront product). Completing a production run credits the units
+ * allocated to each size to that size's finished good (see
+ * CompleteProductionRun / UncompleteProductionRun). The host app owns what a
+ * size's finished_good_id points to -- resolved through
+ * Cultpantry\Costing\Contracts\FinishedGoodRepository, never a direct
+ * Eloquent relation into a host model.
  *
  * @property int $id
- * @property int|null $product_id
  * @property int|null $min_stock_threshold
  * @property bool $is_active
  * @property string $name
  * @property string|null $notes
- * @property float|null $sell_price
- * @property float|null $fill_size_g
  * @property int|null $preferred_batch_size
  * @property float|null $cost_buffer_percent
  */
 class Recipe extends Model
 {
-    /** Grams in a filled unit unless a recipe says otherwise. */
+    /** Grams in the first size a new recipe gets. */
     public const DEFAULT_FILL_SIZE_G = 280;
 
     protected $table = 'costing_recipes';
 
-    protected $attributes = [
-        'fill_size_g' => self::DEFAULT_FILL_SIZE_G,
-    ];
-
     protected $fillable = [
-        'product_id',
         'min_stock_threshold',
         'is_active',
         'name',
         'notes',
-        'sell_price',
-        'fill_size_g',
         'preferred_batch_size',
         'cost_buffer_percent',
     ];
@@ -61,16 +47,26 @@ class Recipe extends Model
     protected $casts = [
         'is_active' => 'boolean',
         'preferred_batch_size' => 'integer',
-        'sell_price' => 'decimal:2',
-        'fill_size_g' => 'decimal:2',
         'cost_buffer_percent' => 'decimal:2',
     ];
 
-    public function finishedGood(): ?FinishedGood
+    /**
+     * Grams of product the recipe's amounts make (gram-based, non-byproduct
+     * lines; packaging and counted items aren't mass). Needs mainIngredients
+     * loaded or loads it.
+     */
+    public function yieldGrams(): float
     {
-        return $this->product_id !== null
-            ? app(FinishedGoodRepository::class)->find($this->product_id)
-            : null;
+        $this->loadMissing('mainIngredients');
+
+        return (float) $this->mainIngredients
+            ->filter(fn (Ingredient $ingredient) => $ingredient->isGramBased())
+            ->sum(fn (Ingredient $ingredient) => (float) $ingredient->pivot->quantity_per_jar);
+    }
+
+    public function sizes(): HasMany
+    {
+        return $this->hasMany(RecipeSize::class)->orderBy('sort_order')->orderBy('fill_size_g');
     }
 
     /**

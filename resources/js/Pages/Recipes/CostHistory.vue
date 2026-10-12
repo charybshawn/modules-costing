@@ -26,6 +26,13 @@
             </select>
           </div>
 
+          <div v-if="sizeOptions.length > 1">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Size</label>
+            <select v-model="selectedSizeId" class="mt-1 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm">
+              <option v-for="size in sizeOptions" :key="size.id ?? 'none'" :value="size.id">{{ size.label }}</option>
+            </select>
+          </div>
+
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Metric</label>
             <select v-model="selectedMetric" class="mt-1 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base sm:text-sm">
@@ -57,7 +64,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Link } from '@inertiajs/vue3'
 import { Line } from 'vue-chartjs'
 import {
@@ -89,6 +96,8 @@ interface SnapshotRow {
   id: number
   recipe_id: number
   recipe_name: string
+  recipe_size_id: number | null
+  size_label: string | null
   jars_produced: number
   created_at: string
   raw_cost: number
@@ -107,6 +116,22 @@ interface Props {
 const props = defineProps<Props>()
 
 const selectedRecipeId = ref<number | null>(props.recipes[0]?.id ?? null)
+
+// Each size of a recipe has its own cost history; a recipe with several
+// shows one at a time.
+const selectedSizeId = ref<number | null>(null)
+
+const sizeOptions = computed(() => {
+  const sizes = new Map<number | null, string>()
+  for (const snapshot of props.snapshots.filter((s) => s.recipe_id === selectedRecipeId.value)) {
+    sizes.set(snapshot.recipe_size_id, snapshot.size_label ?? 'Whole recipe')
+  }
+  return [...sizes.entries()].map(([id, label]) => ({ id, label }))
+})
+
+watch(sizeOptions, (options) => {
+  if (!options.some((option) => option.id === selectedSizeId.value)) selectedSizeId.value = options[0]?.id ?? null
+}, { immediate: true })
 
 type MetricKey = 'food_cost_percent' | 'raw_cost' | 'buffered_cost' | 'actual_cost_per_jar'
 
@@ -146,7 +171,7 @@ const bucketKey = (date: Date, granularity: Granularity): string => {
 // standard "as of end of period" convention for a cost trend line).
 const chartPoints = computed(() => {
   const filtered = props.snapshots
-    .filter((s) => s.recipe_id === selectedRecipeId.value)
+    .filter((s) => s.recipe_id === selectedRecipeId.value && s.recipe_size_id === selectedSizeId.value)
     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
 
   const buckets = new Map<string, SnapshotRow>()
